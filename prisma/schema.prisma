@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id        String            @id @default(cuid())
+  platform  String
+  handle    String
+  url       String
+  tags      String?
+  notes     String?
+  status    String            @default("active")
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  snapshots ProfileSnapshot[]
+  posts     Post[]
+
+  @@unique([platform, handle])
+  @@index([platform, status])
+}
+
+model BrowserSession {
+  id           String    @id @default(cuid())
+  platform     String
+  name         String
+  storageKey   String    @unique
+  proxyUrl     String?
+  status       String    @default("active")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastOpenedAt DateTime?
+  lastUsedAt   DateTime?
+
+  @@index([platform, status])
+}
+
+model ProfileSnapshot {
+  id         String   @id @default(cuid())
+  profileId  String
+  followers  Float?
+  following  Float?
+  postsCount Int?
+  capturedAt DateTime @default(now())
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, capturedAt])
+}
+
+model Post {
+  id          String         @id @default(cuid())
+  platform    String
+  profileId   String
+  externalId  String?
+  url         String
+  sourceType  String         @default("grid")
+  caption     String?
+  publishedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  profile     Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  snapshots   PostSnapshot[]
+
+  @@unique([profileId, url, sourceType])
+  @@index([profileId, platform, sourceType])
+}
+
+model PostSnapshot {
+  id         String   @id @default(cuid())
+  postId     String
+  views      Float?
+  likes      Float?
+  comments   Float?
+  shares     Float?
+  favorites  Float?
+  capturedAt DateTime @default(now())
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, capturedAt])
+}
+
+model ScrapeRun {
+  id            String    @id @default(cuid())
+  status        String    @default("running")
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  profilesTotal Int       @default(0)
+  profilesOk    Int       @default(0)
+  postsFound     Int       @default(0)
+  errorsJson    String?
+}
