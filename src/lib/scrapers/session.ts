@@ -78,55 +78,7 @@ export function getSessionDir(session: Pick<BrowserSession, "storageKey">) {
 }
 
 export function getPlatformLoginUrl(platform: Platform) {
-  return platform === "instagram" ? "https://www.instagram.com/" : "https://www.tiktok.com/";
-}
-
-type PersistentLaunchOptions = NonNullable<Parameters<typeof chromium.launchPersistentContext>[1]>;
-
-function browserArgs(platform: Platform) {
-  return [
-    "--disable-blink-features=AutomationControlled",
-    "--no-first-run",
-    "--no-default-browser-check",
-    ...(platform === "tiktok" ? ["--lang=pt-BR"] : []),
-  ];
-}
-
-async function launchSessionContext(
-  session: Pick<BrowserSession, "platform" | "proxyUrl" | "storageKey">,
-  options: {
-    headless: boolean;
-    viewport: { width: number; height: number };
-  },
-) {
-  const platform = isPlatform(session.platform) ? session.platform : "instagram";
-  const userDataDir = await ensureSessionDir(session);
-  await ensureDefaultSearchProvider(userDataDir);
-
-  const baseOptions: PersistentLaunchOptions = {
-    headless: options.headless,
-    viewport: options.viewport,
-    proxy: parseProxyConfig(session.proxyUrl),
-    locale: "pt-BR",
-    timezoneId: "America/Sao_Paulo",
-    args: browserArgs(platform),
-  };
-  const channelCandidates: Array<PersistentLaunchOptions["channel"]> =
-    platform === "tiktok" ? ["chrome", undefined] : [undefined];
-  let lastError: unknown;
-
-  for (const channel of channelCandidates) {
-    try {
-      return await chromium.launchPersistentContext(userDataDir, {
-        ...baseOptions,
-        channel,
-      });
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError;
+  return platform === "instagram" ? "https://www.instagram.com/" : "https://www.tiktok.com/login";
 }
 
 async function ensureSessionDir(session: Pick<BrowserSession, "storageKey">) {
@@ -287,9 +239,13 @@ export async function openLoginBrowser(sessionId: string) {
     return { alreadyOpen: true };
   }
 
-  const context = await launchSessionContext(session, {
+  const userDataDir = await ensureSessionDir(session);
+  await ensureDefaultSearchProvider(userDataDir);
+  const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
     viewport: { width: 1280, height: 860 },
+    proxy: parseProxyConfig(session.proxyUrl),
+    args: ["--disable-blink-features=AutomationControlled"],
   });
 
   loginContexts.set(session.id, context);
@@ -312,9 +268,13 @@ export async function testBrowserSession(sessionId: string): Promise<BrowserSess
   let shouldCloseContext = false;
 
   if (!context) {
-    context = await launchSessionContext(session, {
+    const userDataDir = await ensureSessionDir(session);
+    await ensureDefaultSearchProvider(userDataDir);
+    context = await chromium.launchPersistentContext(userDataDir, {
       headless: true,
       viewport: { width: 1280, height: 900 },
+      proxy: parseProxyConfig(session.proxyUrl),
+      args: ["--disable-blink-features=AutomationControlled"],
     });
     shouldCloseContext = true;
   }
@@ -383,9 +343,13 @@ export async function getScrapeContextForSession(session: ActiveBrowserSession) 
     };
   }
 
-  const context = await launchSessionContext(session, {
+  const userDataDir = await ensureSessionDir(session);
+  await ensureDefaultSearchProvider(userDataDir);
+  const context = await chromium.launchPersistentContext(userDataDir, {
     headless: true,
     viewport: { width: 1280, height: 900 },
+    proxy: parseProxyConfig(session.proxyUrl),
+    args: ["--disable-blink-features=AutomationControlled"],
   });
   await prisma.browserSession.update({
     where: { id: session.id },

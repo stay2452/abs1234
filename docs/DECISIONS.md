@@ -22,10 +22,6 @@ Motivo: se uma conta, proxy ou sessao tiver restricao, as outras continuam isola
 
 Cada sessao pode ter proxy proprio. O proxy nao pertence ao perfil catalogado. Isso permite trocar, pausar ou excluir uma sessao sem alterar a biblioteca de perfis.
 
-### Login TikTok mais manual
-
-TikTok e mais sensivel a navegadores automatizados. Para reduzir atrito, sessoes TikTok abrem a home do TikTok e tentam usar o Chrome instalado no PC antes do Chromium do Playwright, mantendo storage e proxy isolados.
-
 ### Isolamento forte de navegador
 
 Cada sessao tem um diretorio em `.sessions/{storageKey}`. Nao pode haver compartilhamento de cookies, localStorage ou login entre sessoes.

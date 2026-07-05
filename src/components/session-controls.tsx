@@ -291,7 +291,7 @@ export function SessionControls() {
                         ) : (
                           <ExternalLink size={16} />
                         )}
-                        {session.platform === "tiktok" ? "Abrir TikTok" : "Abrir login"}
+                        Abrir login
                       </button>
                       <button
                         className="button secondary"
