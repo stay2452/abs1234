@@ -25,6 +25,7 @@ Estas regras protegem a logica central do projeto. Qualquer mudanca que toque ne
 - Metricas ausentes devem virar `null`, nunca erro visual ou quebra de ranking.
 - Texto automatico de acessibilidade do Instagram, como `Photo by... May be...`, nao pode virar legenda do post.
 - Reels deve tentar extrair views tambem do contador visivel na aba Reels, porque a pagina do post nem sempre mostra esse dado no mesmo lugar.
+- Chaves de provedores externos, como Bright Data, ficam somente em `.env`; nunca versionar nem imprimir em logs.
 
 ## Banco
 

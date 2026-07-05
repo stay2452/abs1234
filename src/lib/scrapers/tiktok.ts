@@ -1,4 +1,8 @@
 import type { BrowserContext } from "playwright";
+import {
+  isBrightDataTikTokEnabled,
+  scrapeTikTokProfileWithBrightData,
+} from "@/lib/scrapers/brightdata-tiktok";
 import type { ScrapedPost, ScrapedProfileResult, ScrapeProfileInput } from "@/lib/scrapers/types";
 import {
   absoluteUrl,
@@ -151,6 +155,10 @@ export async function scrapeTikTokProfile(
   profile: ScrapeProfileInput,
   limit: number,
 ): Promise<ScrapedProfileResult> {
+  if (isBrightDataTikTokEnabled()) {
+    return scrapeTikTokProfileWithBrightData(profile, limit);
+  }
+
   const page = await context.newPage();
   page.setDefaultTimeout(20_000);
 

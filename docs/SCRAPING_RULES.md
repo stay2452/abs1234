@@ -83,6 +83,15 @@ O TikTok usa uma fonte inicial unica no MVP:
 - salvar com `sourceType = "video"`;
 - metricas indisponiveis ficam `null`.
 
+Quando `BRIGHTDATA_API_KEY` existir e `BRIGHTDATA_TIKTOK_ENABLED="true"`, o coletor TikTok deve usar a Bright Data TikTok Scraper API antes do scraper local. A chave fica apenas no `.env` local e nao deve ser versionada.
+
+Datasets usados:
+
+- Perfil: `gd_l1villgoiiidt09ci`.
+- Posts por perfil: `gd_m7n5v2gq296pex2f5m`.
+
+Se a Bright Data responder erro de conta, permissao, credito ou produto inativo, desative `BRIGHTDATA_TIKTOK_ENABLED` ate resolver no painel da Bright Data.
+
 ## Quantidade por varredura
 
 - Instagram: ate 5 da grade e ate 5 da aba Reels.

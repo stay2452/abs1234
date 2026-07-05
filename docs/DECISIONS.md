@@ -46,6 +46,10 @@ Na tela de detalhe do perfil, Grade e Reels devem aparecer como botoes/abas lado
 
 Textos de acessibilidade gerados pelo Instagram nao sao considerados legenda. Para Reels, views podem vir da pagina do post ou do card da aba Reels, porque a plataforma muda onde exibe esse contador.
 
+### Bright Data para TikTok
+
+Bright Data pode ser usado como provedor opcional para TikTok via `BRIGHTDATA_API_KEY` e `BRIGHTDATA_TIKTOK_ENABLED`. Isso evita depender de login manual no TikTok para coleta, mas so deve ficar ativo quando a conta/produto estiver funcionando no painel da Bright Data.
+
 ### Documentacao como contrato
 
 Toda regra crucial deve ir para `.md`. Antes de mudar sessoes, scraping, schema ou ranking, consultar `docs/CRITICAL_RULES.md` e atualizar a documentacao junto com o codigo.
