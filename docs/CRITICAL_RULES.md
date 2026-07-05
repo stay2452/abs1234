@@ -11,6 +11,7 @@ Estas regras protegem a logica central do projeto. Qualquer mudanca que toque ne
 - Cookies, storage e login nunca devem cruzar entre sessoes.
 - Proxy e configuracao de navegador pertencem a sessao, nao ao perfil catalogado.
 - Se uma sessao for excluida, o navegador aberto dela deve ser fechado e o diretorio correspondente deve ser removido com validacao de caminho.
+- TikTok deve abrir a home da plataforma para login manual e tentar Chrome instalado antes do Chromium do Playwright, mantendo o mesmo storage isolado.
 
 ## Scraping
 

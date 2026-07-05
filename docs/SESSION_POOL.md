@@ -23,6 +23,7 @@ Campos importantes:
 - Uma sessao nao deve ler nem reutilizar dados de outra.
 - Abrir varias abas dentro da mesma sessao compartilha o mesmo storage daquela sessao.
 - Abrir outra sessao cria outro contexto persistente separado.
+- Para TikTok, o app tenta abrir a sessao com o Chrome instalado no PC antes de cair para o Chromium do Playwright, porque o login manual do TikTok costuma funcionar melhor no Chrome.
 
 ## Pool de coleta
 
@@ -62,6 +63,17 @@ O botao `Testar proxy` deve validar conectividade com alvos simples:
 - Site neutro.
 
 Falha em busca pela barra do navegador nao significa necessariamente falha geral do proxy. Em alguns perfis Chromium isolados, colar uma URL direta funciona enquanto pesquisa na barra falha por search provider ou bloqueio de busca no proxy.
+
+## Login TikTok
+
+TikTok pode bloquear ou dificultar login em navegador automatizado. A sessao continua isolada, mas o fluxo esperado e manual:
+
+- abrir a sessao pelo botao `Abrir TikTok`;
+- usar a home do TikTok e escolher o modo de login exibido pela plataforma;
+- resolver QR/captcha manualmente quando aparecer;
+- fechar a janela depois que o login estiver salvo.
+
+O app nao deve misturar esse login com o navegador pessoal do usuario.
 
 ## Exclusao
 
