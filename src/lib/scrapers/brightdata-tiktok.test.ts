@@ -1,45 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-  isBrightDataTikTokEnabled,
   mapBrightDataTikTokPost,
   mapBrightDataTikTokProfile,
 } from "@/lib/scrapers/brightdata-tiktok";
 
 describe("Bright Data TikTok mapper", () => {
-  it("only enables Bright Data when the flag is explicit", () => {
-    const originalKey = process.env.BRIGHTDATA_API_KEY;
-    const originalEnabled = process.env.BRIGHTDATA_TIKTOK_ENABLED;
-
-    try {
-      process.env.BRIGHTDATA_API_KEY = "test-key";
-      delete process.env.BRIGHTDATA_TIKTOK_ENABLED;
-      expect(isBrightDataTikTokEnabled()).toBe(false);
-
-      process.env.BRIGHTDATA_TIKTOK_ENABLED = "false";
-      expect(isBrightDataTikTokEnabled()).toBe(false);
-
-      process.env.BRIGHTDATA_TIKTOK_ENABLED = "true";
-      expect(isBrightDataTikTokEnabled()).toBe(true);
-    } finally {
-      if (originalKey === undefined) {
-        delete process.env.BRIGHTDATA_API_KEY;
-      } else {
-        process.env.BRIGHTDATA_API_KEY = originalKey;
-      }
-
-      if (originalEnabled === undefined) {
-        delete process.env.BRIGHTDATA_TIKTOK_ENABLED;
-      } else {
-        process.env.BRIGHTDATA_TIKTOK_ENABLED = originalEnabled;
-      }
-    }
-  });
-
   it("maps profile stats", () => {
     const result = mapBrightDataTikTokProfile([
       {
         followers: 85600000,
         following: 580,
+        likes: 520000000,
         videos_count: 1250,
       },
     ]);
@@ -47,6 +18,7 @@ describe("Bright Data TikTok mapper", () => {
     expect(result).toEqual({
       followers: 85600000,
       following: 580,
+      likes: 520000000,
       postsCount: 1250,
     });
   });
@@ -77,5 +49,34 @@ describe("Bright Data TikTok mapper", () => {
       },
     });
     expect(result?.publishedAt?.toISOString()).toBe("2024-04-10T15:30:00.000Z");
+  });
+
+  it("builds a public post URL from the Fast API post_id", () => {
+    const result = mapBrightDataTikTokPost(
+      {
+        post_id: "7553300000000000000",
+        profile_username: "examplecreator",
+        description: "Video vindo do Fast API",
+        play_count: 42000000,
+        comment_count: 18000,
+        share_count: 95000,
+        collect_count: 28000,
+        video_url: "https://v16-webapp-prime.tiktok.com/video/example.mp4",
+        create_time: "2025-02-01T10:00:00.000Z",
+      },
+      "fallback",
+    );
+
+    expect(result).toMatchObject({
+      externalId: "7553300000000000000",
+      url: "https://www.tiktok.com/@examplecreator/video/7553300000000000000",
+      sourceType: "video",
+      metrics: {
+        views: 42000000,
+        comments: 18000,
+        shares: 95000,
+        favorites: 28000,
+      },
+    });
   });
 });

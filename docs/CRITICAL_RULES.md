@@ -1,50 +1,62 @@
 # Regras criticas
 
-Estas regras protegem a logica central do projeto. Qualquer mudanca que toque nelas deve atualizar este documento no mesmo PR/alteracao.
+Invariantes de custo, dados e operacao. Qualquer mudanca que as toque deve atualizar este documento na mesma entrega.
 
-## Sessoes
+## Coleta e credito
 
-- Nao reintroduzir uma unica sessao "padrao" para coleta.
-- A coleta deve usar todas as sessoes ativas da plataforma como pool.
-- Sessoes pausadas nao podem entrar no pool.
-- Cada sessao deve ter `storageKey` unico e diretorio proprio em `.sessions/{storageKey}`.
-- Cookies, storage e login nunca devem cruzar entre sessoes.
-- Proxy e configuracao de navegador pertencem a sessao, nao ao perfil catalogado.
-- Se uma sessao for excluida, o navegador aberto dela deve ser fechado e o diretorio correspondente deve ser removido com validacao de caminho.
+- Referencia oficial da API e free tier (5k/conta): `docs/BRIGHT_DATA_API.md`.
+- Cada chave = token de **uma conta** Bright Data; free tier = **5.000 creditos/mes** por conta distinta.
+- `POST /api/scrape/run`: so `scope: "all"` ou `scope: "profiles"` com 1–100 IDs. Invalido → **400** (nunca vira `all`).
+- Importacao: ate **500** perfis validos e 200k caracteres; coleta pos-import em lotes de **20**.
+- Falha de um lote de coleta **nao** desfaz o cadastro local nem impede os lotes seguintes.
+- Import aceita URLs IG/TT e `@handles`; `@` sem URL usa o seletor do formulario.
+- Limites no servidor: IG 5 Grade + 5 Reels; TT 10 videos. Sem `limit` generico na API de coleta.
+- Janela anti-recoleta **30 min** por `max(ProfileSnapshot.capturedAt, Profile.lastPostsScrapeAt)` (salvo `force: true`). O `lastPostsScrapeAt` cobre perfil so-com-posts (sem `profileSnapshot`); sem ele a janela nao atualizava e o perfil podia ser re-coletado em seguida.
+- Paginas, rankings, detalhes e testes **nao** disparam coleta. "Atualizar saldos" / balance e account management, nao dataset scrape.
+- Nao tratar "11 creditos/perfil" como garantia; usar telemetria + painel BD.
+- Coleta termina em sucesso, falha, parcial ou timeout controlado; UI nao fica presa em "Atualizando".
+- `partial_failed` so quando **dataset essencial** falha (perfil IG/TT). Grade/Reels/Videos vazios viram `errorCode: "partial_empty"` — warning em `errors[]` (telemetria/auditoria), nao falha estrutural. Adaptadores classificam via `ScrapePartialError.essential`.
+- Retentativas por perfil limitadas a `SCRAPE_MAX_RETRIES_PER_PROFILE` (**3**) com backoff exponencial entre rounds (`min(30s, 1s × 2^(round-1))`); evita 20 tentativas sem pausa em cenario de rate-limit prolongado.
+- Falha de um dataset nao descarta dados validos dos outros.
 
-## Scraping
+## Workers Bright Data (chaves globais + credito)
 
-- Instagram deve separar grade e Reels como fontes diferentes.
-- Na grade do Instagram, coletar os ultimos 5 itens da grade principal.
-- Na aba Reels do Instagram, coletar os ultimos 5 itens da rota `/reels/`.
-- `sourceType` faz parte da identidade de um post.
-- Nao voltar para URL globalmente unica em `Post`.
-- A mesma URL pode existir duas vezes para o mesmo perfil se vier de classes diferentes, como `grid` e `reels`.
-- A UI de detalhe deve oferecer seletor/botoes para alternar entre Grade e Reels, sem obrigar o usuario a rolar uma lista ate chegar na outra.
-- TikTok deve usar `sourceType` proprio, hoje `video`.
-- Metricas ausentes devem virar `null`, nunca erro visual ou quebra de ranking.
-- Texto automatico de acessibilidade do Instagram, como `Photo by... May be...`, nao pode virar legenda do post.
-- Reels deve tentar extrair views tambem do contador visivel na aba Reels, porque a pagina do post nem sempre mostra esse dado no mesmo lugar.
-- Chaves de provedores externos, como Bright Data, ficam somente em `.env`; nunca versionar nem imprimir em logs.
+- Chaves **nao** tem plataforma: `platform=global`; IG/TT vem do `Profile`.
+- Entram no worker: ativas + **com credito** (oficial ou estimado). **Sem credito** fica fora da fila. `getActiveCollectorSessions()` retorna `[]` (nao throw) quando vazia — orquestrador marca perfis como `no_session`.
+- Prioridade: mais `creditsRemaining` primeiro. Ate `SCRAPE_MAX_PARALLEL_KEYS` (20) em paralelo; 1 perfil por chave por vez.
+- `no_data` consome 1 credito (estimativa local decrementa `creditsRemaining`); saldo oficial e revalidado no proximo refresh.
+- Heuristica de saldo: `/customer/balance` doc oficial retorna USD; valor `>=100` assume creditos diretos sem multiplicar por `CREDITS_PER_USD`.
+- Erro `provider`/`transient` da Bright Data **nao** esgota a chave no run (so aquele perfil retry). So `authentication`/`account` matam a chave no worker.
+- Auth/conta: esgotam + **pausam** a chave. `provider`/`transient`: **nao** esgotam no run — trocam de chave so para o perfil. `not_found`: nao troca chave (perfil indisponivel). Erros de SQLite/Prisma (`SQLITE_BUSY`, `database is locked`, `Socket timeout`): classificados como `transient` em `getScrapeErrorCode` — perfil retenta com outra chave em vez de falhar `unknown` sem retry. Fonte de verdade: `src/lib/scrapers/index.ts` (`isSessionUnrecoverable`) e `src/lib/scrapers/types.ts`.
+- UI de `/settings`: com credito / sem credito / pausadas + label de creditos remanescentes.
+- Nunca logar, retornar ou versionar API keys ou payloads brutos.
+- Nao reintroduzir navegador, proxy, cookies, Playwright ou login manual.
 
-## Banco
+## Dados (biblioteca acumulativa)
 
-- `Profile` e unico por `[platform, handle]`.
-- `Post` e unico por `[profileId, url, sourceType]`.
-- Alteracoes em `schema.prisma` exigem atualizar o banco com `npm run db:push`.
-- Em Windows, se o Prisma ou Next travar arquivos durante build ou push, pare o servidor dev antes de rodar o comando.
+- `Profile` unico por `[platform, handle]`. Coluna `tags` removida (legado) — organizacao via `Folder`/`ProfileFolder`.
+- `Post` unico por `[profileId, url canonica, sourceType]`. `Post.platform` e denormalizado intencionalmente de `Profile.platform` (consultas sem JOIN).
+- `ScrapeAttempt.profileId` e `String?` com `onDelete: SetNull` — telemetria historica preservada quando perfil deletado (estimativa de credito continua honesta).
+- `DiscordDelivery` tem FK + `onDelete: Cascade` para `Post` e `DiscordNotifyConfig` — BD limpa automaticamente; `deleteDiscordWebhook` nao precisa mais `deleteMany` manual.
+- Cada atualizacao puxa so os ultimos N itens; **upsert** acumula biblioteca sem duplicar.
+- Posts antigos permanecem; UI de detalhe lista a biblioteca completa.
+- Transacao por perfil na persistencia.
+- `no_data` (sem perfil util e sem posts) nao cria snapshot que dispare a janela de 30 min.
+- TikTok: identidade e URL publica `@handle/video/id`, nao URL de midia CDN.
+- Sem `PostSnapshot` se metricas identicas ao ultimo.
+- Migration/normalizacao: backup local do SQLite antes.
 
-## Rankings e historico
+## Rankings e interface
 
-- Crescimento de perfil exige pelo menos dois snapshots.
-- Importar um perfil deve cadastrar/reativar e tentar uma coleta imediata somente dos perfis importados.
-- A acao de atualizar cria snapshots para todos os perfis ativos.
-- A coleta disparada pelo cadastro cria snapshots apenas para os IDs recem-importados/reativados.
-- Rankings devem tolerar dados nulos e mostrar "nao disponivel" quando faltar metrica.
-- A UI de ranking so deve renderizar uma tabela quando o `type` da resposta bater com a aba selecionada, para nao tratar itens de perfis como posts durante troca de filtro.
+- **Ranking de posts (reels/videos):** o periodo (3d/7d/30d/90d) filtra por `Post.publishedAt` (data real de publicacao), **nunca** por `PostSnapshot.capturedAt` (data do scrape). Video fixado antigo nao entra em "7 dias" so porque foi re-coletado hoje.
+- Posts sem `publishedAt` so entram no periodo **all**.
+- Metricas do post usam o snapshot mais recente disponivel (views/likes atuais).
+- **Ranking de perfis:** o periodo continua sendo a janela de *medicao* (snapshots de seguidores capturados), porque o score e crescimento entre coletas.
+- Rankings: perfis ativos (`PROFILE_STATUS = ["active", "paused"]`; "error" removido, sem uso), metricas nulas toleradas; limite 1–100.
+- Botao de coleta em massa usa stream NDJSON + resumo final (`postsNew` / `postsUpdated` quando houver).
+- Sem rolagem horizontal indesejada em mobile; graficos com data/hora real do snapshot.
 
-## Documentacao
+## Operacao
 
-- Toda regra nova de arquitetura, scraping, sessao ou banco deve entrar em algum `.md`.
-- Se uma decisao mudar, atualize `docs/DECISIONS.md`.
-- Se uma logica for crucial para nao quebrar o produto, registre aqui.
+- Sem push/commit no GitHub sem pedido explicito do usuario.
+- Toda regra nova de arquitetura, scraping, sessao, schema ou ranking entra em um `.md`.

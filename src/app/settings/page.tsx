@@ -8,8 +8,11 @@ export default function SettingsPage() {
       <div className="page-header">
         <div>
           <p className="eyebrow">Coletores</p>
-          <h1>Sessoes isoladas</h1>
-          <p className="lede">Sessoes ativas entram no pool que processa as coletas.</p>
+          <h1>Chaves globais</h1>
+          <p className="lede">
+            Sem divisão Instagram/TikTok: cada chave Bright Data serve as duas plataformas.
+            Veja boas e ruins e deixe só as boas ativas nos workers.
+          </p>
         </div>
       </div>
 

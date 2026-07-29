@@ -1,6 +1,7 @@
 import { Activity, Library, PlayCircle, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { RankingPanel } from "@/components/ranking-panel";
+import { RepairMissingMetricsButton } from "@/components/repair-missing-metrics-button";
 import { RunScrapeButton } from "@/components/run-scrape-button";
 import { prisma } from "@/lib/db";
 import { formatDate, formatNumber, formatSigned } from "@/lib/format";
@@ -40,16 +41,21 @@ export default async function DashboardPage() {
 
   return (
     <main className="page">
-      <div className="page-header">
-        <div>
+      <div className="page-header page-header-dashboard">
+        <div className="page-header-copy">
           <p className="eyebrow">Radar do nicho</p>
           <h1>Ranking viral</h1>
-          <p className="lede">Perfis e posts monitorados no seu nicho.</p>
+          <p className="lede">
+            Biblioteca acumulativa: cada atualização puxa os últimos 5 por fonte e só grava o que é
+            novo.
+          </p>
         </div>
-        <RunScrapeButton />
+        <div className="page-header-actions">
+          <RunScrapeButton mode="library" profileCount={data.profileCount} />
+        </div>
       </div>
 
-      <section className="grid three" aria-label="Resumo">
+      <section className="grid three dashboard-metrics" aria-label="Resumo">
         <div className="metric-card">
           <div>
             <p className="label">Perfis</p>
@@ -88,11 +94,15 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <div className="grid two" style={{ marginTop: 16 }}>
+      <div className="dashboard-main">
         <RankingPanel />
-        <aside className="panel">
+        <aside className="dashboard-aside-stack">
+          <RepairMissingMetricsButton />
+          <div className="panel dashboard-aside">
           <p className="eyebrow">Última atualização</p>
-          <h2>{data.lastRun ? formatDate(data.lastRun.startedAt) : "sem coletas"}</h2>
+          <h2 className="dashboard-aside-title">
+            {data.lastRun ? formatDate(data.lastRun.startedAt) : "sem coletas"}
+          </h2>
           <div className="status">
             <span
               className={`status-dot ${
@@ -105,7 +115,7 @@ export default async function DashboardPage() {
             />
             {data.lastRun?.status ?? "aguardando"}
           </div>
-          <div className="metric-strip" style={{ marginTop: 16 }}>
+          <div className="metric-strip dashboard-aside-metrics">
             <div className="mini-metric">
               <span>Perfis</span>
               <strong>{formatNumber(data.lastRun?.profilesOk)}</strong>
@@ -114,10 +124,19 @@ export default async function DashboardPage() {
               <span>Posts</span>
               <strong>{formatNumber(data.lastRun?.postsFound)}</strong>
             </div>
+            <div className="mini-metric">
+              <span>Registros</span>
+              <strong>{formatNumber(data.lastRun?.recordsReceived)}</strong>
+            </div>
+            <div className="mini-metric">
+              <span>Créditos est.</span>
+              <strong>{formatNumber(data.lastRun?.estimatedCredits)}</strong>
+            </div>
           </div>
-          <div className="status" style={{ marginTop: 18 }}>
-            <Activity size={16} />
-            <span>Atualização manual</span>
+            <div className="status dashboard-aside-footer">
+              <Activity size={16} />
+              <span>Atualização manual</span>
+            </div>
           </div>
         </aside>
       </div>

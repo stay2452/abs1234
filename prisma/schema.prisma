@@ -8,35 +8,84 @@ datasource db {
 }
 
 model Profile {
-  id        String            @id @default(cuid())
-  platform  String
-  handle    String
-  url       String
-  tags      String?
-  notes     String?
-  status    String            @default("active")
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  snapshots ProfileSnapshot[]
-  posts     Post[]
+  id                String            @id @default(cuid())
+  platform          String
+  handle            String
+  url               String
+  notes             String?
+  status            String            @default("active")
+  /// Marca a ultima coleta que trouxe posts (mesmo sem profileSnapshot). Anti-recoleta
+  /// cobre o caso de perfil so-com-posts-evoluindo: sem essa data, a janela de 30min
+  /// nao atualizava e o perfil podia ser re-coletado em seguida, gastando credito.
+  /// Ver shouldScrapeProfile em src/lib/scrapers/index.ts.
+  lastPostsScrapeAt DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  snapshots         ProfileSnapshot[]
+  posts             Post[]
+  scrapeAttempts    ScrapeAttempt[]
+  profileFolders    ProfileFolder[]
 
   @@unique([platform, handle])
   @@index([platform, status])
 }
 
-model BrowserSession {
-  id           String    @id @default(cuid())
-  platform     String
-  name         String
-  storageKey   String    @unique
-  proxyUrl     String?
-  status       String    @default("active")
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  lastOpenedAt DateTime?
-  lastUsedAt   DateTime?
+/// Pastas do usuario para agrupar perfis e comparar.
+model Folder {
+  id          String          @id @default(cuid())
+  name        String
+  color       String          @default("teal")
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  profiles    ProfileFolder[]
+
+  @@index([name])
+}
+
+model ProfileFolder {
+  profileId String
+  folderId  String
+  createdAt DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  folder    Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, folderId])
+  @@index([folderId])
+}
+
+model CollectorSession {
+  id                  String          @id @default(cuid())
+  platform            String
+  name                String
+  kind                String          @default("api")
+  provider            String?
+  apiKey              String?
+  legacyStorageKey    String          @unique @map("storageKey")
+  status              String          @default("active")
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  lastAttemptedAt     DateTime?
+  lastSuccessAt       DateTime?       @map("lastUsedAt")
+  lastError           String?
+  consecutiveFailures Int             @default(0)
+  /// has_credit | no_credit | unknown | permission_denied
+  creditStatus        String          @default("unknown")
+  /// Saldo em USD da API GET /customer/balance (quando a chave tem permissao).
+  balanceUsd          Float?
+  pendingBalanceUsd   Float?
+  /// Creditos estimados restantes (oficial convertido ou uso local no mes).
+  creditsRemaining    Float?
+  /// official | estimated_local | unavailable
+  creditsSource       String?
+  balanceCheckedAt    DateTime?
+  balanceError        String?
+  scrapeAttempts      ScrapeAttempt[]
 
   @@index([platform, status])
+  @@index([platform, kind, status])
+  @@index([status, creditStatus])
+  @@map("BrowserSession")
 }
 
 model ProfileSnapshot {
@@ -44,6 +93,7 @@ model ProfileSnapshot {
   profileId  String
   followers  Float?
   following  Float?
+  likes      Float?
   postsCount Int?
   capturedAt DateTime @default(now())
   profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
@@ -52,18 +102,22 @@ model ProfileSnapshot {
 }
 
 model Post {
-  id          String         @id @default(cuid())
-  platform    String
-  profileId   String
-  externalId  String?
-  url         String
-  sourceType  String         @default("grid")
-  caption     String?
-  publishedAt DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  profile     Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  snapshots   PostSnapshot[]
+  id                 String           @id @default(cuid())
+  /// Denormalizado intencionalmente de Profile.platform para consultas por
+  /// plataforma (rankings, Discord) sem JOIN. Atualizado em cada upsert via
+  /// `persistPost` em src/lib/scrapers/index.ts. Decisao documentada em DECISIONS.md.
+  platform           String
+  profileId          String
+  externalId         String?
+  url                String
+  sourceType         String           @default("grid")
+  caption            String?
+  publishedAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  profile            Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  snapshots          PostSnapshot[]
+  discordDeliveries  DiscordDelivery[]
 
   @@unique([profileId, url, sourceType])
   @@index([profileId, platform, sourceType])
@@ -84,12 +138,91 @@ model PostSnapshot {
 }
 
 model ScrapeRun {
-  id            String    @id @default(cuid())
-  status        String    @default("running")
-  startedAt     DateTime  @default(now())
-  finishedAt    DateTime?
-  profilesTotal Int       @default(0)
-  profilesOk    Int       @default(0)
-  postsFound     Int       @default(0)
-  errorsJson    String?
+  id                String          @id @default(cuid())
+  status            String          @default("running")
+  startedAt         DateTime        @default(now())
+  finishedAt        DateTime?
+  profilesTotal     Int             @default(0)
+  profilesAttempted Int             @default(0)
+  profilesFinished  Int             @default(0)
+  profilesOk        Int             @default(0)
+  postsFound        Int             @default(0)
+  requestsMade      Int             @default(0)
+  recordsReceived   Int             @default(0)
+  recordsPersisted  Int             @default(0)
+  estimatedCredits  Float           @default(0)
+  currentActivity   String?
+  errorsJson        String?
+  attempts          ScrapeAttempt[]
+}
+
+model ScrapeAttempt {
+  id               String            @id @default(cuid())
+  scrapeRunId      String
+  profileId        String?
+  sessionId        String?
+  platform         String
+  datasetId        String
+  status           String
+  startedAt        DateTime          @default(now())
+  finishedAt       DateTime?
+  recordsReceived  Int               @default(0)
+  recordsKept      Int               @default(0)
+  recordsDiscarded Int               @default(0)
+  errorCode        String?
+  errorMessage     String?
+  scrapeRun        ScrapeRun         @relation(fields: [scrapeRunId], references: [id], onDelete: Cascade)
+  profile          Profile?          @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  session          CollectorSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([scrapeRunId, startedAt])
+  @@index([profileId, startedAt])
+  @@index([sessionId, startedAt])
+}
+
+/// Webhook Discord (varios canais/servidores). Criterios por webhook.
+model DiscordNotifyConfig {
+  id               String            @id @default(cuid())
+  /// Nome amigavel na UI (ex.: "Tops IG - Server A").
+  name             String            @default("Webhook Discord")
+  /// Rotulo opcional do servidor (ex.: "Comunidade Humor").
+  serverLabel      String?
+  webhookUrl       String?
+  enabled          Boolean           @default(false)
+  topN             Int               @default(5)
+  metric           String            @default("views")
+  period           String            @default("7d")
+  platform         String            @default("all")
+  folderId         String?
+  minViews         Float?
+  minLikes         Float?
+  minEngagement    Float?
+  skipAlreadySent  Boolean           @default(true)
+  lastSentAt       DateTime?
+  lastError        String?
+  lastResultJson   String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deliveries       DiscordDelivery[]
+
+  @@index([enabled])
+  @@index([name])
+}
+
+/// Posts ja enviados a um webhook (dedupe por configId).
+model DiscordDelivery {
+  id        String             @id @default(cuid())
+  postId    String
+  configId  String
+  metric    String?
+  score     Float?
+  period    String?
+  sentAt    DateTime           @default(now())
+  post      Post               @relation(fields: [postId], references: [id], onDelete: Cascade)
+  config    DiscordNotifyConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, configId])
+  @@index([postId])
+  @@index([configId, sentAt])
+  @@index([sentAt])
 }

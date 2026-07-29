@@ -6,14 +6,20 @@ type ProfileSnapshotLike = {
   capturedAt: Date;
 };
 
+export type RankingFolderRef = {
+  id: string;
+  name: string;
+  color: string;
+};
+
 type ProfileLike = {
   id: string;
   platform: string;
   handle: string;
   url: string;
-  tags: string | null;
   notes: string | null;
   snapshots: ProfileSnapshotLike[];
+  folders?: RankingFolderRef[];
 };
 
 type PostSnapshotLike = {
@@ -35,7 +41,7 @@ type PostLike = {
     id: string;
     handle: string;
     platform: string;
-    tags: string | null;
+    folders?: RankingFolderRef[];
   };
   snapshots: PostSnapshotLike[];
 };
@@ -46,7 +52,7 @@ export type ProfileRankingItem = {
   platform: string;
   handle: string;
   url: string;
-  tags: string | null;
+  folders: RankingFolderRef[];
   followers: number | null;
   baselineFollowers: number | null;
   growthAbsolute: number | null;
@@ -66,7 +72,7 @@ export type PostRankingItem = {
     id: string;
     handle: string;
     platform: string;
-    tags: string | null;
+    folders: RankingFolderRef[];
   };
   views: number | null;
   likes: number | null;
@@ -79,6 +85,7 @@ export type PostRankingItem = {
 
 export function getPeriodCutoff(period: RankingPeriod, now = new Date()) {
   const daysByPeriod: Record<Exclude<RankingPeriod, "all">, number> = {
+    "3d": 3,
     "7d": 7,
     "30d": 30,
     "90d": 90,
@@ -97,9 +104,28 @@ function sortByCapturedAt<T extends { capturedAt: Date }>(items: T[]) {
   return [...items].sort((a, b) => a.capturedAt.getTime() - b.capturedAt.getTime());
 }
 
-function latestInPeriod<T extends { capturedAt: Date }>(items: T[], cutoff: Date | null) {
-  const filtered = cutoff ? items.filter((item) => item.capturedAt >= cutoff) : items;
-  return sortByCapturedAt(filtered).at(-1) ?? null;
+function latestSnapshot<T extends { capturedAt: Date }>(items: T[]) {
+  return sortByCapturedAt(items).at(-1) ?? null;
+}
+
+/**
+ * Periodo de ranking de POSTS usa a data real de publicacao do conteudo.
+ * Video fixado antigo (publishedAt em 2025) nao entra em "7d" so porque foi scrapado hoje.
+ * Posts sem publishedAt so entram no periodo "all".
+ */
+export function postMatchesPeriod(
+  publishedAt: Date | null | undefined,
+  period: RankingPeriod,
+  now = new Date(),
+) {
+  const cutoff = getPeriodCutoff(period, now);
+  if (!cutoff) {
+    return true;
+  }
+  if (!publishedAt) {
+    return false;
+  }
+  return publishedAt.getTime() >= cutoff.getTime();
 }
 
 export function rankProfiles(
@@ -109,6 +135,8 @@ export function rankProfiles(
   platform: Platform | "all" = "all",
   now = new Date(),
 ) {
+  // Perfis: o periodo continua sendo a janela de *medicao* (snapshots capturados),
+  // porque o score e crescimento de seguidores entre duas coletas — nao data de post.
   const cutoff = getPeriodCutoff(period, now);
 
   return profiles
@@ -117,11 +145,17 @@ export function rankProfiles(
       const snapshots = sortByCapturedAt(profile.snapshots).filter(
         (snapshot) => snapshot.followers !== null,
       );
-      const latest = latestInPeriod(snapshots, null);
-      const periodSnapshots = cutoff
-        ? snapshots.filter((snapshot) => snapshot.capturedAt >= cutoff)
-        : snapshots;
-      const baseline = periodSnapshots[0] ?? null;
+      const latest = latestSnapshot(snapshots);
+      // Baseline: ultimo snapshot ANTES da janela; se nao houver, o primeiro DENTRO da janela.
+      // Assim 2 coletas (mesmo que a primeira seja "antiga") medem crescimento no periodo.
+      let baseline: (typeof snapshots)[number] | null = null;
+      if (cutoff) {
+        const beforeWindow = snapshots.filter((snapshot) => snapshot.capturedAt < cutoff);
+        const inWindow = snapshots.filter((snapshot) => snapshot.capturedAt >= cutoff);
+        baseline = beforeWindow.at(-1) ?? inWindow[0] ?? null;
+      } else {
+        baseline = snapshots[0] ?? null;
+      }
       const hasComparablePoints =
         latest && baseline && latest.capturedAt.getTime() !== baseline.capturedAt.getTime();
       const followers = toNumber(latest?.followers);
@@ -140,7 +174,7 @@ export function rankProfiles(
         platform: profile.platform,
         handle: profile.handle,
         url: profile.url,
-        tags: profile.tags,
+        folders: profile.folders ?? [],
         followers,
         baselineFollowers,
         growthAbsolute,
@@ -149,6 +183,8 @@ export function rankProfiles(
         score,
       };
     })
+    // So entra no ranking quem tem crescimento calculavel (2+ snapshots).
+    .filter((item) => item.score !== null && !Number.isNaN(item.score))
     .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
 }
 
@@ -159,12 +195,13 @@ export function rankPosts(
   platform: Platform | "all" = "all",
   now = new Date(),
 ) {
-  const cutoff = getPeriodCutoff(period, now);
-
   return posts
     .filter((post) => platform === "all" || post.platform === platform)
+    .filter((post) => postMatchesPeriod(post.publishedAt, period, now))
     .map<PostRankingItem | null>((post) => {
-      const snapshot = latestInPeriod(post.snapshots, cutoff);
+      // Metricas: sempre o snapshot mais recente (o valor atual do post).
+      // Periodo ja foi filtrado por publishedAt acima.
+      const snapshot = latestSnapshot(post.snapshots);
 
       if (!snapshot) {
         return null;
@@ -199,7 +236,10 @@ export function rankPosts(
         url: post.url,
         caption: post.caption,
         publishedAt: post.publishedAt?.toISOString() ?? null,
-        profile: post.profile,
+        profile: {
+          ...post.profile,
+          folders: post.profile.folders ?? [],
+        },
         views,
         likes,
         comments,

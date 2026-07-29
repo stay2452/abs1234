@@ -1,107 +1,74 @@
-# Regras de scraping
+# Contrato Bright Data (scraping)
 
-Este documento define como os coletores devem interpretar plataformas e fontes de conteudo.
+Fronteira app ↔ Bright Data. Mudanca de dataset ou limite deve atualizar este arquivo.
 
-## Principios
+## Escopo e limites
 
-- Scraping e sob demanda, iniciado pelo usuario.
-- Scraping usa sessoes salvas e isoladas.
-- Cada coleta cria snapshots novos.
-- A importacao de URLs dispara uma coleta imediata apenas dos perfis importados/reativados.
-- O botao global de atualizar coleta todos os perfis ativos.
-- Posts ja conhecidos nao devem ser duplicados dentro da mesma fonte.
-- Dados ausentes devem ser salvos como `null`.
-- Erros de plataforma devem ser registrados no `ScrapeRun`.
+| Acao | Comportamento |
+|------|----------------|
+| Import | Cadastro local ate 500; coleta so dos IDs importados, lotes de 20 |
+| Atualizar biblioteca | `scope: "all"`, perfis ativos, anti-recoleta 30 min (salvo `force`) |
+| Atualizar um perfil | `scope: "profiles"` com 1 ID |
+| Scrape API | Max 100 IDs; corpo invalido → 400 |
 
-## Instagram
+- Instagram: 3 datasets/perfil — perfil + Grade (`num_of_posts: 5`) + Reels (`num_of_posts: 5`).
+- TikTok: perfil + videos (`num_of_posts: 10`).
+- Limite no **request** ao provedor; proibido baixar catalogo inteiro e filtrar no app.
 
-O Instagram tem fontes de conteudo diferentes e elas devem ficar separadas.
+## Biblioteca acumulativa
 
-### Perfil
+- Cada coleta puxa so os ultimos N itens da fonte.
+- Identidade: `[profileId, url canonica, sourceType]`.
+- **Novo** URL → cria post. **Mesmo** URL → upsert (sem duplicar); metricas mudaram → novo `PostSnapshot`.
+- Conteudo antigo permanece no SQLite.
+- UI de detalhe lista a **biblioteca completa** (nao so os 5 da ultima leva).
+- Botao **Atualizar biblioteca** deixa isso explicito na home e em `/profiles`.
 
-Ao abrir o perfil, tentar coletar:
+## Catalogacao
 
-- seguidores;
-- seguindo;
-- quantidade de posts;
-- metadados disponiveis em scripts JSON e meta tags.
+- IG Grade: `sourceType = "grid"`. IG Reels: `reels`. TT: `video`.
+- Canonizar URL antes do upsert.
+- Legendas auto do IG ("Photo by…") nao sao legenda do criador.
+- TikTok: URL publica `@handle/video/id`; nao usar URL de midia CDN como identidade.
 
-### Grade
+## Contrato Instagram atual
 
-Fonte: pagina principal do perfil.
+- Perfil: `gd_l1vikfch901nx3by4`, `{ input: [{ url }] }`.
+- Grade: `gd_lk5ns7kz21pck8jpis`, `type=discover_new`, `discover_by=url`, `num_of_posts: 5` (**sem** `post_type: "post"`).
+- Reels: `gd_lyclm20il4r5helnj`, `discover_by=url_all_reels`, `num_of_posts: 5`.
+- Corpo `{ input: [...] }`. Grade pode aninhar itens em `posts` (achatar no adaptador).
 
-Regra:
-
-- coletar os ultimos 5 itens encontrados na grade principal;
-- aceitar links `/p/`, `/reel/` e `/tv/` quando aparecem na grade;
-- salvar com `sourceType = "grid"`.
-
-### Reels
-
-Fonte: aba de Reels em `/reels/`.
-
-Regra:
-
-- navegar para `{profile.url}/reels/`;
-- coletar os ultimos 5 links de Reels;
-- salvar com `sourceType = "reels"`.
-
-### Identidade do post
-
-O mesmo conteudo pode aparecer em mais de uma fonte. Por isso:
-
-- `Post.url` nao pode ser unico globalmente.
-- A chave de identidade e `[profileId, url, sourceType]`.
-- A UI de detalhe deve mostrar "Posts da grade" separado de "Posts da aba Reels".
-- Essa separacao deve aparecer como botoes/abas de alternancia, nao como duas listas empilhadas que exigem rolagem longa.
-
-### Metricas
-
-Para cada post, tentar coletar:
-
-- views;
-- likes;
-- comentarios;
-- caption;
-- data de publicacao.
-
-Compartilhamentos e favoritos podem ficar `null` quando nao forem publicos.
-
-Legendas geradas automaticamente pelo Instagram para acessibilidade, como textos no formato `Photo by... May be an image...`, nao devem ser tratadas como legenda real do criador. A UI tambem deve esconder esse tipo de texto se ele ja existir salvo no banco.
-
-Views de Reels devem tentar estas fontes, nesta ordem:
-
-- JSON/metadados da pagina do post;
-- texto visivel da pagina do post;
-- contador exibido no card da aba Reels.
-
-## TikTok
-
-O TikTok usa uma fonte inicial unica no MVP:
-
-- coletar videos recentes do perfil;
-- salvar com `sourceType = "video"`;
-- metricas indisponiveis ficam `null`.
-
-Quando `BRIGHTDATA_API_KEY` existir e `BRIGHTDATA_TIKTOK_ENABLED="true"`, o coletor TikTok deve usar a Bright Data TikTok Scraper API antes do scraper local. A chave fica apenas no `.env` local e nao deve ser versionada.
-
-Datasets usados:
+## Contrato TikTok
 
 - Perfil: `gd_l1villgoiiidt09ci`.
-- Posts por perfil: `gd_m7n5v2gq296pex2f5m`.
+- Videos: `gd_m7n5v2gq296pex2f5m`, `num_of_posts: 10`.
+- URL publica via `post_id` + username.
 
-Se a Bright Data responder erro de conta, permissao, credito ou produto inativo, desative `BRIGHTDATA_TIKTOK_ENABLED` ate resolver no painel da Bright Data.
+## Reparo seletivo de metricas ausentes
 
-## Quantidade por varredura
+- Dashboard: **Corrigir metricas ausentes** permite selecionar `views`, curtidas, comentarios, compartilhamentos e favoritos.
+- So considera conteudo de video ja catalogado: IG `sourceType = reels` e TT `sourceType = video`; **Grade nunca entra**.
+- Agrupa por perfil e consulta somente o dataset de conteudo: ate 5 Reels IG ou 10 videos TT. Nao cria posts, nao coleta perfil e nao altera Grade.
+- Atualiza somente posts cujo ultimo snapshot tem a metrica escolhida em `null`; cria novo `PostSnapshot` apenas quando a Bright Data devolve valor preenchido.
+- Conteudo antigo fora da janela recente do provedor pode continuar sem metrica; o resumo informa quantos ficaram indisponiveis.
+- Compartilhamentos/favoritos dependem dos campos que a Bright Data expor para a plataforma. Instagram pode continuar sem esses valores.
+- A reparacao consome creditos Bright Data por perfil afetado; confirmacao explicita na UI antes de iniciar.
 
-- Instagram: ate 5 da grade e ate 5 da aba Reels.
-- TikTok: respeita o limite configurado pelo coletor.
+## Falhas e telemetria
 
-## Manutencao
+- Telemetria por dataset sem chave/payload bruto.
+- `estimatedCredits` ≈ `recordsReceived` (proxy).
+- Resposta final de run pode incluir `postsNew` / `postsUpdated`.
+- Auth/conta pausam chave; provider esgota worker neste run; transient re-tenta perfil; not_found nao troca chave.
+- "no public posts" / empty content → dataset vazio, nao falha de chave.
+- Timeout HTTP request ~90s; poll de snapshot ate **45×2s (~90s)**. Status async: collecting / digesting / ready / failed. Fonte de verdade: `src/lib/scrapers/brightdata-client.ts`.
+- Coleta parcial: salva o valido; run pode ser `partial_failed`.
 
-Se uma plataforma mudar HTML, seletores ou JSON embarcado:
+## Teste controlado de dataset
 
-- ajustar o adaptador da plataforma, nao a logica generica do ranking;
-- preservar `sourceType`;
-- preservar tolerancia a metricas nulas;
-- atualizar este documento se a regra de coleta mudar.
+Nao rodar automaticamente. Com autorizacao explicita:
+
+1. Uma chave + um perfil de teste.
+2. Saldo no painel BD antes/depois.
+3. Um dataset por vez se necessario.
+4. Atualizar `CREDIT_USAGE.md` com a medicao.

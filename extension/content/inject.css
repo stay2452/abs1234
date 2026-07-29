@@ -1,0 +1,202 @@
+/* Botões injetados — visual neutro */
+
+.bdp-btn {
+  appearance: none;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin: 0;
+  min-height: 32px;
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #f5f5f5;
+  background: rgba(45, 212, 191, 0.16);
+  font: 600 14px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s, color 0.15s;
+  z-index: 2147483000;
+  position: relative !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Tooltip próprio — o title= nativo o IG costuma engolir */
+.bdp-btn[data-tip]:hover::after,
+.bdp-btn[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2147483647;
+  min-width: 120px;
+  max-width: 240px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0c1210;
+  border: 1px solid #2dd4bf;
+  color: #edf5f2;
+  font: 600 12px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+  white-space: normal;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.bdp-btn[data-tip]:hover::before,
+.bdp-btn[data-tip]:focus-visible::before {
+  content: "";
+  position: absolute;
+  right: calc(100% + 4px);
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-left-color: #2dd4bf;
+  z-index: 2147483647;
+  pointer-events: none;
+}
+
+.bdp-btn:hover {
+  background: rgba(45, 212, 191, 0.28);
+  border-color: rgba(45, 212, 191, 0.5);
+}
+
+.bdp-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.bdp-btn.is-ok {
+  color: #04110f;
+  background: #2dd4bf;
+  border-color: transparent;
+}
+
+.bdp-btn.is-err {
+  color: #fff;
+  background: rgba(251, 113, 133, 0.45);
+  border-color: rgba(251, 113, 133, 0.7);
+}
+
+.bdp-profile-slot {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  flex: 0 0 auto;
+}
+
+/* Ícone reel (base) */
+.bdp-btn-icon {
+  padding: 0 !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Reels nativo — coluna vertical, acima da curtida */
+.bdp-btn-icon.bdp-reel-vertical {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  border: none !important;
+  background: transparent !important;
+  color: #f5f5f5 !important;
+  font-size: 26px !important;
+  overflow: visible !important;
+}
+
+.bdp-btn-icon.bdp-reel-vertical:hover {
+  color: #2dd4bf !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Reel do perfil — barra horizontal, clean */
+.bdp-btn-icon.bdp-reel-horizontal {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  margin: 0 0 0 10px !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.55) !important;
+  background: transparent !important;
+  color: #f5f5f5 !important;
+  font-size: 18px !important;
+}
+
+.bdp-btn-icon.bdp-reel-horizontal:hover {
+  border-color: #2dd4bf !important;
+  color: #2dd4bf !important;
+}
+
+.bdp-btn-icon.is-ok {
+  color: #2dd4bf !important;
+  border-color: #2dd4bf !important;
+  background: transparent !important;
+}
+
+.bdp-btn-icon.is-err {
+  color: #fb7185 !important;
+  border: 1.5px solid rgba(251, 113, 133, 0.75) !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
+}
+
+.bdp-reel-slot {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+  order: -999 !important;
+  pointer-events: auto !important;
+}
+
+.bdp-reel-slot-horizontal {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  margin: 0 !important;
+  order: 999 !important;
+  vertical-align: middle !important;
+}
+
+.bdp-float-reel {
+  position: fixed !important;
+  right: 72px !important;
+  top: 28% !important;
+  z-index: 2147483646 !important;
+  margin: 0 !important;
+  /* fallback visível se a coluna do reel ainda não montou */
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  border: none !important;
+  border-radius: 50% !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  color: #f5f5f5 !important;
+  font-size: 28px !important;
+  pointer-events: auto !important;
+}
+
+.bdp-float-reel:hover {
+  color: #2dd4bf !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+
+.bdp-float-profile {
+  position: fixed !important;
+  right: 20px !important;
+  bottom: 100px !important;
+  z-index: 2147483646 !important;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}

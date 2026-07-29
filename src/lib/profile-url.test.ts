@@ -18,8 +18,33 @@ describe("parseProfileUrl", () => {
     });
   });
 
+  it("uses the selected platform for a single @handle", () => {
+    expect(parseProfileUrl("@Criador.Top", "instagram")).toMatchObject({
+      platform: "instagram",
+      handle: "criador.top",
+      url: "https://www.instagram.com/criador.top/",
+    });
+    expect(parseProfileUrl("@Criador.Top", "tiktok")).toMatchObject({
+      platform: "tiktok",
+      handle: "criador.top",
+      url: "https://www.tiktok.com/@criador.top",
+    });
+  });
+
   it("rejects post URLs for Instagram", () => {
     expect(parseProfileUrl("https://www.instagram.com/reel/abc")).toMatchObject({
+      reason: "URL do Instagram não parece ser de perfil",
+    });
+  });
+
+  it("rejects reserved Instagram chrome paths like blog/help", () => {
+    expect(parseProfileUrl("https://www.instagram.com/blog/")).toMatchObject({
+      reason: "URL do Instagram não parece ser de perfil",
+    });
+    expect(parseProfileUrl("https://www.instagram.com/help")).toMatchObject({
+      reason: "URL do Instagram não parece ser de perfil",
+    });
+    expect(parseProfileUrl("@blog", "instagram")).toMatchObject({
       reason: "URL do Instagram não parece ser de perfil",
     });
   });
@@ -36,5 +61,15 @@ describe("parseProfileImport", () => {
 
     expect(result.valid).toHaveLength(2);
     expect(result.invalid).toHaveLength(1);
+  });
+
+  it("imports a comma or line-separated list of @handles", () => {
+    const result = parseProfileImport("@Primeiro, @Segundo\n@primeiro", "tiktok");
+
+    expect(result.invalid).toHaveLength(0);
+    expect(result.valid).toEqual([
+      expect.objectContaining({ platform: "tiktok", handle: "primeiro" }),
+      expect.objectContaining({ platform: "tiktok", handle: "segundo" }),
+    ]);
   });
 });

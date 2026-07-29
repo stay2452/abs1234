@@ -10,5 +10,16 @@ dist/
 *.tsbuildinfo
 prisma/dev.db
 prisma/dev.db-journal
+prisma/dev.db-wal
+prisma/dev.db-shm
+prisma/backups/
 playwright-report/
 test-results/
+
+# Logs e temporarios de ferramentas locais
+lint-output.txt
+tmp/
+
+# Placeholders de tooling nao populados
+.agents/
+.codex/

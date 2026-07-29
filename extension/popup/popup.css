@@ -1,0 +1,261 @@
+:root {
+  color-scheme: dark;
+  --bg: #070b0a;
+  --panel: #121816;
+  --ink: #edf5f2;
+  --muted: #9aa8a3;
+  --line: #273530;
+  --teal: #2dd4bf;
+  --rose: #fb7185;
+  --soft: #1d2925;
+  --radius: 10px;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  width: 340px;
+  padding: 14px;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+/* painel lateral: ocupa a largura do side panel */
+body.is-panel {
+  width: 100%;
+  min-width: 280px;
+  max-width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #5eead4, var(--teal));
+  color: #04110f;
+  font-weight: 900;
+}
+
+.brand strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.sub {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.status {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.status-on {
+  color: #04110f;
+  background: var(--teal);
+}
+
+.status-off {
+  color: #fff;
+  background: rgba(251, 113, 133, 0.35);
+}
+
+.pin-btn {
+  appearance: none;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--soft);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pin-btn:hover {
+  color: var(--ink);
+  border-color: var(--teal);
+}
+
+.pin-btn.is-on {
+  color: #04110f;
+  background: var(--teal);
+  border-color: transparent;
+}
+
+.card {
+  margin-bottom: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.preview {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  word-break: break-all;
+}
+
+.meta {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.field {
+  display: block;
+  margin-bottom: 0;
+}
+
+.new-folder {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+input[type="text"],
+select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--soft);
+  font: inherit;
+}
+
+input[type="text"]:focus,
+select:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.18);
+}
+
+.actions {
+  display: grid;
+  gap: 8px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.btn.primary {
+  color: #04110f;
+  background: linear-gradient(180deg, #5eead4, var(--teal));
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.btn.primary:not(:disabled):hover {
+  filter: brightness(1.05);
+}
+
+.feedback {
+  min-height: 1.2em;
+  margin: 10px 0 0;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.feedback.ok {
+  color: var(--teal);
+}
+
+.feedback.err {
+  color: var(--rose);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.footer a,
+.linkish {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.footer a:hover,
+.linkish:hover {
+  color: var(--teal);
+}

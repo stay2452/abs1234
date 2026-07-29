@@ -5,27 +5,32 @@
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "build": "prisma generate && next build",
-    "db:push": "prisma db push",
+    "db:backup": "node scripts/backup-database.mjs",
+    "db:migrate": "npm run db:backup && prisma migrate deploy",
     "prisma:generate": "prisma generate",
-    "test": "vitest run"
+    "db:normalize-posts": "node scripts/normalize-post-urls.mjs",
+    "test": "vitest run",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
-    "lucide-react": "latest",
-    "next": "latest",
-    "playwright": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "zod": "latest"
+    "lucide-react": "1.23.0",
+    "next": "16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zod": "4.4.3"
   },
   "devDependencies": {
-    "@types/node": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "eslint": "latest",
-    "eslint-config-next": "latest",
+    "@types/node": "26.1.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.10",
     "prisma": "6.19.3",
-    "typescript": "latest",
-    "vitest": "latest"
+    "typescript": "6.0.3",
+    "vitest": "4.1.9"
+  },
+  "overrides": {
+    "postcss": "8.5.16"
   }
 }

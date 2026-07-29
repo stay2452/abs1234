@@ -12,15 +12,47 @@ export type InvalidProfileUrl = {
   reason: string;
 };
 
+/** Paths / “usuários” do Instagram que não são perfis criadores. */
 const INSTAGRAM_RESERVED = new Set([
+  "about",
   "accounts",
+  "api",
+  "blog",
+  "challenge",
+  "create",
+  "developer",
   "direct",
+  "directory",
+  "emails",
   "explore",
+  "graphql",
+  "help",
+  "legal",
+  "lite",
+  "locations",
+  "nametag",
   "p",
+  "popular",
+  "press",
+  "privacy",
   "reel",
   "reels",
+  "session",
+  "static",
   "stories",
+  "tags",
   "tv",
+  "web",
+  "your_activity",
+  "youractivity",
+  "settings",
+  "support",
+  "terms",
+  "safety",
+  "community",
+  "features",
+  "download",
+  "meta",
 ]);
 
 function cleanInput(input: string) {
@@ -29,6 +61,35 @@ function cleanInput(input: string) {
 
 function normalizeHandle(handle: string) {
   return handle.replace(/^@/, "").replace(/\/+$/, "").trim().toLowerCase();
+}
+
+function isReservedInstagramHandle(handle: string) {
+  return INSTAGRAM_RESERVED.has(handle);
+}
+
+function toParsedProfile(
+  platform: Platform,
+  rawHandle: string,
+  input: string,
+): ParsedProfileUrl | InvalidProfileUrl {
+  const handle = normalizeHandle(rawHandle);
+  if (!handle) {
+    return { input, reason: "@perfil invalido" };
+  }
+
+  if (platform === "instagram" && isReservedInstagramHandle(handle)) {
+    return { input, reason: "URL do Instagram não parece ser de perfil" };
+  }
+
+  return {
+    platform,
+    handle,
+    url:
+      platform === "instagram"
+        ? `https://www.instagram.com/${handle}/`
+        : `https://www.tiktok.com/@${handle}`,
+    input,
+  };
 }
 
 function hasPlatform(value: string): value is Platform {
@@ -47,27 +108,30 @@ function toUrl(input: string) {
   return null;
 }
 
-export function parseProfileUrl(rawInput: string): ParsedProfileUrl | InvalidProfileUrl {
+export function parseProfileUrl(
+  rawInput: string,
+  defaultPlatform?: Platform,
+): ParsedProfileUrl | InvalidProfileUrl {
   const input = cleanInput(rawInput);
 
   if (!input) {
     return { input: rawInput, reason: "linha vazia" };
   }
 
+  const bareHandle = input.match(/^@([a-zA-Z0-9._-]+)$/);
+  if (bareHandle) {
+    if (!defaultPlatform) {
+      return { input, reason: "selecione Instagram ou TikTok para usar somente @perfil" };
+    }
+
+    return toParsedProfile(defaultPlatform, bareHandle[1], input);
+  }
+
   const platformHandle = input.match(/^(instagram|tiktok)\s*[:/@]\s*@?([a-zA-Z0-9._-]+)$/i);
   if (platformHandle) {
     const platform = platformHandle[1].toLowerCase();
-    const handle = normalizeHandle(platformHandle[2]);
-    if (hasPlatform(platform) && handle) {
-      return {
-        platform,
-        handle,
-        url:
-          platform === "instagram"
-            ? `https://www.instagram.com/${handle}/`
-            : `https://www.tiktok.com/@${handle}`,
-        input,
-      };
+    if (hasPlatform(platform)) {
+      return toParsedProfile(platform, platformHandle[2], input);
     }
   }
 
@@ -114,17 +178,17 @@ export function parseProfileUrl(rawInput: string): ParsedProfileUrl | InvalidPro
   return { input, reason: "domínio não suportado" };
 }
 
-export function parseProfileImport(text: string) {
+export function parseProfileImport(text: string, defaultPlatform?: Platform) {
   const seen = new Set<string>();
   const valid: ParsedProfileUrl[] = [];
   const invalid: InvalidProfileUrl[] = [];
 
   text
-    .split(/\r?\n/)
+    .split(/[\r\n,;]+/)
     .map((line) => line.trim())
     .filter(Boolean)
     .forEach((line) => {
-      const parsed = parseProfileUrl(line);
+      const parsed = parseProfileUrl(line, defaultPlatform);
 
       if ("reason" in parsed) {
         invalid.push(parsed);

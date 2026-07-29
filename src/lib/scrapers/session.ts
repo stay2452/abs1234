@@ -1,49 +1,79 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import type { BrowserSession } from "@prisma/client";
-import { chromium, type BrowserContext } from "playwright";
-import { ensureDefaultSearchProvider } from "@/lib/browser-profile";
-import { PLATFORM_LABELS, PLATFORMS, type Platform } from "@/lib/constants";
-import { prisma } from "@/lib/db";
-import { maskProxy, parseProxyConfig } from "@/lib/proxy";
+import type { CollectorSession } from "@prisma/client";
+import { prisma, withDbWriteRetry } from "@/lib/db";
+import {
+  fetchBrightDataBalance,
+  FREE_TIER_CREDITS,
+  isInsufficientCreditError,
+  type CreditStatus,
+} from "@/lib/scrapers/brightdata-balance";
 
-const globalForSessions = globalThis as unknown as {
-  loginContexts?: Map<string, BrowserContext>;
-};
+/** Valor gravado em CollectorSession.platform: chave serve qualquer plataforma. */
+export const GLOBAL_SESSION_PLATFORM = "global";
 
-const loginContexts = globalForSessions.loginContexts ?? new Map<string, BrowserContext>();
-globalForSessions.loginContexts = loginContexts;
-
-type CreateBrowserSessionInput = {
-  platform: Platform;
+type CreateCollectorSessionInput = {
   name: string;
-  proxyUrl?: string | null;
+  provider?: ApiProvider;
+  apiKey: string;
 };
 
-type UpdateBrowserSessionInput = {
+type UpdateCollectorSessionInput = {
   id: string;
   name?: string;
-  proxyUrl?: string | null;
-  status?: string;
+  provider?: ApiProvider;
+  apiKey?: string;
+  status?: "active" | "paused";
 };
 
-export type BrowserSessionView = {
+export type ApiProvider = "brightdata";
+
+/** Classificacao principal: credito, nao "boa/ruim" por falha generica. */
+export type SessionHealth = "has_credit" | "no_credit" | "unknown" | "paused";
+
+export type CollectorSessionView = {
   id: string;
-  platform: Platform;
+  scope: "global";
   name: string;
-  proxyLabel: string;
-  hasProxy: boolean;
-  hasStorage: boolean;
+  provider: ApiProvider | null;
+  providerLabel: string | null;
+  hasApiKey: boolean;
+  credentialLabel: string;
   status: string;
-  lastOpenedAt: string | null;
-  lastUsedAt: string | null;
+  health: SessionHealth;
+  healthLabel: string;
+  queuePosition: number | null;
+  creditStatus: CreditStatus;
+  balanceUsd: number | null;
+  pendingBalanceUsd: number | null;
+  creditsRemaining: number | null;
+  creditsSource: string | null;
+  creditsLabel: string;
+  balanceCheckedAt: string | null;
+  balanceError: string | null;
+  monthRecordsUsed: number;
+  lastAttemptedAt: string | null;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  consecutiveFailures: number;
   createdAt: string;
 };
 
-export type BrowserSessionTestResult = {
+export type SessionPoolSummary = {
+  total: number;
+  hasCredit: number;
+  noCredit: number;
+  unknown: number;
+  paused: number;
+  activeInQueue: number;
+};
+
+export type CollectorSessionsList = {
+  sessions: CollectorSessionView[];
+  summary: SessionPoolSummary;
+};
+
+export type CollectorSessionTestResult = {
   sessionId: string;
   ok: boolean;
-  proxyLabel: string;
   checks: Array<{
     label: string;
     url: string;
@@ -53,314 +83,648 @@ export type BrowserSessionTestResult = {
   }>;
 };
 
-export type ActiveBrowserSession = BrowserSession & { platform: Platform };
+export type ActiveCollectorSession = CollectorSession;
 
-function isPlatform(value: string): value is Platform {
-  return PLATFORMS.includes(value as Platform);
+const API_PROVIDER_LABELS: Record<ApiProvider, string> = {
+  brightdata: "Bright Data",
+};
+
+function isApiProvider(value: string | null | undefined): value is ApiProvider {
+  return value === "brightdata";
 }
 
-function normalizeName(name: string, platform: Platform) {
+function normalizeProvider(provider?: string | null) {
+  const trimmed = provider?.trim().toLowerCase();
+  return isApiProvider(trimmed) ? trimmed : null;
+}
+
+function normalizeName(name: string) {
   const trimmed = name.trim();
-  return trimmed || `${PLATFORM_LABELS[platform]} isolado`;
+  return trimmed || "Bright Data";
 }
 
-function normalizeProxyUrl(proxyUrl?: string | null) {
-  const trimmed = proxyUrl?.trim();
+function normalizeApiKey(apiKey?: string | null) {
+  const trimmed = apiKey?.trim();
   return trimmed || null;
 }
 
-function makeStorageKey(platform: Platform) {
-  return `${platform}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+function makeLegacyStorageKey(provider: ApiProvider) {
+  return `global-${provider}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function getSessionDir(session: Pick<BrowserSession, "storageKey">) {
-  return path.join(process.cwd(), ".sessions", session.storageKey);
-}
-
-export function getPlatformLoginUrl(platform: Platform) {
-  return platform === "instagram" ? "https://www.instagram.com/" : "https://www.tiktok.com/login";
-}
-
-async function ensureSessionDir(session: Pick<BrowserSession, "storageKey">) {
-  const dir = getSessionDir(session);
-  await fs.mkdir(dir, { recursive: true });
-  return dir;
-}
-
-async function removeSessionDir(session: Pick<BrowserSession, "storageKey">) {
-  const sessionsRoot = path.resolve(process.cwd(), ".sessions");
-  const sessionDir = path.resolve(getSessionDir(session));
-
-  if (sessionDir === sessionsRoot || !sessionDir.startsWith(`${sessionsRoot}${path.sep}`)) {
-    throw new Error("Caminho da sessao invalido.");
+function requireApiSession(session: CollectorSession) {
+  if (session.kind !== "api") {
+    throw new Error("Sessoes de navegador foram desativadas. Cadastre uma API Bright Data.");
   }
 
-  await fs.rm(sessionDir, { recursive: true, force: true });
-}
-
-export async function hasSavedSession(session: Pick<BrowserSession, "storageKey">) {
-  try {
-    const entries = await fs.readdir(getSessionDir(session), { recursive: true });
-    return entries.length > 0;
-  } catch {
-    return false;
+  const provider = normalizeProvider(session.provider);
+  if (provider !== "brightdata" || !session.apiKey?.trim()) {
+    throw new Error("Sessao API sem provedor Bright Data ou chave cadastrada.");
   }
+
+  return { provider, apiKey: session.apiKey };
 }
 
-async function ensureSeedBrowserSessions() {
-  for (const platform of PLATFORMS) {
-    const count = await prisma.browserSession.count({ where: { platform } });
+async function getSession(id: string) {
+  return prisma.collectorSession.findUniqueOrThrow({
+    where: { id },
+  });
+}
 
-    if (count === 0) {
-      await prisma.browserSession.create({
-        data: {
-          platform,
-          name: `${PLATFORM_LABELS[platform]} principal`,
-          storageKey: platform,
-          status: "active",
-        },
-      });
+function monthStartUtc(now = new Date()) {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+
+export function classifySessionHealth(session: {
+  status: string;
+  creditStatus?: string | null;
+}): SessionHealth {
+  if (session.status !== "active") {
+    return "paused";
+  }
+
+  const credit = session.creditStatus ?? "unknown";
+  if (credit === "has_credit") {
+    return "has_credit";
+  }
+  if (credit === "no_credit") {
+    return "no_credit";
+  }
+  return "unknown";
+}
+
+function healthLabel(health: SessionHealth) {
+  if (health === "has_credit") {
+    return "com credito";
+  }
+  if (health === "no_credit") {
+    return "sem credito";
+  }
+  if (health === "paused") {
+    return "pausada";
+  }
+  return "credito desconhecido";
+}
+
+function formatCreditsLabel(input: {
+  creditsRemaining: number | null;
+  creditsSource: string | null;
+  balanceUsd: number | null;
+  monthRecordsUsed: number;
+}) {
+  if (input.creditsRemaining !== null && Number.isFinite(input.creditsRemaining)) {
+    const rounded = Math.round(input.creditsRemaining);
+    if (input.creditsSource === "official") {
+      const usd =
+        input.balanceUsd !== null ? ` · US$ ${input.balanceUsd.toFixed(2)}` : "";
+      return `~${rounded.toLocaleString("pt-BR")} creditos (saldo oficial)${usd}`;
     }
+    if (input.creditsSource === "estimated_local") {
+      return `~${rounded.toLocaleString("pt-BR")} creditos est. (uso local ${input.monthRecordsUsed.toLocaleString("pt-BR")}/${FREE_TIER_CREDITS.toLocaleString("pt-BR")} no mes)`;
+    }
+    return `~${rounded.toLocaleString("pt-BR")} creditos`;
   }
+
+  if (input.monthRecordsUsed > 0) {
+    return `uso local no mes: ${input.monthRecordsUsed.toLocaleString("pt-BR")} registros (saldo BD indisponivel)`;
+  }
+
+  return "saldo nao consultado";
 }
 
-async function sessionToView(session: BrowserSession): Promise<BrowserSessionView> {
+function sessionToView(
+  session: CollectorSession,
+  queuePosition: number | null,
+  monthRecordsUsed: number,
+): CollectorSessionView {
+  const provider = normalizeProvider(session.provider);
+  const providerLabel = provider ? API_PROVIDER_LABELS[provider] : null;
+  const health = classifySessionHealth(session);
+  const creditStatus = (session.creditStatus as CreditStatus) || "unknown";
+  const balanceUsd = session.balanceUsd ?? null;
+  const creditsRemaining = session.creditsRemaining ?? null;
+  const creditsSource = session.creditsSource ?? null;
+
   return {
     id: session.id,
-    platform: session.platform as Platform,
+    scope: "global",
     name: session.name,
-    proxyLabel: maskProxy(session.proxyUrl),
-    hasProxy: Boolean(session.proxyUrl),
-    hasStorage: await hasSavedSession(session),
+    provider,
+    providerLabel,
+    hasApiKey: Boolean(session.apiKey?.trim()),
+    credentialLabel: session.apiKey?.trim() ? "chave cadastrada" : "sem chave",
     status: session.status,
-    lastOpenedAt: session.lastOpenedAt?.toISOString() ?? null,
-    lastUsedAt: session.lastUsedAt?.toISOString() ?? null,
+    health,
+    healthLabel: healthLabel(health),
+    queuePosition,
+    creditStatus,
+    balanceUsd,
+    pendingBalanceUsd: session.pendingBalanceUsd ?? null,
+    creditsRemaining,
+    creditsSource,
+    creditsLabel: formatCreditsLabel({
+      creditsRemaining,
+      creditsSource,
+      balanceUsd,
+      monthRecordsUsed,
+    }),
+    balanceCheckedAt: session.balanceCheckedAt?.toISOString() ?? null,
+    balanceError: session.balanceError,
+    monthRecordsUsed,
+    lastAttemptedAt: session.lastAttemptedAt?.toISOString() ?? null,
+    lastSuccessAt: session.lastSuccessAt?.toISOString() ?? null,
+    lastError: session.lastError,
+    consecutiveFailures: session.consecutiveFailures,
     createdAt: session.createdAt.toISOString(),
   };
 }
 
-export async function listBrowserSessions() {
-  await ensureSeedBrowserSessions();
-  const sessions = await prisma.browserSession.findMany({
-    orderBy: [{ platform: "asc" }, { status: "asc" }, { createdAt: "asc" }],
-  });
-
-  return Promise.all(sessions.map(sessionToView));
-}
-
-export async function createBrowserSession(input: CreateBrowserSessionInput) {
-  const session = await prisma.browserSession.create({
-    data: {
-      platform: input.platform,
-      name: normalizeName(input.name, input.platform),
-      proxyUrl: normalizeProxyUrl(input.proxyUrl),
-      storageKey: makeStorageKey(input.platform),
-      status: "active",
-    },
-  });
-
-  await ensureSessionDir(session);
-  return sessionToView(session);
-}
-
-export async function updateBrowserSession(input: UpdateBrowserSessionInput) {
-  const existing = await prisma.browserSession.findUniqueOrThrow({
-    where: { id: input.id },
-  });
-  const platform = isPlatform(existing.platform) ? existing.platform : "instagram";
-  const session = await prisma.browserSession.update({
-    where: { id: input.id },
-    data: {
-      name: input.name === undefined ? undefined : normalizeName(input.name, platform),
-      proxyUrl: input.proxyUrl === undefined ? undefined : normalizeProxyUrl(input.proxyUrl),
-      status: input.status,
-    },
-  });
-
-  return sessionToView(session);
-}
-
-export async function deleteBrowserSession(id: string) {
-  const session = await getBrowserSession(id);
-  const context = loginContexts.get(session.id);
-
-  if (context) {
-    await context.close().catch(() => undefined);
-    loginContexts.delete(session.id);
-  }
-
-  await prisma.browserSession.delete({
-    where: { id: session.id },
-  });
-  await removeSessionDir(session);
-  await ensureSeedBrowserSessions();
-
-  return { deleted: true, id: session.id };
-}
-
-export async function getActiveBrowserSessions(platform: Platform): Promise<ActiveBrowserSession[]> {
-  await ensureSeedBrowserSessions();
-  const sessions = await prisma.browserSession.findMany({
-    where: { platform, status: "active" },
-    orderBy: [{ lastUsedAt: "asc" }, { createdAt: "asc" }],
-  });
-
-  if (sessions.length === 0) {
-    throw new Error(`Nenhuma sessao ativa de ${PLATFORM_LABELS[platform]} encontrada.`);
-  }
-
-  return sessions.map((session) => ({ ...session, platform }));
-}
-
-async function getBrowserSession(id: string) {
-  const session = await prisma.browserSession.findUniqueOrThrow({
-    where: { id },
-  });
-
-  if (!isPlatform(session.platform)) {
-    throw new Error("Sessao com plataforma invalida.");
-  }
-
-  return session as BrowserSession & { platform: Platform };
-}
-
-export async function openLoginBrowser(sessionId: string) {
-  const session = await getBrowserSession(sessionId);
-  const existing = loginContexts.get(session.id);
-
-  if (existing) {
-    const page = existing.pages()[0] ?? (await existing.newPage());
-    await page.goto(getPlatformLoginUrl(session.platform), { waitUntil: "domcontentloaded" });
-    await page.bringToFront();
-    await prisma.browserSession.update({
-      where: { id: session.id },
-      data: { lastOpenedAt: new Date() },
-    });
-    return { alreadyOpen: true };
-  }
-
-  const userDataDir = await ensureSessionDir(session);
-  await ensureDefaultSearchProvider(userDataDir);
-  const context = await chromium.launchPersistentContext(userDataDir, {
-    headless: false,
-    viewport: { width: 1280, height: 860 },
-    proxy: parseProxyConfig(session.proxyUrl),
-    args: ["--disable-blink-features=AutomationControlled"],
-  });
-
-  loginContexts.set(session.id, context);
-  context.on("close", () => loginContexts.delete(session.id));
-
-  const page = context.pages()[0] ?? (await context.newPage());
-  await page.goto(getPlatformLoginUrl(session.platform), { waitUntil: "domcontentloaded" });
-  await prisma.browserSession.update({
-    where: { id: session.id },
-    data: { lastOpenedAt: new Date() },
-  });
-
-  return { alreadyOpen: false };
-}
-
-export async function testBrowserSession(sessionId: string): Promise<BrowserSessionTestResult> {
-  const session = await getBrowserSession(sessionId);
-  const existing = loginContexts.get(session.id);
-  let context = existing;
-  let shouldCloseContext = false;
-
-  if (!context) {
-    const userDataDir = await ensureSessionDir(session);
-    await ensureDefaultSearchProvider(userDataDir);
-    context = await chromium.launchPersistentContext(userDataDir, {
-      headless: true,
-      viewport: { width: 1280, height: 900 },
-      proxy: parseProxyConfig(session.proxyUrl),
-      args: ["--disable-blink-features=AutomationControlled"],
-    });
-    shouldCloseContext = true;
-  }
-
-  const checks: BrowserSessionTestResult["checks"] = [];
-  const targets = [
-    { label: "IP publico", url: "https://api.ipify.org?format=json" },
-    { label: "Site neutro", url: "https://example.com/" },
-  ];
-
-  try {
-    for (const target of targets) {
-      const page = await context.newPage();
-      try {
-        const response = await page.goto(target.url, {
-          waitUntil: "domcontentloaded",
-          timeout: 20_000,
-        });
-        const text = await page.locator("body").textContent({ timeout: 3000 }).catch(() => "");
-        checks.push({
-          label: target.label,
-          url: target.url,
-          ok: Boolean(response?.ok()),
-          status: response?.status() ?? null,
-          detail: (text ?? "").trim().slice(0, 140) || "carregou sem texto",
-        });
-      } catch (error) {
-        checks.push({
-          label: target.label,
-          url: target.url,
-          ok: false,
-          status: null,
-          detail: error instanceof Error ? error.message : String(error),
-        });
-      } finally {
-        await page.close().catch(() => undefined);
-      }
-    }
-  } finally {
-    if (shouldCloseContext) {
-      await context.close().catch(() => undefined);
-    }
-  }
-
+function buildPoolSummary(sessions: CollectorSessionView[]): SessionPoolSummary {
   return {
-    sessionId: session.id,
-    ok: checks.some((check) => check.ok),
-    proxyLabel: maskProxy(session.proxyUrl),
-    checks,
+    total: sessions.length,
+    hasCredit: sessions.filter((session) => session.health === "has_credit").length,
+    noCredit: sessions.filter((session) => session.health === "no_credit").length,
+    unknown: sessions.filter((session) => session.health === "unknown").length,
+    paused: sessions.filter((session) => session.health === "paused").length,
+    activeInQueue: sessions.filter((session) => session.queuePosition !== null).length,
   };
 }
 
-export async function getScrapeContextForSession(session: ActiveBrowserSession) {
-  const existing = loginContexts.get(session.id);
+export async function migrateSessionsToGlobalScope() {
+  await prisma.collectorSession.updateMany({
+    where: {
+      kind: "api",
+      NOT: { platform: GLOBAL_SESSION_PLATFORM },
+    },
+    data: { platform: GLOBAL_SESSION_PLATFORM },
+  });
+}
 
-  if (existing) {
-    await prisma.browserSession.update({
-      where: { id: session.id },
-      data: { lastUsedAt: new Date() },
-    });
+async function monthUsageBySession(sessionIds: string[]) {
+  if (sessionIds.length === 0) {
+    return new Map<string, number>();
+  }
 
+  const since = monthStartUtc();
+  const rows = await prisma.scrapeAttempt.groupBy({
+    by: ["sessionId"],
+    where: {
+      sessionId: { in: sessionIds },
+      startedAt: { gte: since },
+    },
+    _sum: { recordsReceived: true },
+  });
+
+  return new Map(
+    rows
+      .filter((row) => row.sessionId)
+      .map((row) => [row.sessionId as string, row._sum.recordsReceived ?? 0]),
+  );
+}
+
+function applyLocalCreditEstimate(
+  session: CollectorSession,
+  monthRecordsUsed: number,
+): Pick<
+  CollectorSession,
+  "creditStatus" | "creditsRemaining" | "creditsSource" | "balanceError"
+> {
+  // Se ja temos status oficial de saldo, nao sobrescrever com estimativa local.
+  if (session.creditStatus === "has_credit" || session.creditStatus === "no_credit") {
+    if (session.creditsSource === "official") {
+      return {
+        creditStatus: session.creditStatus,
+        creditsRemaining: session.creditsRemaining,
+        creditsSource: session.creditsSource,
+        balanceError: session.balanceError,
+      };
+    }
+  }
+
+  if (session.creditStatus === "no_credit" && session.creditsSource === "scrape_error") {
     return {
-      context: existing,
-      shared: true,
-      close: async () => undefined,
+      creditStatus: "no_credit",
+      creditsRemaining: 0,
+      creditsSource: "scrape_error",
+      balanceError: session.balanceError,
     };
   }
 
-  const userDataDir = await ensureSessionDir(session);
-  await ensureDefaultSearchProvider(userDataDir);
-  const context = await chromium.launchPersistentContext(userDataDir, {
-    headless: true,
-    viewport: { width: 1280, height: 900 },
-    proxy: parseProxyConfig(session.proxyUrl),
-    args: ["--disable-blink-features=AutomationControlled"],
-  });
-  await prisma.browserSession.update({
-    where: { id: session.id },
-    data: { lastUsedAt: new Date() },
+  const remaining = Math.max(0, FREE_TIER_CREDITS - monthRecordsUsed);
+  return {
+    creditStatus: remaining > 0 ? "has_credit" : "no_credit",
+    creditsRemaining: remaining,
+    creditsSource: "estimated_local",
+    balanceError:
+      session.creditStatus === "permission_denied"
+        ? "Chave sem permissao de billing — usando estimativa local."
+        : session.balanceError,
+  };
+}
+
+export async function listCollectorSessions(): Promise<CollectorSessionsList> {
+  await migrateSessionsToGlobalScope();
+
+  const sessions = await prisma.collectorSession.findMany({
+    where: { kind: "api" },
+    orderBy: [{ createdAt: "asc" }],
   });
 
+  const usage = await monthUsageBySession(sessions.map((session) => session.id));
+
+  // Enriquece com estimativa local quando nao ha saldo oficial.
+  const enriched = sessions.map((session) => {
+    const used = usage.get(session.id) ?? 0;
+    const local = applyLocalCreditEstimate(session, used);
+    return {
+      session: {
+        ...session,
+        creditStatus: local.creditStatus,
+        creditsRemaining: local.creditsRemaining,
+        creditsSource: local.creditsSource,
+        balanceError: local.balanceError,
+      } as CollectorSession,
+      used,
+    };
+  });
+
+  // Fila: so quem tem credito (ou desconhecido ainda sem estimativa zero).
+  let queueCursor = 0;
+  const views = enriched
+    .slice()
+    .sort((left, right) => {
+      // Com credito primeiro, depois unknown, sem credito, pausadas no fim.
+      const rank = (item: { session: CollectorSession }) => {
+        if (item.session.status !== "active") {
+          return 3;
+        }
+        if (item.session.creditStatus === "has_credit") {
+          return 0;
+        }
+        if (item.session.creditStatus === "unknown") {
+          return 1;
+        }
+        return 2;
+      };
+      const diff = rank(left) - rank(right);
+      if (diff !== 0) {
+        return diff;
+      }
+      const leftCredits = left.session.creditsRemaining ?? -1;
+      const rightCredits = right.session.creditsRemaining ?? -1;
+      if (leftCredits !== rightCredits) {
+        return rightCredits - leftCredits;
+      }
+      return left.session.createdAt.getTime() - right.session.createdAt.getTime();
+    })
+    .map(({ session, used }) => {
+      const eligible =
+        session.status === "active" &&
+        Boolean(session.apiKey?.trim()) &&
+        normalizeProvider(session.provider) === "brightdata" &&
+        session.creditStatus !== "no_credit";
+
+      let queuePosition: number | null = null;
+      if (eligible) {
+        queueCursor += 1;
+        queuePosition = queueCursor;
+      }
+
+      return sessionToView(session, queuePosition, used);
+    });
+
   return {
-    context,
-    shared: false,
-    close: async () => {
-      await context.close();
-    },
+    sessions: views,
+    summary: buildPoolSummary(views),
   };
+}
+
+/**
+ * Consulta GET /customer/balance para cada chave (ou uma) e grava cache local.
+ * Chaves sem permissao de billing ficam com permission_denied + estimativa local.
+ */
+export async function refreshSessionBalances(sessionId?: string) {
+  await migrateSessionsToGlobalScope();
+
+  const sessions = await prisma.collectorSession.findMany({
+    where: {
+      kind: "api",
+      id: sessionId ? sessionId : undefined,
+      apiKey: { not: null },
+    },
+    orderBy: [{ createdAt: "asc" }],
+  });
+
+  const usage = await monthUsageBySession(sessions.map((session) => session.id));
+  const results: Array<{ id: string; name: string; creditStatus: string; creditsLabel: string }> =
+    [];
+
+  for (const session of sessions) {
+    const apiKey = session.apiKey?.trim();
+    if (!apiKey) {
+      continue;
+    }
+
+    const probe = await fetchBrightDataBalance(apiKey);
+    const used = usage.get(session.id) ?? 0;
+    const now = new Date();
+
+    let creditStatus = probe.creditStatus;
+    let creditsRemaining = probe.creditsFromBalance;
+    let creditsSource: string | null = null;
+    let balanceError = probe.message;
+
+    if (probe.creditStatus === "has_credit" || probe.creditStatus === "no_credit") {
+      creditsSource = "official";
+      if (probe.creditStatus === "no_credit") {
+        creditsRemaining = 0;
+      }
+    } else if (probe.creditStatus === "permission_denied") {
+      const remaining = Math.max(0, FREE_TIER_CREDITS - used);
+      creditStatus = remaining > 0 ? "has_credit" : "no_credit";
+      creditsRemaining = remaining;
+      creditsSource = "estimated_local";
+    } else {
+      const remaining = Math.max(0, FREE_TIER_CREDITS - used);
+      creditStatus = remaining > 0 ? "has_credit" : "no_credit";
+      creditsRemaining = remaining;
+      creditsSource = "estimated_local";
+    }
+
+    const updated = await prisma.collectorSession.update({
+      where: { id: session.id },
+      data: {
+        creditStatus,
+        balanceUsd: probe.balanceUsd,
+        pendingBalanceUsd: probe.pendingBalanceUsd,
+        creditsRemaining,
+        creditsSource,
+        balanceCheckedAt: now,
+        balanceError,
+      },
+    });
+
+    results.push({
+      id: updated.id,
+      name: updated.name,
+      creditStatus: updated.creditStatus,
+      creditsLabel: formatCreditsLabel({
+        creditsRemaining: updated.creditsRemaining,
+        creditsSource: updated.creditsSource,
+        balanceUsd: updated.balanceUsd,
+        monthRecordsUsed: used,
+      }),
+    });
+  }
+
+  return { refreshed: results.length, results };
+}
+
+export async function createCollectorSession(input: CreateCollectorSessionInput) {
+  const provider = normalizeProvider(input.provider) ?? "brightdata";
+  const apiKey = normalizeApiKey(input.apiKey);
+
+  if (provider !== "brightdata" || !apiKey) {
+    throw new Error("Informe uma chave Bright Data valida.");
+  }
+
+  const session = await prisma.collectorSession.create({
+    data: {
+      platform: GLOBAL_SESSION_PLATFORM,
+      name: normalizeName(input.name),
+      kind: "api",
+      provider,
+      apiKey,
+      legacyStorageKey: makeLegacyStorageKey(provider),
+      status: "active",
+      creditStatus: "unknown",
+    },
+  });
+
+  // Tenta ler saldo na hora (best effort).
+  try {
+    await refreshSessionBalances(session.id);
+  } catch {
+    // Cadastro nao depende do saldo.
+  }
+
+  const list = await listCollectorSessions();
+  const view = list.sessions.find((item) => item.id === session.id);
+  return view ?? sessionToView(session, null, 0);
+}
+
+export async function updateCollectorSession(input: UpdateCollectorSessionInput) {
+  const existing = await getSession(input.id);
+  requireApiSession(existing);
+
+  if (input.provider !== undefined && input.provider !== "brightdata") {
+    throw new Error("Provedor API invalido.");
+  }
+
+  if (input.apiKey !== undefined && !normalizeApiKey(input.apiKey)) {
+    throw new Error("A chave Bright Data nao pode ficar vazia.");
+  }
+
+  const clearingFailures = input.status === "active" && existing.status !== "active";
+
+  const session = await prisma.collectorSession.update({
+    where: { id: input.id },
+    data: {
+      platform: GLOBAL_SESSION_PLATFORM,
+      name: input.name === undefined ? undefined : normalizeName(input.name),
+      provider: input.provider,
+      apiKey: input.apiKey === undefined ? undefined : normalizeApiKey(input.apiKey),
+      status: input.status,
+      consecutiveFailures: clearingFailures ? 0 : undefined,
+      lastError: clearingFailures ? null : undefined,
+      // Ao reativar, zera "sem credito" por erro antigo e reconsulta depois.
+      creditStatus: clearingFailures ? "unknown" : undefined,
+      balanceError: clearingFailures ? null : undefined,
+    },
+  });
+
+  if (clearingFailures || input.apiKey !== undefined) {
+    try {
+      await refreshSessionBalances(session.id);
+    } catch {
+      // ignore
+    }
+  }
+
+  const list = await listCollectorSessions();
+  const view = list.sessions.find((item) => item.id === session.id);
+  return view ?? sessionToView(session, null, 0);
+}
+
+export async function deleteCollectorSession(id: string) {
+  const session = await getSession(id);
+  await prisma.collectorSession.delete({ where: { id: session.id } });
+  return { deleted: true, id: session.id };
+}
+
+/**
+ * Workers so usam chaves ativas com credito (oficial ou estimado).
+ * Ordena por mais credito restante.
+ */
+export async function getActiveCollectorSessions(): Promise<ActiveCollectorSession[]> {
+  await migrateSessionsToGlobalScope();
+
+  const sessions = await prisma.collectorSession.findMany({
+    where: {
+      kind: "api",
+      provider: "brightdata",
+      status: "active",
+      apiKey: { not: null },
+    },
+    orderBy: [{ createdAt: "asc" }],
+  });
+
+  const withKey = sessions.filter((session) => Boolean(session.apiKey?.trim()));
+  const usage = await monthUsageBySession(withKey.map((session) => session.id));
+
+  const enriched = withKey.map((session) => {
+    const used = usage.get(session.id) ?? 0;
+    const local = applyLocalCreditEstimate(session, used);
+    return {
+      ...session,
+      creditStatus: local.creditStatus,
+      creditsRemaining: local.creditsRemaining,
+      creditsSource: local.creditsSource,
+    } as CollectorSession;
+  });
+
+  const withCredit = enriched
+    .filter((session) => session.creditStatus !== "no_credit")
+    .sort((left, right) => {
+      const leftCredits = left.creditsRemaining ?? 0;
+      const rightCredits = right.creditsRemaining ?? 0;
+      if (leftCredits !== rightCredits) {
+        return rightCredits - leftCredits;
+      }
+      return left.createdAt.getTime() - right.createdAt.getTime();
+    });
+
+  if (withCredit.length === 0) {
+    return [];
+  }
+
+  return withCredit;
+}
+
+export async function recordCollectorSessionSuccess(id: string) {
+  return withDbWriteRetry(() =>
+    prisma.collectorSession.update({
+      where: { id },
+      data: {
+        lastAttemptedAt: new Date(),
+        lastSuccessAt: new Date(),
+        lastError: null,
+        consecutiveFailures: 0,
+        // Sucesso implica que havia credito na conta.
+        creditStatus: "has_credit",
+      },
+    }),
+  );
+}
+
+export async function recordCollectorSessionNoData(id: string) {
+  const session = await prisma.collectorSession.findUnique({
+    where: { id },
+    select: { creditsSource: true, creditsRemaining: true, creditStatus: true },
+  });
+
+  // Coleta no_data ainda consome credito no Bright Data (1 request = 1 credito free tier).
+  // So decrementa estimativa local; saldo oficial e revalidado no proximo refresh.
+  const shouldDecrementLocalCredit =
+    session?.creditsSource === "estimated_local" &&
+    typeof session.creditsRemaining === "number" &&
+    session.creditsRemaining > 0;
+
+  return withDbWriteRetry(() =>
+    prisma.collectorSession.update({
+      where: { id },
+      data: {
+        lastAttemptedAt: new Date(),
+        lastError: null,
+        consecutiveFailures: 0,
+        ...(shouldDecrementLocalCredit
+          ? {
+              creditsRemaining: Math.max(0, (session!.creditsRemaining as number) - 1),
+              creditStatus:
+                (session!.creditsRemaining as number) - 1 <= 0 ? "no_credit" : "has_credit",
+            }
+          : {}),
+      },
+    }),
+  );
+}
+
+export async function recordCollectorSessionFailure(
+  id: string,
+  error: string,
+  pause: boolean,
+) {
+  const noCredit = isInsufficientCreditError(error);
+
+  return withDbWriteRetry(() =>
+    prisma.collectorSession.update({
+      where: { id },
+      data: {
+        lastAttemptedAt: new Date(),
+        lastError: error.slice(0, 240),
+        consecutiveFailures: { increment: 1 },
+        status: pause ? "paused" : undefined,
+        creditStatus: noCredit ? "no_credit" : undefined,
+        creditsRemaining: noCredit ? 0 : undefined,
+        creditsSource: noCredit ? "scrape_error" : undefined,
+        balanceError: noCredit ? error.slice(0, 240) : undefined,
+      },
+    }),
+  );
+}
+
+export async function testCollectorSession(sessionId: string): Promise<CollectorSessionTestResult> {
+  const session = await getSession(sessionId);
+  requireApiSession(session);
+
+  const refresh = await refreshSessionBalances(sessionId);
+  const result = refresh.results[0];
+
+  return {
+    sessionId: session.id,
+    ok: true,
+    checks: [
+      {
+        label: "Cadastro local",
+        url: "local",
+        ok: true,
+        status: null,
+        detail: "Chave global salva localmente (IG + TikTok).",
+      },
+      {
+        label: "Saldo / credito",
+        url: "https://api.brightdata.com/customer/balance",
+        ok: result?.creditStatus !== "no_credit",
+        status: null,
+        detail: result
+          ? `${result.creditStatus}: ${result.creditsLabel}`
+          : "Nao foi possivel atualizar o saldo.",
+      },
+    ],
+  };
+}
+
+// Compat: testes antigos que importavam classify por falhas.
+export function classifySessionHealthLegacy(session: {
+  status: string;
+  consecutiveFailures: number;
+  lastError: string | null;
+}): "good" | "bad" | "paused" {
+  if (session.status !== "active") {
+    return "paused";
+  }
+  if (session.consecutiveFailures > 0 || Boolean(session.lastError?.trim())) {
+    return "bad";
+  }
+  return "good";
 }

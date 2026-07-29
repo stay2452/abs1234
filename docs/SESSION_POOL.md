@@ -1,73 +1,49 @@
-# Pool de sessoes
+# Pool global de chaves Bright Data
 
-O app deve funcionar como um gerenciador local de navegadores isolados. A ideia e parecida com multi-login: cada sessao abre um Chromium persistente com cookies, storage e proxy proprios.
+Cada sessao e uma **chave API global**. Nao existe mais chave "so Instagram" ou "so TikTok".
+A plataforma e a do **perfil**; a chave autentica a conta Bright Data.
 
-## Conceito
+## Estado operacional
 
-Uma `BrowserSession` representa um navegador isolado para uma plataforma.
+- `active`: candidata a worker (se tiver credito).
+- `paused`: fora dos workers (manual ou auth/conta).
+- Prisma: `platform` fixo em `global` (legado IG/TT migrado automaticamente).
+- Tabela legada: `BrowserSession` (map do model `CollectorSession`).
 
-Campos importantes:
+## Credito (criterio principal da fila)
 
-- `platform`: `instagram` ou `tiktok`.
-- `name`: nome humano da sessao.
-- `storageKey`: chave unica do diretorio persistente.
-- `proxyUrl`: proxy opcional.
-- `status`: `active` ou `paused`.
-- `lastOpenedAt`: ultima abertura manual de login.
-- `lastUsedAt`: ultimo uso pela coleta.
+| Estado | Criterio | Worker? |
+|--------|----------|---------|
+| **com credito** | saldo oficial > 0 **ou** estimativa local > 0 | sim |
+| **sem credito** | saldo 0 / erro de fundos / free 5k do mes esgotado (estimado) | **nao** |
+| **desconhecido** | ainda nao consultado (tratado com estimativa ao listar) | sim se estimado > 0 |
+| **pausada** | `status = paused` | nao |
 
-## Isolamento
+### Como lemos o saldo
 
-- Cada sessao usa `.sessions/{storageKey}`.
-- O Playwright abre `chromium.launchPersistentContext` nesse diretorio.
-- Uma sessao nao deve ler nem reutilizar dados de outra.
-- Abrir varias abas dentro da mesma sessao compartilha o mesmo storage daquela sessao.
-- Abrir outra sessao cria outro contexto persistente separado.
+1. **Oficial:** `GET https://api.brightdata.com/customer/balance`  
+   - Campos: `balance`, `pending_balance` (US$).  
+   - Precisa de **permissao de billing** na API key; chaves so de scraper costumam retornar **403**.  
+   - Conversao de referencia free tier: ~5000 creditos ≈ US$ 7,50.
 
-## Pool de coleta
+2. **Estimativa local** (quando 403 ou falha):  
+   `creditsRemaining ≈ 5000 − sum(recordsReceived no mes por sessionId)`.
 
-- Para cada plataforma, a coleta busca somente sessoes com `status = active`.
-- Perfis ativos sao distribuidos entre as sessoes por round-robin.
-- As sessoes rodam em paralelo.
-- Dentro de cada sessao, os perfis atribuidos rodam em sequencia.
-- Se uma sessao falhar, o erro deve ficar registrado no `ScrapeRun` sem apagar dados antigos.
+3. **Erro de coleta** com mensagem de credito/saldo/402: marca `creditStatus = no_credit`.
 
-## Sem sessao padrao
+Botao **Atualizar saldos** em `/settings`. Workers ordenam por **mais credito remanescente**.
 
-Nao existe mais o conceito de uma sessao padrao escolhida manualmente para tudo.
+## Workers
 
-O botao antigo de "Padrao" nao deve voltar porque ele enfraquece o modelo de pool. O controle correto e:
+- Ate `SCRAPE_MAX_PARALLEL_KEYS` (**20**) chaves **com credito** em paralelo.
+- Cada chave: 1 perfil por vez; adaptador IG ou TT pelo `Profile.platform`.
+- Auth/conta → pausa persistente. Provider → esgota neste run. Transient → so o perfil re-tenta. not_found → nao troca chave.
 
-- `active`: entra no pool.
-- `paused`: fica salva, mas nao processa.
-- `delete`: remove sessao e storage isolado.
+## Free tier 5k
 
-## Proxy
+- 1 **conta** BD = 5k/mes. Varias chaves da mesma conta = **mesmo** saldo.
+- N contas distintas ≈ N × 5k (e N vezes o gasto se paralelizar).
 
-O proxy e configurado por sessao. Formatos aceitos:
+## Cadastro
 
-- `host:port`
-- `host:port:user:pass`
-- `user:pass@host:port`
-- `http://user:pass@host:port`
-- `socks5://user:pass@host:port`
-
-Quando uma sessao usa proxy, todas as abas e coletas daquela sessao usam o mesmo proxy.
-
-## Teste de proxy
-
-O botao `Testar proxy` deve validar conectividade com alvos simples:
-
-- IP publico.
-- Site neutro.
-
-Falha em busca pela barra do navegador nao significa necessariamente falha geral do proxy. Em alguns perfis Chromium isolados, colar uma URL direta funciona enquanto pesquisa na barra falha por search provider ou bloqueio de busca no proxy.
-
-## Exclusao
-
-Excluir sessao deve:
-
-1. Fechar o contexto aberto se existir.
-2. Remover o registro do banco.
-3. Apagar somente `.sessions/{storageKey}` validado.
-4. Recriar sessoes iniciais da plataforma apenas se a plataforma ficar sem nenhuma sessao.
+`/settings`: nome + API key (sem seletor de plataforma). Exibe com/sem credito, label de remanescente, fila #N.

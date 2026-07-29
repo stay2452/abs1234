@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Biblioteca de Perfis</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="brand">
+        <span class="mark" aria-hidden>✦</span>
+        <div>
+          <strong>Biblioteca de Perfis</strong>
+          <p class="sub">Painel · app local</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <span id="status" class="status status-off">…</span>
+        <button
+          id="pin"
+          class="pin-btn"
+          type="button"
+          title="Fixar no painel lateral (fica aberto, sem nova aba)"
+        >
+          Fixar
+        </button>
+      </div>
+    </header>
+
+    <section class="card">
+      <p class="label">Aba atual</p>
+      <p id="preview" class="preview">Detectando…</p>
+      <p id="preview-meta" class="meta"></p>
+    </section>
+
+    <section class="card">
+      <label class="field">
+        <span class="label">Pasta (opcional)</span>
+        <select id="folder">
+          <option value="">Sem pasta</option>
+          <option value="__new__">+ Criar pasta nova…</option>
+        </select>
+      </label>
+      <div id="new-folder-wrap" class="new-folder" hidden>
+        <label class="field">
+          <span class="label">Nome da pasta</span>
+          <input
+            id="new-folder-name"
+            type="text"
+            maxlength="60"
+            placeholder="Ex: Fitness, Beleza…"
+            autocomplete="off"
+          />
+        </label>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button id="import" class="btn primary" type="button" disabled>
+        Importar para o tracker
+      </button>
+    </div>
+
+    <p id="feedback" class="feedback" role="status"></p>
+
+    <footer class="footer">
+      <a id="open-app" href="http://127.0.0.1:3000/" target="_blank" rel="noreferrer"
+        >Abrir app</a
+      >
+      <a href="http://127.0.0.1:3000/profiles" target="_blank" rel="noreferrer">Perfis</a>
+      <a href="http://127.0.0.1:3000/folders" target="_blank" rel="noreferrer">Pastas</a>
+      <button id="refresh" class="linkish" type="button">Atualizar</button>
+    </footer>
+
+    <script src="../lib/detect.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

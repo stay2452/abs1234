@@ -1,181 +1,137 @@
-import type { ScrapedPost, ScrapedProfileResult, ScrapeProfileInput } from "@/lib/scrapers/types";
-import { numberFromUnknown } from "@/lib/scrapers/parse";
+import { TIKTOK_VIDEO_LIMIT } from "@/lib/constants";
+import {
+  type BrightDataDatasetResult,
+  type BrightDataRecord,
+  getBrightDataErrorInfo,
+  getBrightDataNumber,
+  getBrightDataString,
+  parseBrightDataDate,
+  scrapeBrightDataDataset,
+} from "@/lib/scrapers/brightdata-client";
+import {
+  ScrapeCollectionError,
+  type ScrapeDatasetUsage,
+  type DatasetProgressReporter,
+  type ScrapePartialError,
+  type ScrapedPost,
+  type ScrapedProfileResult,
+  type ScrapeProfileInput,
+} from "@/lib/scrapers/types";
 
-const BRIGHTDATA_API_BASE = "https://api.brightdata.com/datasets/v3";
 const DATASET_TIKTOK_PROFILE = "gd_l1villgoiiidt09ci";
 const DATASET_TIKTOK_POSTS_BY_PROFILE = "gd_m7n5v2gq296pex2f5m";
-const DEFAULT_TIMEOUT_MS = 120_000;
-const SNAPSHOT_POLL_ATTEMPTS = 60;
-const SNAPSHOT_POLL_DELAY_MS = 5_000;
 
-type UnknownRecord = Record<string, unknown>;
-
-function brightDataApiKey() {
-  return process.env.BRIGHTDATA_API_KEY?.trim() ?? "";
-}
-
-export function isBrightDataTikTokEnabled() {
-  return Boolean(brightDataApiKey()) && process.env.BRIGHTDATA_TIKTOK_ENABLED === "true";
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function getString(record: UnknownRecord, keys: string[]) {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
+function usageFromResult(
+  datasetId: string,
+  result: PromiseSettledResult<BrightDataDatasetResult>,
+): ScrapeDatasetUsage {
+  if (result.status === "fulfilled") {
+    return {
+      datasetId,
+      status: "success",
+      requestsMade: result.value.requestsMade,
+      recordsReceived: result.value.records.length,
+      recordsKept: 0,
+    };
   }
 
-  return null;
+  const detail = getBrightDataErrorInfo(result.reason);
+  const raw =
+    result.reason instanceof Error && result.reason.message.trim()
+      ? result.reason.message.trim().slice(0, 480)
+      : null;
+  const errorMessage =
+    detail.message && !/falha desconhecida/i.test(detail.message)
+      ? detail.message
+      : raw ?? detail.message;
+
+  return {
+    datasetId,
+    status: "failed",
+    requestsMade: 1,
+    recordsReceived: 0,
+    recordsKept: 0,
+    errorCode: detail.code,
+    errorMessage,
+  };
 }
 
-function getNumber(record: UnknownRecord, keys: string[]) {
-  for (const key of keys) {
-    const value = numberFromUnknown(record[key]);
-    if (value !== null) {
-      return value;
-    }
+function usageWithKept(usage: ScrapeDatasetUsage, recordsKept: number) {
+  if (usage.status !== "success") {
+    return usage;
   }
 
-  return null;
+  return {
+    ...usage,
+    recordsKept: Math.min(usage.recordsReceived, recordsKept),
+  };
 }
 
-function parseDate(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return new Date(value > 10_000_000_000 ? value : value * 1000);
+function partialErrorFromDatasets(datasets: ScrapeDatasetUsage[]): ScrapePartialError | undefined {
+  const failed = datasets.filter((dataset) => dataset.status === "failed");
+  if (failed.length === 0) {
+    return undefined;
   }
 
-  if (typeof value === "string" && value.trim()) {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  return null;
+  // So o dataset de perfil e essencial. Videos sao opcionais (conta sem videos
+  // publicados devolve vazio — nao e falha estrutural do run).
+  const essentialFailed = failed.some((dataset) => dataset.datasetId === DATASET_TIKTOK_PROFILE);
+  const detail = failed.find((dataset) => dataset.errorMessage)?.errorMessage;
+  return {
+    message: `Bright Data TikTok concluiu parcialmente. ${failed.length} dataset(s) falhou: ${detail ?? "erro do provedor."}`,
+    errorCode: failed.find((dataset) => dataset.errorCode)?.errorCode ?? "provider",
+    essential: essentialFailed,
+  };
 }
 
-function parseJson(text: string) {
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    throw new Error("Resposta da Bright Data nao veio em JSON valido.");
+function observeDataset<T extends BrightDataDatasetResult>(
+  datasetId: string,
+  promise: Promise<T>,
+  report?: DatasetProgressReporter,
+) {
+  if (!report) {
+    return promise;
   }
+
+  return promise.then(
+    async (result) => {
+      await report({ datasetId, status: "success", recordsReceived: result.records.length });
+      return result;
+    },
+    async (error) => {
+      await report({
+        datasetId,
+        status: "failed",
+        recordsReceived: 0,
+        errorCode: getBrightDataErrorInfo(error).code,
+      });
+      throw error;
+    },
+  );
 }
 
-async function brightDataFetch(path: string, init?: RequestInit) {
-  const apiKey = brightDataApiKey();
-
-  if (!apiKey) {
-    throw new Error("BRIGHTDATA_API_KEY nao configurada.");
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(`${BRIGHTDATA_API_BASE}${path}`, {
-      ...init,
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
-    });
-    const text = await response.text();
-
-    if (!response.ok) {
-      throw new Error(`Bright Data HTTP ${response.status}: ${text.slice(0, 240)}`);
-    }
-
-    return parseJson(text);
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Bright Data demorou demais para responder.");
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function downloadSnapshot(snapshotId: string) {
-  return brightDataFetch(`/snapshot/${encodeURIComponent(snapshotId)}?format=json`);
-}
-
-async function waitForSnapshot(snapshotId: string) {
-  for (let attempt = 0; attempt < SNAPSHOT_POLL_ATTEMPTS; attempt += 1) {
-    const progress = await brightDataFetch(`/progress/${encodeURIComponent(snapshotId)}`);
-
-    if (
-      typeof progress === "object" &&
-      progress !== null &&
-      (progress as UnknownRecord).status === "ready"
-    ) {
-      return downloadSnapshot(snapshotId);
-    }
-
-    if (
-      typeof progress === "object" &&
-      progress !== null &&
-      (progress as UnknownRecord).status === "failed"
-    ) {
-      throw new Error(`Bright Data snapshot falhou: ${JSON.stringify(progress).slice(0, 240)}`);
-    }
-
-    await sleep(SNAPSHOT_POLL_DELAY_MS);
-  }
-
-  throw new Error("Bright Data ainda nao concluiu o snapshot.");
-}
-
-async function scrapeDataset(datasetId: string, url: string) {
-  const result = await brightDataFetch(`/scrape?dataset_id=${datasetId}&format=json`, {
-    method: "POST",
-    body: JSON.stringify([{ url }]),
-  });
-
-  if (Array.isArray(result)) {
-    return result.filter((item): item is UnknownRecord => typeof item === "object" && item !== null);
-  }
-
-  if (typeof result === "object" && result !== null) {
-    const snapshotId = (result as UnknownRecord).snapshot_id;
-    if (typeof snapshotId === "string" && snapshotId) {
-      const snapshot = await waitForSnapshot(snapshotId);
-      return Array.isArray(snapshot)
-        ? snapshot.filter((item): item is UnknownRecord => typeof item === "object" && item !== null)
-        : [];
-    }
-  }
-
-  return [];
-}
-
-export function mapBrightDataTikTokProfile(records: UnknownRecord[]) {
+export function mapBrightDataTikTokProfile(records: BrightDataRecord[]) {
   const record = records[0] ?? {};
 
   return {
-    followers: getNumber(record, [
+    followers: getBrightDataNumber(record, [
       "followers",
       "followers_count",
       "follower_count",
       "followerCount",
     ]),
-    following: getNumber(record, [
+    following: getBrightDataNumber(record, [
       "following",
       "following_count",
       "followingCount",
     ]),
-    postsCount: getNumber(record, [
+    likes: getBrightDataNumber(record, [
+      "likes",
+      "likes_count",
+      "heart_count",
+      "heartCount",
+    ]),
+    postsCount: getBrightDataNumber(record, [
       "videos_count",
       "video_count",
       "videoCount",
@@ -184,54 +140,153 @@ export function mapBrightDataTikTokProfile(records: UnknownRecord[]) {
   };
 }
 
-export function mapBrightDataTikTokPost(record: UnknownRecord, handle: string): ScrapedPost | null {
-  const url = getString(record, ["url", "post_url", "video_url", "share_url"]);
-  const externalId = url ? /\/video\/(\d+)/.exec(url)?.[1] ?? null : getString(record, ["id", "video_id"]);
+function getRecordId(record: BrightDataRecord) {
+  for (const key of ["post_id", "video_id", "id"]) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
 
-  if (!url && !externalId) {
+  return null;
+}
+
+function publicTikTokPostUrl(value: string | null) {
+  if (!value || !/tiktok\.com\/@[^/?#]+\/video\/\d+/i.test(value)) {
+    return null;
+  }
+
+  return value;
+}
+
+function profileHandleFromUrl(value: string | null) {
+  return value ? /tiktok\.com\/@([^/?#]+)/i.exec(value)?.[1] ?? null : null;
+}
+
+export function mapBrightDataTikTokPost(record: BrightDataRecord, handle: string): ScrapedPost | null {
+  const url = publicTikTokPostUrl(
+    getBrightDataString(record, ["url", "post_url", "share_url", "permalink"]),
+  );
+  const externalId = /\/video\/(\d+)/.exec(url ?? "")?.[1] ?? getRecordId(record);
+  const profileHandle =
+    getBrightDataString(record, ["profile_username", "author", "user_posted", "username"]) ??
+    profileHandleFromUrl(getBrightDataString(record, ["profile_url"])) ??
+    handle;
+
+  if (!externalId || !profileHandle) {
     return null;
   }
 
   return {
     externalId,
-    url: url ?? `https://www.tiktok.com/@${handle}/video/${externalId}`,
+    url: url ?? `https://www.tiktok.com/@${profileHandle}/video/${externalId}`,
     sourceType: "video",
-    caption: getString(record, ["description", "caption", "desc", "text"]),
-    publishedAt: parseDate(
+    caption: getBrightDataString(record, ["description", "caption", "desc", "text"]),
+    publishedAt: parseBrightDataDate(
       record.date_posted ?? record.create_time ?? record.created_at ?? record.timestamp,
     ),
     metrics: {
-      views: getNumber(record, ["views", "view_count", "play_count", "plays"]),
-      likes: getNumber(record, ["likes", "like_count", "digg_count"]),
-      comments: getNumber(record, ["comments", "comment_count"]),
-      shares: getNumber(record, ["shares", "share_count"]),
-      favorites: getNumber(record, ["favorites", "collect_count", "favorite_count"]),
+      views: getBrightDataNumber(record, ["views", "view_count", "play_count", "plays"]),
+      likes: getBrightDataNumber(record, ["likes", "like_count", "digg_count"]),
+      comments: getBrightDataNumber(record, ["comments", "comment_count"]),
+      shares: getBrightDataNumber(record, ["shares", "share_count"]),
+      favorites: getBrightDataNumber(record, ["favorites", "collect_count", "favorite_count"]),
     },
   };
 }
 
+/** Reparo seletivo: somente videos recentes, sem coleta de perfil. */
+export async function scrapeTikTokRecentVideosWithBrightData(
+  profile: ScrapeProfileInput,
+  apiKey?: string | null,
+) {
+  const result = await scrapeBrightDataDataset(
+    DATASET_TIKTOK_POSTS_BY_PROFILE,
+    { url: profile.url, num_of_posts: TIKTOK_VIDEO_LIMIT },
+    apiKey,
+  );
+
+  return result.records
+    .map((record) => mapBrightDataTikTokPost(record, profile.handle))
+    .filter((post): post is ScrapedPost => post !== null)
+    .slice(0, TIKTOK_VIDEO_LIMIT);
+}
+
 export async function scrapeTikTokProfileWithBrightData(
   profile: ScrapeProfileInput,
-  limit: number,
+  apiKey?: string | null,
+  reportDataset?: DatasetProgressReporter,
 ): Promise<ScrapedProfileResult> {
-  try {
-    const [profileRecords, postRecords] = await Promise.all([
-      scrapeDataset(DATASET_TIKTOK_PROFILE, profile.url),
-      scrapeDataset(DATASET_TIKTOK_POSTS_BY_PROFILE, profile.url),
-    ]);
-    const stats = mapBrightDataTikTokProfile(profileRecords);
-    const posts = postRecords
-      .map((record) => mapBrightDataTikTokPost(record, profile.handle))
-      .filter((post): post is ScrapedPost => post !== null)
-      .slice(0, limit);
+  const datasetIds = [DATASET_TIKTOK_PROFILE, DATASET_TIKTOK_POSTS_BY_PROFILE];
+  const settled = await Promise.allSettled([
+    observeDataset(
+      DATASET_TIKTOK_PROFILE,
+      scrapeBrightDataDataset(DATASET_TIKTOK_PROFILE, { url: profile.url }, apiKey),
+      reportDataset,
+    ),
+    observeDataset(
+      DATASET_TIKTOK_POSTS_BY_PROFILE,
+      scrapeBrightDataDataset(
+        DATASET_TIKTOK_POSTS_BY_PROFILE,
+        { url: profile.url, num_of_posts: TIKTOK_VIDEO_LIMIT },
+        apiKey,
+      ),
+      reportDataset,
+    ),
+  ]);
+  const [profileResult, postsResult] = settled;
 
-    return {
-      followers: stats.followers,
-      following: stats.following,
-      postsCount: stats.postsCount,
-      posts,
-    };
-  } catch (error) {
-    throw new Error(`Bright Data TikTok falhou: ${errorMessage(error)}`);
+  const datasets = settled.map((result, index) => usageFromResult(datasetIds[index], result));
+  if (settled.every((result) => result.status === "rejected")) {
+    const failedResult = settled.find((result) => result.status === "rejected");
+    const detail = getBrightDataErrorInfo(
+      failedResult?.status === "rejected" ? failedResult.reason : null,
+    );
+    throw new ScrapeCollectionError(
+      "Bright Data TikTok falhou.",
+      datasets,
+      detail.code,
+    );
   }
+
+  const stats = mapBrightDataTikTokProfile(
+    profileResult.status === "fulfilled" ? profileResult.value.records : [],
+  );
+  const profileDataFound =
+    stats.followers !== null ||
+    stats.following !== null ||
+    stats.likes !== null ||
+    stats.postsCount !== null;
+  const posts =
+    postsResult.status === "fulfilled"
+      ? postsResult.value.records
+          .map((record) => mapBrightDataTikTokPost(record, profile.handle))
+          .filter((post): post is ScrapedPost => post !== null)
+          .sort((left, right) => {
+            const leftTime = left.publishedAt?.getTime() ?? 0;
+            const rightTime = right.publishedAt?.getTime() ?? 0;
+
+            return rightTime - leftTime;
+          })
+          .slice(0, TIKTOK_VIDEO_LIMIT)
+      : [];
+
+  const usage = [
+    usageWithKept(datasets[0], profileDataFound ? 1 : 0),
+    usageWithKept(datasets[1], posts.length),
+  ];
+
+  return {
+    followers: stats.followers,
+    following: stats.following,
+    likes: stats.likes,
+    postsCount: stats.postsCount,
+    posts,
+    profileDataFound,
+    datasets: usage,
+    partialError: partialErrorFromDatasets(usage),
+  };
 }
