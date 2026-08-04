@@ -10,6 +10,10 @@ const el = {
   pinBtn: document.getElementById("pin"),
   feedback: document.getElementById("feedback"),
   openApp: document.getElementById("open-app"),
+  openProfiles: document.getElementById("open-profiles"),
+  openFolders: document.getElementById("open-folders"),
+  backendUrl: document.getElementById("backend-url"),
+  saveBackendUrl: document.getElementById("save-backend-url"),
 };
 
 // painel lateral = página normal da extensão (sem ?pinned=)
@@ -41,13 +45,43 @@ function updateImportEnabled() {
   if (needsName && !busy) {
     el.importBtn.title = "Digite o nome da pasta nova";
   } else if (!online && !busy) {
-    el.importBtn.title = "App offline — rode npm run dev";
+    el.importBtn.title = "App offline — confira a URL do app no popup";
   } else if (!detected?.handle && !busy) {
     el.importBtn.title = "Clique para tentar detectar o @ de novo";
   } else {
     el.importBtn.title = detected?.handle
       ? `Importar @${detected.handle}`
       : "Importar para o tracker";
+  }
+}
+
+function normalizeBaseUrl(value) {
+  const base = String(value || "").trim().replace(/\/+$/, "");
+  if (!base) return "http://127.0.0.1:3000";
+  try {
+    const parsed = new URL(base);
+    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("protocol");
+    return parsed.toString().replace(/\/+$/, "");
+  } catch {
+    throw new Error("Informe uma URL válida, começando com http:// ou https://.");
+  }
+}
+
+async function loadBackendUrl() {
+  const stored = await chrome.storage.sync.get(["baseUrl"]);
+  el.backendUrl.value = stored.baseUrl || BdpApi.DEFAULT_BASE;
+}
+
+async function saveBackendUrl() {
+  try {
+    const base = normalizeBaseUrl(el.backendUrl.value);
+    setFeedback("Salvando conexão…");
+    await chrome.storage.sync.set({ baseUrl: base });
+    el.backendUrl.value = base;
+    setFeedback(`Conexão salva: ${base}. Testando o app…`, "ok");
+    await refresh({ full: true });
+  } catch (err) {
+    setFeedback(err instanceof Error ? err.message : "URL inválida.", "err");
   }
 }
 
@@ -196,7 +230,13 @@ async function refresh({ full } = { full: true }) {
     if (full) {
       const health = await chrome.runtime.sendMessage({ action: "health" });
       setStatus(Boolean(health?.ok));
-      if (health?.base) el.openApp.href = `${health.base}/`;
+       if (health?.base) {
+         const base = `${health.base}/`;
+         el.openApp.href = base;
+         el.openProfiles.href = `${base}profiles`;
+         el.openFolders.href = `${base}folders`;
+         el.backendUrl.value = health.base;
+       }
       if (!health?.ok) {
         el.previewMeta.textContent = health?.base
           ? `App offline em ${health.base}`
@@ -255,6 +295,14 @@ el.newFolderName.addEventListener("input", () => {
 
 el.refreshBtn.addEventListener("click", () => {
   void refresh({ full: true });
+});
+
+el.saveBackendUrl.addEventListener("click", () => {
+  void saveBackendUrl();
+});
+
+el.backendUrl.addEventListener("change", () => {
+  void saveBackendUrl();
 });
 
 el.pinBtn.addEventListener("click", async () => {
@@ -390,6 +438,7 @@ window.addEventListener("focus", () => {
 });
 
 startLiveLoop();
+void loadBackendUrl();
 void refresh({ full: true });
 
 window.addEventListener("unload", () => {

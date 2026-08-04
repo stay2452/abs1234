@@ -271,6 +271,154 @@ button {
   margin-top: 18px;
 }
 
+.history-panel {
+  overflow: hidden;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+}
+
+.history-table th,
+.history-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.history-table th {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.history-table small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.history-number {
+  color: var(--teal);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.history-status {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 5px;
+  color: #fff;
+  background: var(--soft);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.history-status.success {
+  color: #06201b;
+  background: var(--teal);
+}
+
+.history-status.failed,
+.history-status.partial_failed,
+.history-status.cancelled,
+.history-status.canceled {
+  background: rgba(251, 113, 133, 0.25);
+  color: #fda4af;
+}
+
+.history-status.running {
+  color: #fef08a;
+  background: rgba(234, 179, 8, 0.22);
+}
+
+.history-audit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.history-loading {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  min-height: 48vh;
+  align-content: center;
+  text-align: center;
+}
+
+.history-loading h1 {
+  margin: 0;
+}
+
+.audit-progress {
+  width: min(520px, 100%);
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--soft);
+}
+
+.audit-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--teal);
+  transition: width 180ms ease;
+}
+
+.history-summary {
+  margin-bottom: 16px;
+}
+
+.history-summary .metric-card {
+  display: grid;
+  gap: 5px;
+}
+
+.history-summary .metric-card span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.history-summary .metric-card strong {
+  font-size: 1.25rem;
+}
+
+.history-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.history-detail-header h2 {
+  margin: 0;
+}
+
+.history-error {
+  max-width: 360px;
+  color: #fda4af;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 14px;
+  color: var(--muted);
+}
+
 /* —— Ranking panel —— */
 .ranking-panel {
   min-width: 0;

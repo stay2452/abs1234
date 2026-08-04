@@ -322,7 +322,7 @@ async function importFromPayload(message) {
   if (!health.ok) {
     return {
       ok: false,
-      error: `App offline em ${health.base}. Rode: npm run dev`,
+      error: `Não foi possível conectar ao app em ${health.base}. Confira a URL salva no popup e se o Render está online.`,
       offline: true,
     };
   }

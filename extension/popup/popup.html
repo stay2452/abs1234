@@ -12,7 +12,7 @@
         <span class="mark" aria-hidden>✦</span>
         <div>
           <strong>Biblioteca de Perfis</strong>
-          <p class="sub">Painel · app local</p>
+        <p class="sub">Painel · app local ou Render</p>
         </div>
       </div>
       <div class="header-right">
@@ -27,6 +27,23 @@
         </button>
       </div>
     </header>
+
+    <section class="card">
+      <label class="field">
+        <span class="label">URL do app</span>
+        <input
+          id="backend-url"
+          type="url"
+          placeholder="https://seu-app.onrender.com"
+          autocomplete="url"
+          spellcheck="false"
+        />
+        <span class="meta">Use a URL pública do Render ou deixe local.</span>
+      </label>
+      <button id="save-backend-url" class="btn secondary backend-save" type="button">
+        Salvar conexão
+      </button>
+    </section>
 
     <section class="card">
       <p class="label">Aba atual</p>
@@ -68,12 +85,13 @@
       <a id="open-app" href="http://127.0.0.1:3000/" target="_blank" rel="noreferrer"
         >Abrir app</a
       >
-      <a href="http://127.0.0.1:3000/profiles" target="_blank" rel="noreferrer">Perfis</a>
-      <a href="http://127.0.0.1:3000/folders" target="_blank" rel="noreferrer">Pastas</a>
+      <a id="open-profiles" href="http://127.0.0.1:3000/profiles" target="_blank" rel="noreferrer">Perfis</a>
+      <a id="open-folders" href="http://127.0.0.1:3000/folders" target="_blank" rel="noreferrer">Pastas</a>
       <button id="refresh" class="linkish" type="button">Atualizar</button>
     </footer>
 
     <script src="../lib/detect.js"></script>
+    <script src="../lib/api.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, FolderOpen, Library, MessageCircle, Settings, Sparkles } from "lucide-react";
+import { BarChart3, ClipboardList, FolderOpen, Library, MessageCircle, Settings, Sparkles } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Ranking", icon: BarChart3 },
   { href: "/profiles", label: "Perfis", icon: Library },
   { href: "/folders", label: "Pastas", icon: FolderOpen },
   { href: "/settings", label: "Sessões", icon: Settings },
+  { href: "/history", label: "Auditoria", icon: ClipboardList },
   { href: "/discord", label: "Discord", icon: MessageCircle },
 ];
 

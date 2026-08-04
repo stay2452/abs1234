@@ -5,7 +5,7 @@
 
 Importa perfis do **Instagram** e **TikTok** para o tracker local.
 
-**Versão:** ver `manifest.json` (source of truth). Atual **1.3.3**.
+**Versão:** ver `manifest.json` (source of truth). Atual **1.3.4**.
 
 ## O que funciona
 
@@ -19,9 +19,10 @@ Importa perfis do **Instagram** e **TikTok** para o tracker local.
 
 ## Instalação
 
-1. `npm run dev` no app (porta 3000)
-2. `chrome://extensions` → Modo desenvolvedor → Carregar `extension/`
-3. Após editar código: **Recarregar extensão** + **F5** no Instagram
+1. Abra a extensão e informe a URL do app no campo **URL do app**. Para Render, use algo como `https://seu-app.onrender.com`; local usa `http://127.0.0.1:3000`.
+2. Se estiver rodando localmente, execute `npm run dev` no app (porta 3000).
+3. `chrome://extensions` → Modo desenvolvedor → Carregar `extension/`
+4. Após editar código: **Recarregar extensão** + **F5** no Instagram
 
 ## Fluxo de detecção (reels)
 
@@ -48,7 +49,7 @@ Importa perfis do **Instagram** e **TikTok** para o tracker local.
 |---------|------|
 | `!` vermelho no botão | Passe o mouse: tooltip. Muitas vezes “Sem @” → F5 e espere o reel carregar |
 | `@` não muda no scroll | Recarregar extensão + F5; painel atualiza ~0,3s |
-| Offline | App em `127.0.0.1:3000` |
+| Offline | Confirme a URL salva em **URL do app** e que o Render está online |
 | Context invalidated | Recarregou extensão com aba aberta → F5 |
 | Botão some | Deve reaparecer sozinho; senão F5 |
 

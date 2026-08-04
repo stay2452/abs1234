@@ -164,6 +164,7 @@ body.is-panel {
 }
 
 input[type="text"],
+input[type="url"],
 select {
   width: 100%;
   min-height: 38px;
@@ -176,10 +177,16 @@ select {
 }
 
 input[type="text"]:focus,
+input[type="url"]:focus,
 select:focus {
   outline: none;
   border-color: var(--teal);
   box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.18);
+}
+
+.backend-save {
+  width: 100%;
+  margin-top: 10px;
 }
 
 .actions {

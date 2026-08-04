@@ -1,5 +1,5 @@
 /**
- * Cliente HTTP do app local (usado no service worker).
+ * Cliente HTTP do app local ou publicado (usado no service worker).
  */
 const DEFAULT_BASE = "http://127.0.0.1:3000";
 

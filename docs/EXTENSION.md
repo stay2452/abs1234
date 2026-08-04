@@ -15,7 +15,7 @@ Importar um perfil Instagram/TikTok para o tracker local **sem copiar URL**, via
 - **Não** usa cookies, login nem scrape de métricas na página.
 - Só extrai handle/URL pública e chama o app local.
 - Coleta Bright Data **só** se o usuário marcar “Já coletar dados” no popup (default off).
-- App precisa estar em `http://127.0.0.1:3000`.
+- App pode estar local em `http://127.0.0.1:3000` ou publicado no Render. A URL é configurada no campo **URL do app** do popup e fica salva no `chrome.storage.sync`.
 
 ## Código
 
@@ -46,7 +46,7 @@ A extensão registra `side_panel.default_path` apontando para `popup/popup.html`
 | `POST /api/profiles/import` | Cadastro/reativação (+ CORS extensão) |
 | `POST /api/scrape/run` | Coleta opcional (`stream: false`) |
 
-CORS: `src/lib/extension-cors.ts` — `chrome-extension://`, `moz-extension://`, localhost do app.
+CORS: `src/lib/extension-cors.ts` — aceita origens `chrome-extension://`/`moz-extension://` e localhost do app. A URL do Render é informada no popup; o manifesto autoriza hosts `*.onrender.com`. Manifest atual: **1.3.4**.
 
 ## Instalação
 
