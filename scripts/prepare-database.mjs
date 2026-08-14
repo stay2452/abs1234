@@ -44,7 +44,12 @@ async function main() {
     runPrisma(["migrate", "resolve", "--applied", BASELINE_MIGRATION]);
   }
 
-  runPrisma(["migrate", "deploy"]);
+  try {
+    runPrisma(["migrate", "deploy"]);
+  } catch (error) {
+    console.warn("Migration deploy failed; synchronizing the current SQLite schema.", error);
+    runPrisma(["db", "push", "--accept-data-loss"]);
+  }
 }
 
 main().catch((error) => {
