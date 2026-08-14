@@ -1,12 +1,17 @@
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { PrismaClient } from "@prisma/client";
 
 const BASELINE_MIGRATION = "20260710000000_baseline";
+const require = createRequire(import.meta.url);
+const prismaCli = require.resolve("prisma/build/index.js");
 const prisma = new PrismaClient();
 
 function runPrisma(args) {
-  const command = process.platform === "win32" ? "prisma.cmd" : "prisma";
-  execFileSync(command, args, { env: process.env, stdio: "inherit" });
+  execFileSync(process.execPath, [prismaCli, ...args], {
+    env: process.env,
+    stdio: "inherit",
+  });
 }
 
 async function tableExists(name) {
@@ -39,12 +44,11 @@ async function main() {
     await prisma.$disconnect();
   }
 
-  if (markBaseline) {
-    console.log(`Registering existing database baseline: ${BASELINE_MIGRATION}`);
-    runPrisma(["migrate", "resolve", "--applied", BASELINE_MIGRATION]);
-  }
-
   try {
+    if (markBaseline) {
+      console.log(`Registering existing database baseline: ${BASELINE_MIGRATION}`);
+      runPrisma(["migrate", "resolve", "--applied", BASELINE_MIGRATION]);
+    }
     runPrisma(["migrate", "deploy"]);
   } catch (error) {
     console.warn("Migration deploy failed; synchronizing the current SQLite schema.", error);
