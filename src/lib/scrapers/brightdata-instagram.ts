@@ -59,12 +59,13 @@ function isBrightDataRecord(value: unknown): value is BrightDataRecord {
 }
 
 export function flattenBrightDataInstagramContent(records: BrightDataRecord[]) {
-  const nestedPosts = records.flatMap((record) => {
+  return records.flatMap((record) => {
     const posts = record.posts;
-    return Array.isArray(posts) ? posts.filter(isBrightDataRecord) : [];
+    const nestedPosts = Array.isArray(posts) ? posts.filter(isBrightDataRecord) : [];
+    // Discovery responses can mix profile containers with standalone posts.
+    // Keep standalone records instead of discarding them when any nested list exists.
+    return nestedPosts.length > 0 ? nestedPosts : [record];
   });
-
-  return nestedPosts.length > 0 ? nestedPosts : records;
 }
 
 function usageFromResult(

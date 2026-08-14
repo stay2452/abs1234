@@ -27,7 +27,7 @@ Invariantes de custo, dados e operacao. Qualquer mudanca que as toque deve atual
 - `no_data` consome 1 credito (estimativa local decrementa `creditsRemaining`); saldo oficial e revalidado no proximo refresh.
 - Heuristica de saldo: `/customer/balance` doc oficial retorna USD; valor `>=100` assume creditos diretos sem multiplicar por `CREDITS_PER_USD`.
 - Erro `provider`/`transient` da Bright Data **nao** esgota a chave no run (so aquele perfil retry). So `authentication`/`account` matam a chave no worker.
-- Auth/conta: esgotam + **pausam** a chave. `provider`/`transient`: **nao** esgotam no run — trocam de chave so para o perfil. `not_found`: nao troca chave (perfil indisponivel). Erros de SQLite/Prisma (`SQLITE_BUSY`, `database is locked`, `Socket timeout`): classificados como `transient` em `getScrapeErrorCode` — perfil retenta com outra chave em vez de falhar `unknown` sem retry. Fonte de verdade: `src/lib/scrapers/index.ts` (`isSessionUnrecoverable`) e `src/lib/scrapers/types.ts`.
+- Auth/conta: esgotam + **pausam** a chave. `provider`/`transient`: **nao** esgotam no run — trocam de chave so para o perfil. `not_found`: nao troca chave (perfil indisponivel). Erros transitorios de Prisma/PostgreSQL (timeout, deadlock ou falha de conexao): perfil retenta com outra chave em vez de falhar `unknown` sem retry. Fonte de verdade: `src/lib/scrapers/index.ts` (`isSessionUnrecoverable`) e `src/lib/scrapers/types.ts`.
 - UI de `/settings`: com credito / sem credito / pausadas + label de creditos remanescentes.
 - Nunca logar, retornar ou versionar API keys ou payloads brutos.
 - Nao reintroduzir navegador, proxy, cookies, Playwright ou login manual.
@@ -35,7 +35,7 @@ Invariantes de custo, dados e operacao. Qualquer mudanca que as toque deve atual
 ## Dados (biblioteca acumulativa)
 
 - `Profile` unico por `[platform, handle]`. Coluna `tags` removida (legado) — organizacao via `Folder`/`ProfileFolder`.
-- `Post` unico por `[profileId, url canonica, sourceType]`. `Post.platform` e denormalizado intencionalmente de `Profile.platform` (consultas sem JOIN).
+- `Post` e deduplicado por `[profileId, url canonica]` ou `externalId`; `sourceType` preserva a origem do conteudo. `Post.platform` e denormalizado intencionalmente de `Profile.platform` (consultas sem JOIN).
 - `ScrapeAttempt.profileId` e `String?` com `onDelete: SetNull` — telemetria historica preservada quando perfil deletado (estimativa de credito continua honesta).
 - `DiscordDelivery` tem FK + `onDelete: Cascade` para `Post` e `DiscordNotifyConfig` — BD limpa automaticamente; `deleteDiscordWebhook` nao precisa mais `deleteMany` manual.
 - Cada atualizacao puxa so os ultimos N itens; **upsert** acumula biblioteca sem duplicar.
@@ -44,7 +44,7 @@ Invariantes de custo, dados e operacao. Qualquer mudanca que as toque deve atual
 - `no_data` (sem perfil util e sem posts) nao cria snapshot que dispare a janela de 30 min.
 - TikTok: identidade e URL publica `@handle/video/id`, nao URL de midia CDN.
 - Sem `PostSnapshot` se metricas identicas ao ultimo.
-- Migration/normalizacao: backup local do SQLite antes.
+- Migration/normalizacao: usar Prisma Migrate no Supabase; backups ficam sob responsabilidade do banco gerenciado.
 
 ## Rankings e interface
 

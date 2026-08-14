@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { SCRAPE_FRESHNESS_WINDOW_MINUTES } from "@/lib/constants";
-import { markDatasetsNoData, shouldScrapeProfile } from "@/lib/scrapers";
+import {
+  deduplicateScrapedPosts,
+  getScrapeRunStatus,
+  markDatasetsNoData,
+  shouldScrapeProfile,
+} from "@/lib/scrapers";
 
 function profileWithSnapshot(capturedAt?: Date, lastPostsScrapeAt?: Date | null) {
   return {
@@ -103,5 +108,48 @@ describe("markDatasetsNoData", () => {
         errorMessage: "Bright Data HTTP 429.",
       },
     ]);
+  });
+});
+
+describe("scrape result identity", () => {
+  it("deduplicates the same Instagram content across source types", () => {
+    const result = deduplicateScrapedPosts("instagram", [
+      {
+        url: "https://www.instagram.com/p/ABC123/",
+        externalId: "ABC123",
+        sourceType: "grid",
+        metrics: {},
+      },
+      {
+        url: "https://www.instagram.com/reel/ABC123/",
+        externalId: "ABC123",
+        sourceType: "reels",
+        metrics: { views: 10 },
+      },
+      {
+        url: "https://www.instagram.com/reel/OTHER/",
+        externalId: "OTHER",
+        sourceType: "reels",
+        metrics: {},
+      },
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]?.sourceType).toBe("grid");
+    expect(result[1]?.externalId).toBe("OTHER");
+  });
+});
+
+describe("getScrapeRunStatus", () => {
+  it("treats partial_empty and not_found as warnings", () => {
+    expect(
+      getScrapeRunStatus([{ errorCode: "partial_empty" }, { errorCode: "not_found" }], 0),
+    ).toBe("success");
+  });
+
+  it("keeps structural errors as partial failures when some profiles succeeded", () => {
+    expect(
+      getScrapeRunStatus([{ errorCode: "partial_empty" }, { errorCode: "provider" }], 1),
+    ).toBe("partial_failed");
   });
 });

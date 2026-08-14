@@ -712,7 +712,7 @@ Ou envie um .csv com handle / url / platform`}
           {progressDetail ? <p className="message">{progressDetail}</p> : null}
           <p className="meta">
             {activeMode === "register"
-              ? "So grava handle/URL no SQLite. Sem chamada Bright Data."
+              ? "So grava handle/URL no Supabase. Sem chamada Bright Data."
               : "Nao feche a pagina. Cadastro local ja fica salvo antes da coleta; se um lote falhar, os outros seguem."}
           </p>
         </div>

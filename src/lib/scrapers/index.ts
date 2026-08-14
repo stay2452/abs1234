@@ -157,41 +157,38 @@ async function persistPost(
 ) {
   const sourceType = scrapedPost.sourceType ?? (profile.platform === "tiktok" ? "video" : "grid");
   const url = canonicalizePostUrl(profile.platform as Platform, scrapedPost.url, scrapedPost.externalId);
-  const existing = await tx.post.findUnique({
-    where: {
-      profileId_url_sourceType: {
-        profileId: profile.id,
-        url,
-        sourceType,
-      },
-    },
+  const identityFilters: Prisma.PostWhereInput[] = [{ url }];
+  if (scrapedPost.externalId?.trim()) {
+    identityFilters.push({ externalId: scrapedPost.externalId.trim() });
+  }
+  const existing = await tx.post.findFirst({
+    where: { profileId: profile.id, OR: identityFilters },
     select: { id: true },
   });
-  // Upsert por [profileId, url canonica, sourceType]: nunca duplica; acumula biblioteca.
-  const post = await tx.post.upsert({
-    where: {
-      profileId_url_sourceType: {
-        profileId: profile.id,
-        url,
-        sourceType,
-      },
-    },
-    update: {
-      caption: scrapedPost.caption ?? undefined,
-      externalId: scrapedPost.externalId ?? undefined,
-      publishedAt: scrapedPost.publishedAt ?? undefined,
-      platform: profile.platform,
-    },
-    create: {
-      platform: profile.platform,
-      profileId: profile.id,
-      externalId: scrapedPost.externalId ?? null,
-      url,
-      sourceType,
-      caption: scrapedPost.caption ?? null,
-      publishedAt: scrapedPost.publishedAt ?? null,
-    },
-  });
+  // A URL/externalId identifies content within a profile even when datasets
+  // report different sourceType values. Keep the first sourceType, but do not
+  // create a second row for the same content.
+  const post = existing
+    ? await tx.post.update({
+        where: { id: existing.id },
+        data: {
+          caption: scrapedPost.caption ?? undefined,
+          externalId: scrapedPost.externalId ?? undefined,
+          publishedAt: scrapedPost.publishedAt ?? undefined,
+          platform: profile.platform,
+        },
+      })
+    : await tx.post.create({
+        data: {
+          platform: profile.platform,
+          profileId: profile.id,
+          externalId: scrapedPost.externalId ?? null,
+          url,
+          sourceType,
+          caption: scrapedPost.caption ?? null,
+          publishedAt: scrapedPost.publishedAt ?? null,
+        },
+      });
   const metrics = {
     views: toStoredCount(scrapedPost.metrics.views),
     likes: toStoredCount(scrapedPost.metrics.likes),
@@ -214,8 +211,29 @@ async function persistPost(
   return { snapshotCreated: true, isNew: !existing };
 }
 
+export function deduplicateScrapedPosts(platform: Platform, posts: ScrapedPost[]) {
+  const unique: ScrapedPost[] = [];
+
+  for (const post of posts) {
+    const url = canonicalizePostUrl(platform, post.url, post.externalId);
+    const externalId = post.externalId?.trim() || null;
+    const duplicate = unique.find((candidate) => {
+      const candidateUrl = canonicalizePostUrl(platform, candidate.url, candidate.externalId);
+      const candidateExternalId = candidate.externalId?.trim() || null;
+      return candidateUrl === url || (externalId !== null && candidateExternalId === externalId);
+    });
+
+    if (!duplicate) {
+      unique.push({ ...post, url });
+    }
+  }
+
+  return unique;
+}
+
 async function persistScrapeResult(profile: Profile, result: ScrapedProfileResult): Promise<PersistedResult> {
-  if (!result.profileDataFound && result.posts.length === 0) {
+  const posts = deduplicateScrapedPosts(profile.platform as Platform, result.posts);
+  if (!result.profileDataFound && posts.length === 0) {
     return {
       profileSnapshotCreated: false,
       postsFound: 0,
@@ -226,7 +244,7 @@ async function persistScrapeResult(profile: Profile, result: ScrapedProfileResul
     };
   }
 
-  // Serializa + retry: 20 workers em paralelo nao podem travar o SQLite juntos
+  // Retry para falhas transitorias do banco durante os workers paralelos.
   return withDbWriteRetry(() =>
     prisma.$transaction(
       async (tx) => {
@@ -250,7 +268,7 @@ async function persistScrapeResult(profile: Profile, result: ScrapedProfileResul
           recordsPersisted += 1;
         }
 
-        for (const scrapedPost of result.posts) {
+        for (const scrapedPost of posts) {
           if (!scrapedPost.url) {
             continue;
           }
@@ -366,7 +384,7 @@ async function recordRunAttemptProgress(
         requestsMade: { increment: totals.requestsMade },
         recordsReceived: { increment: totals.recordsReceived },
         recordsPersisted: { increment: outcome.recordsPersisted },
-        estimatedCredits: { increment: totals.recordsReceived },
+        estimatedCredits: { increment: totals.requestsMade },
         currentActivity: activity,
       },
     }),
@@ -406,6 +424,13 @@ async function recordRunFinalFailure(runId: string, job: ScrapeJob, activity: st
       },
     }),
   );
+}
+
+export function getScrapeRunStatus(errors: Array<Pick<ScrapeError, "errorCode">>, profilesOk: number) {
+  const realErrors = errors.filter(
+    (error) => error.errorCode !== "not_found" && error.errorCode !== "partial_empty",
+  );
+  return realErrors.length === 0 ? "success" : profilesOk > 0 ? "partial_failed" : "failed";
 }
 
 export function markDatasetsNoData(datasets: ScrapeDatasetUsage[]) {
@@ -942,12 +967,9 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
       }
     }
 
-    // status do run so conta erros estruturais (falta de chave, dataset essencial falhou,
-//    falha de perfil). partialError de dataset opcional vazio (not_found em Grade/Reels/Videos)
-//    e warning — fica em errors[] para telemetria mas nao vira partial_failed so por isso.
-    const realErrors = errors.filter((error) => error.errorCode !== "not_found");
-    const status =
-      realErrors.length === 0 ? "success" : profilesOk > 0 ? "partial_failed" : "failed";
+    // Erros not_found/partial_empty sao avisos de datasets opcionais e nao
+    // tornam o run parcialmente falho sozinhos.
+    const status = getScrapeRunStatus(errors, profilesOk);
     const updated = await withDbWriteRetry(() =>
       prisma.scrapeRun.update({
         where: { id: run.id },
@@ -959,7 +981,7 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
           requestsMade,
           recordsReceived,
           recordsPersisted,
-          estimatedCredits: recordsReceived,
+          estimatedCredits: requestsMade,
           currentActivity: `Coleta concluida: ${profilesOk}/${requestedProfiles.length} perfil(is) finalizado(s).`,
           errorsJson: errors.length > 0 ? JSON.stringify(errors) : null,
         },

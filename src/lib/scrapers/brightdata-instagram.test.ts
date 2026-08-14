@@ -131,6 +131,18 @@ describe("Bright Data Instagram discovery mapper", () => {
     ]);
   });
 
+  it("keeps standalone records alongside nested posts", () => {
+    expect(
+      flattenBrightDataInstagramContent([
+        { posts: [{ id: "nested", caption: "aninhado" }] },
+        { id: "standalone", caption: "avulso" },
+      ]),
+    ).toEqual([
+      { id: "nested", caption: "aninhado" },
+      { id: "standalone", caption: "avulso" },
+    ]);
+  });
+
   it("maps an id-only discovery post into the Grade collection", () => {
     expect(
       mapBrightDataInstagramPost(

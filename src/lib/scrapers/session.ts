@@ -310,6 +310,17 @@ function applyLocalCreditEstimate(
     };
   }
 
+  // Do not resurrect an explicitly exhausted session from a month-local estimate.
+  // A balance refresh is the explicit operation that can prove credit is available again.
+  if (session.creditStatus === "no_credit") {
+    return {
+      creditStatus: "no_credit",
+      creditsRemaining: 0,
+      creditsSource: session.creditsSource ?? "estimated_local",
+      balanceError: session.balanceError,
+    };
+  }
+
   const remaining = Math.max(0, FREE_TIER_CREDITS - monthRecordsUsed);
   return {
     creditStatus: remaining > 0 ? "has_credit" : "no_credit",
@@ -628,35 +639,50 @@ export async function recordCollectorSessionSuccess(id: string) {
 }
 
 export async function recordCollectorSessionNoData(id: string) {
-  const session = await prisma.collectorSession.findUnique({
-    where: { id },
-    select: { creditsSource: true, creditsRemaining: true, creditStatus: true },
-  });
+  return withDbWriteRetry(async () => {
+    const commonData = {
+      lastAttemptedAt: new Date(),
+      lastError: null,
+      consecutiveFailures: 0,
+    };
 
-  // Coleta no_data ainda consome credito no Bright Data (1 request = 1 credito free tier).
-  // So decrementa estimativa local; saldo oficial e revalidado no proximo refresh.
-  const shouldDecrementLocalCredit =
-    session?.creditsSource === "estimated_local" &&
-    typeof session.creditsRemaining === "number" &&
-    session.creditsRemaining > 0;
-
-  return withDbWriteRetry(() =>
-    prisma.collectorSession.update({
-      where: { id },
-      data: {
-        lastAttemptedAt: new Date(),
-        lastError: null,
-        consecutiveFailures: 0,
-        ...(shouldDecrementLocalCredit
-          ? {
-              creditsRemaining: Math.max(0, (session!.creditsRemaining as number) - 1),
-              creditStatus:
-                (session!.creditsRemaining as number) - 1 <= 0 ? "no_credit" : "has_credit",
-            }
-          : {}),
+    // The predicate and decrement are evaluated by PostgreSQL in one update.
+    // The separate final-credit branch prevents concurrent calls from making
+    // the local estimate negative while marking the last credit as used.
+    const decremented = await prisma.collectorSession.updateMany({
+      where: {
+        id,
+        creditsSource: "estimated_local",
+        creditsRemaining: { gt: 1 },
       },
-    }),
-  );
+      data: {
+        ...commonData,
+        creditsRemaining: { decrement: 1 },
+        creditStatus: "has_credit",
+      },
+    });
+
+    if (decremented.count === 0) {
+      const exhausted = await prisma.collectorSession.updateMany({
+        where: {
+          id,
+          creditsSource: "estimated_local",
+          creditsRemaining: 1,
+        },
+        data: {
+          ...commonData,
+          creditsRemaining: { decrement: 1 },
+          creditStatus: "no_credit",
+        },
+      });
+
+      if (exhausted.count === 0) {
+        return prisma.collectorSession.update({ where: { id }, data: commonData });
+      }
+    }
+
+    return prisma.collectorSession.findUniqueOrThrow({ where: { id } });
+  });
 }
 
 export async function recordCollectorSessionFailure(

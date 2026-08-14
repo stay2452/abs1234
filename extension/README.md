@@ -3,7 +3,7 @@
 > Este README cobre **instalação, troubleshooting e fluxo de detecção da extensão**.  
 > Contrato behavioral (rotas backend, CORS, integração com o app) está em [`docs/EXTENSION.md`](../docs/EXTENSION.md).
 
-Importa perfis do **Instagram** e **TikTok** para o tracker local.
+Importa perfis do **Instagram** e **TikTok** para o tracker hospedado.
 
 **Versão:** ver `manifest.json` (source of truth). Atual **1.3.4**.
 

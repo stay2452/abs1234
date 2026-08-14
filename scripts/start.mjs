@@ -1,46 +1,38 @@
 import { execFileSync, spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const BASELINE_MIGRATION = "20260710000000_baseline";
 const require = createRequire(import.meta.url);
 const prismaCli = require.resolve("prisma/build/index.js");
+const nextBin = require.resolve("next/dist/bin/next");
 
-function loadAndNormalizeEnv() {
+function loadLocalEnv() {
   const envPath = resolve(process.cwd(), ".env");
-  let normalized = false;
+  if (!existsSync(envPath)) return;
 
-  if (existsSync(envPath)) {
-    const content = readFileSync(envPath, "utf8");
-    const lines = content.split("\n");
-    const newLines = lines.map((line) => {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) return line;
-      const eq = trimmed.indexOf("=");
-      if (eq === -1) return line;
-      const key = trimmed.slice(0, eq).trim();
-      let value = trimmed.slice(eq + 1).trim();
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
-      }
-      if (key === "DATABASE_URL" && !value.startsWith("file:")) {
-        normalized = true;
-        return `DATABASE_URL="file:${value}"`;
-      }
-      return line;
-    });
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const separator = trimmed.indexOf("=");
+    if (separator < 1) continue;
 
-    if (normalized) {
-      writeFileSync(envPath, newLines.join("\n"), "utf8");
-      console.log("Normalized DATABASE_URL in .env file.");
+    const key = trimmed.slice(0, separator).trim();
+    let value = trimmed.slice(separator + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
     }
+    if (!process.env[key]) process.env[key] = value;
   }
+}
 
-  // Also set in current process env
-  const raw = process.env.DATABASE_URL;
-  if (raw && !raw.startsWith("file:")) {
-    process.env.DATABASE_URL = `file:${raw}`;
+function requireDatabaseEnvironment() {
+  const missing = ["DATABASE_URL", "DIRECT_URL"].filter((key) => !process.env[key]);
+  if (missing.length > 0) {
+    throw new Error(`Missing required database environment variable(s): ${missing.join(", ")}`);
   }
 }
 
@@ -51,47 +43,37 @@ function runPrisma(args) {
   });
 }
 
-function prepareDatabase() {
-  // Try to register baseline for pre-existing databases
-  try {
-    runPrisma(["migrate", "resolve", "--applied", BASELINE_MIGRATION]);
-    console.log("Baseline migration registered.");
-  } catch {
-    // Already recorded or no existing database
-  }
-
-  // Apply pending migrations
-  try {
-    runPrisma(["migrate", "deploy"]);
-  } catch (error) {
-    console.warn("Migration deploy failed; falling back to db push.", error?.message || error);
-    try {
-      runPrisma(["db", "push", "--accept-data-loss"]);
-    } catch (pushError) {
-      console.error("db push also failed.", pushError?.message || pushError);
-      process.exit(1);
-    }
-  }
+function migrateDatabase() {
+  console.log("Applying PostgreSQL migrations...");
+  runPrisma(["migrate", "deploy"]);
 }
 
 function startNext() {
-  const nextBin = require.resolve("next/dist/bin/next");
-  const child = spawn(process.execPath, [nextBin, "start"], {
+  const child = spawn(process.execPath, [nextBin, "start", ...process.argv.slice(2)], {
     env: process.env,
     stdio: "inherit",
   });
 
-  child.on("error", (err) => {
-    console.error("Failed to start Next.js:", err);
+  child.on("error", (error) => {
+    console.error("Failed to start Next.js:", error);
     process.exit(1);
   });
 
-  child.on("exit", (code) => {
+  child.on("exit", (code, signal) => {
+    if (signal) {
+      process.kill(process.pid, signal);
+      return;
+    }
     process.exit(code ?? 0);
   });
 }
 
-// Main
-loadAndNormalizeEnv();
-prepareDatabase();
-startNext();
+try {
+  loadLocalEnv();
+  requireDatabaseEnvironment();
+  migrateDatabase();
+  startNext();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+}

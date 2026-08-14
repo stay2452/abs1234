@@ -18,9 +18,9 @@ Fronteira app ↔ Bright Data. Mudanca de dataset ou limite deve atualizar este 
 ## Biblioteca acumulativa
 
 - Cada coleta puxa so os ultimos N itens da fonte.
-- Identidade: `[profileId, url canonica, sourceType]`.
+- Identidade efetiva: `[profileId, url canonica]` ou `externalId` quando presente; `sourceType` preserva a origem sem duplicar o mesmo conteudo.
 - **Novo** URL → cria post. **Mesmo** URL → upsert (sem duplicar); metricas mudaram → novo `PostSnapshot`.
-- Conteudo antigo permanece no SQLite.
+- Conteudo antigo permanece no PostgreSQL do Supabase.
 - UI de detalhe lista a **biblioteca completa** (nao so os 5 da ultima leva).
 - Botao **Atualizar biblioteca** deixa isso explicito na home e em `/profiles`.
 
@@ -57,9 +57,9 @@ Fronteira app ↔ Bright Data. Mudanca de dataset ou limite deve atualizar este 
 ## Falhas e telemetria
 
 - Telemetria por dataset sem chave/payload bruto.
-- `estimatedCredits` ≈ `recordsReceived` (proxy).
+- `estimatedCredits` ≈ `requestsMade` (proxy operacional; nao e a fatura Bright Data).
 - Resposta final de run pode incluir `postsNew` / `postsUpdated`.
-- Auth/conta pausam chave; provider esgota worker neste run; transient re-tenta perfil; not_found nao troca chave.
+- Auth/conta pausam chave; provider nao esgota a chave neste run; transient re-tenta perfil; not_found nao troca chave.
 - "no public posts" / empty content → dataset vazio, nao falha de chave.
 - Timeout HTTP request ~90s; poll de snapshot ate **45×2s (~90s)**. Status async: collecting / digesting / ready / failed. Fonte de verdade: `src/lib/scrapers/brightdata-client.ts`.
 - Coleta parcial: salva o valido; run pode ser `partial_failed`.

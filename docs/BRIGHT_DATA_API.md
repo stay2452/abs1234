@@ -159,7 +159,7 @@ Nunca logar API key nem payload bruto. So telemetria: requests, records, status,
 | Instagram | 1 + 5 + 5 = **11** |
 | TikTok | 1 + 10 = **11** |
 
-`estimatedCredits` no app = `recordsReceived` (proxy operacional).  
+`estimatedCredits` no app = `requestsMade` (proxy operacional).
 **Fonte financeira real:** painel / fatura Bright Data daquela conta.
 
 ### 6.3 Capacidade free tier (matematica de planejamento)

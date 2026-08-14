@@ -43,6 +43,12 @@ describe("getBrightDataErrorInfo", () => {
     expect(info.code).toBe("authentication");
     expect(info.message).toMatch(/401|bad token/i);
   });
+
+  it("does not classify an unrelated no-customer data error as an account failure", () => {
+    expect(
+      getBrightDataErrorInfo(new BrightDataRequestError("No customer found in dataset data")).code,
+    ).toBe("provider");
+  });
 });
 
 describe("recordsFromBrightDataResponse", () => {

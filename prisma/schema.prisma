@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Profile {
@@ -102,24 +103,24 @@ model ProfileSnapshot {
 }
 
 model Post {
-  id                 String           @id @default(cuid())
+  id                String            @id @default(cuid())
   /// Denormalizado intencionalmente de Profile.platform para consultas por
   /// plataforma (rankings, Discord) sem JOIN. Atualizado em cada upsert via
   /// `persistPost` em src/lib/scrapers/index.ts. Decisao documentada em DECISIONS.md.
-  platform           String
-  profileId          String
-  externalId         String?
-  url                String
-  sourceType         String           @default("grid")
-  caption            String?
-  publishedAt        DateTime?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  profile            Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  snapshots          PostSnapshot[]
-  discordDeliveries  DiscordDelivery[]
+  platform          String
+  profileId         String
+  externalId        String?
+  url               String
+  sourceType        String            @default("grid")
+  caption           String?
+  publishedAt       DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  profile           Profile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  snapshots         PostSnapshot[]
+  discordDeliveries DiscordDelivery[]
 
-  @@unique([profileId, url, sourceType])
+  @@unique([profileId, url])
   @@index([profileId, platform, sourceType])
 }
 
@@ -182,28 +183,28 @@ model ScrapeAttempt {
 
 /// Webhook Discord (varios canais/servidores). Criterios por webhook.
 model DiscordNotifyConfig {
-  id               String            @id @default(cuid())
+  id              String            @id @default(cuid())
   /// Nome amigavel na UI (ex.: "Tops IG - Server A").
-  name             String            @default("Webhook Discord")
+  name            String            @default("Webhook Discord")
   /// Rotulo opcional do servidor (ex.: "Comunidade Humor").
-  serverLabel      String?
-  webhookUrl       String?
-  enabled          Boolean           @default(false)
-  topN             Int               @default(5)
-  metric           String            @default("views")
-  period           String            @default("7d")
-  platform         String            @default("all")
-  folderId         String?
-  minViews         Float?
-  minLikes         Float?
-  minEngagement    Float?
-  skipAlreadySent  Boolean           @default(true)
-  lastSentAt       DateTime?
-  lastError        String?
-  lastResultJson   String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  deliveries       DiscordDelivery[]
+  serverLabel     String?
+  webhookUrl      String?
+  enabled         Boolean           @default(false)
+  topN            Int               @default(5)
+  metric          String            @default("views")
+  period          String            @default("7d")
+  platform        String            @default("all")
+  folderId        String?
+  minViews        Float?
+  minLikes        Float?
+  minEngagement   Float?
+  skipAlreadySent Boolean           @default(true)
+  lastSentAt      DateTime?
+  lastError       String?
+  lastResultJson  String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deliveries      DiscordDelivery[]
 
   @@index([enabled])
   @@index([name])
@@ -211,15 +212,15 @@ model DiscordNotifyConfig {
 
 /// Posts ja enviados a um webhook (dedupe por configId).
 model DiscordDelivery {
-  id        String             @id @default(cuid())
-  postId    String
-  configId  String
-  metric    String?
-  score     Float?
-  period    String?
-  sentAt    DateTime           @default(now())
-  post      Post               @relation(fields: [postId], references: [id], onDelete: Cascade)
-  config    DiscordNotifyConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  id       String              @id @default(cuid())
+  postId   String
+  configId String
+  metric   String?
+  score    Float?
+  period   String?
+  sentAt   DateTime            @default(now())
+  post     Post                @relation(fields: [postId], references: [id], onDelete: Cascade)
+  config   DiscordNotifyConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
 
   @@unique([postId, configId])
   @@index([postId])

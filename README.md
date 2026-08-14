@@ -1,6 +1,6 @@
 # Biblioteca de Perfis
 
-App **local** (SQLite no seu PC) para catalogar perfis de Instagram e TikTok, acumular Grade/Reels/Videos sem duplicar, manter historico de crescimento e rankings por nicho.
+App Next.js hospedado no Render com PostgreSQL gerenciado pelo Supabase para catalogar perfis de Instagram e TikTok, acumular Grade/Reels/Videos sem duplicar, manter historico de crescimento e rankings por nicho.
 
 ## Como rodar
 
@@ -18,7 +18,7 @@ Abra [http://127.0.0.1:3000](http://127.0.0.1:3000).
 - `src/components`: UI (import, biblioteca, sessoes, rankings).
 - `src/lib`: dominio, formatacao, rankings, Prisma.
 - `src/lib/scrapers`: Bright Data (client, adaptadores IG/TT, pool de chaves, orquestracao).
-- `prisma/`: SQLite (`dev.db`), schema e migrations.
+- `prisma/`: schema e migrations PostgreSQL do Supabase.
 - `docs/`: contratos vivos — leia antes de mudar scraping, sessoes ou creditos.
 
 ## Documentacao viva
@@ -40,7 +40,7 @@ Sempre que uma regra importante mudar, atualize um `.md` junto com o codigo.
 
 ## Notas operacionais (estado atual)
 
-- **SQLite local** (`prisma/dev.db`): perfis, posts, historico e chaves ficam no seu PC.
+- **PostgreSQL Supabase**: perfis, posts, historico e chaves ficam no banco remoto persistente.
 - **Chaves globais** em `/settings`: nao ha chave "so IG" ou "so TT"; a plataforma vem do perfil.
 - Workers usam chaves **com credito** (saldo oficial ou estimativa local 5k − uso no mes). Sem credito = fora da fila. **Atencao:** chave recem-criada sem refresh aparece como `unknown` e e tratada como `has_credit` (estimativa 5000 ate prova em contrario); rode **Atualizar saldos** antes de coletas em massa para evitar gasto em conta vazia.
 - Botao **Atualizar saldos** consulta `GET /customer/balance` (precisa permissao de billing na chave); senao estima localmente.
@@ -48,4 +48,5 @@ Sempre que uma regra importante mudar, atualize um `.md` junto com o codigo.
 - **Atualizar biblioteca**: todos os perfis ativos; puxa ultimos 5 Grade + 5 Reels (ou 10 videos); **upsert** sem duplicar; historico antigo permanece.
 - Importacao: ate **500** perfis/request; coleta em lotes de **20**; janela anti-recoleta **30 min** (salvo `force`).
 - Nao ha navegador, proxy, cookies ou Playwright.
-- Chaves e `dev.db` nao vao para o Git. `npm run db:migrate` faz backup em `prisma/backups/`.
+- `DATABASE_URL` usa a conexao transaction pooler; `DIRECT_URL` e usado pelas migrations.
+- Chaves e arquivos `.env` nao vao para o Git. Backups e retencao ficam sob responsabilidade do Supabase.

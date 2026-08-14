@@ -36,7 +36,7 @@ O endpoint de coleta so aceita `all` ou lista validada de IDs (max 100 no scrape
 
 ### Telemetria antes de estimativa financeira
 
-O app registra requisicoes e registros por dataset, perfil e sessao. `estimatedCredits` usa registros recebidos como referencia operacional, mas o custo financeiro vem do painel Bright Data. Nenhum custo fixo por perfil e tratado como garantia.
+O app registra requisicoes e registros por dataset, perfil e sessao. `estimatedCredits` usa requisicoes feitas como referencia operacional, mas o custo financeiro vem do painel Bright Data. Nenhum custo fixo por perfil e tratado como garantia.
 
 ### Sessao API resiliente
 
@@ -46,9 +46,9 @@ O model de dominio virou `CollectorSession`, preservando a tabela SQLite anterio
 
 URLs de posts sao canonizadas antes do `upsert`; resultado de perfil e posts sao persistidos em uma transacao; snapshots de metricas identicos sao descartados.
 
-### Migrations com backup
+### Migrations PostgreSQL
 
-Alteracoes de schema usam Prisma Migrate. O comando de migration cria uma copia do SQLite local em `prisma/backups/`, que continua fora do Git.
+Alteracoes de schema usam Prisma Migrate no Supabase. `DATABASE_URL` usa o transaction pooler para o app e `DIRECT_URL` usa a conexao direta para migrations. Backups ficam sob responsabilidade do Supabase.
 
 ### Importacao por @handle
 
@@ -70,7 +70,7 @@ O Fast API de posts por perfil pode retornar `video_url` como arquivo de midia. 
 
 ### Progresso visivel da coleta
 
-O endpoint aceita `stream: true` e envia eventos NDJSON enquanto cada dataset termina. `ScrapeRun.currentActivity` e `profilesFinished` acompanham o mesmo trabalho no SQLite. O botao mostra etapa, perfil, dataset, registros recebidos e resultado final; uma coleta nao deve parecer travada ou infinita.
+O endpoint aceita `stream: true` e envia eventos NDJSON enquanto cada dataset termina. `ScrapeRun.currentActivity` e `profilesFinished` acompanham o mesmo trabalho no PostgreSQL. O botao mostra etapa, perfil, dataset, registros recebidos e resultado final; uma coleta nao deve parecer travada ou infinita.
 
 ### Poll de snapshot Instagram Grade/Reels
 

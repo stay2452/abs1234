@@ -423,7 +423,7 @@ function classifyBrightDataMessage(message: string, statusCode?: number) {
   if (statusCode === 401 || statusCode === 403) return "authentication";
   if (
     statusCode === 402 ||
-    /credit|balance|funds|suspended|inactive|permission|activate|no.*customer/.test(lower)
+    /credit|balance|funds|suspended|inactive|permission|activate/.test(lower)
   ) {
     return "account";
   }

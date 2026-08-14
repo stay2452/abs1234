@@ -36,7 +36,7 @@ Pool e saldo por chave: [SESSION_POOL.md](./SESSION_POOL.md).
 | Instagram | 1 + 5 + 5 ≈ **11** |
 | TikTok | 1 + 10 ≈ **11** |
 
-`estimatedCredits` no app = `recordsReceived`. **Nao** e a fatura BD.
+`estimatedCredits` no app = `requestsMade` (proxy operacional). **Nao** e a fatura BD.
 
 ## Estimativa de saldo na UI
 

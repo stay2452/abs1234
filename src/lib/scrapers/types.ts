@@ -106,11 +106,11 @@ export function getScrapeErrorCode(error: unknown) {
   if (error instanceof ScrapeCollectionError) {
     return error.errorCode;
   }
-  // Erros de SQLite/Prisma (database is locked, SQLITE_BUSY, timeout): sao transient
-  // — uma retentativa com outra chave ou em outro momento resolves. Sem isso o perfil
+  // Erros transitorios de Prisma/PostgreSQL (timeout ou falha de conexao): sao transient
+  // — uma retentativa com outra chave ou em outro momento resolve. Sem isso o perfil
   // terminaria como "unknown" sem retry, descartando coletas sob 20 workers em paralelo.
   const msg = error instanceof Error ? error.message : String(error);
-  if (/timeout|timed out|locked|busy|SQLITE_BUSY|database is locked|Socket timeout|Unable to open/i.test(msg)) {
+  if (/timeout|timed out|locked|busy|connection|40001|40P01|57P03|08000|08003|08006/i.test(msg)) {
     return "transient";
   }
   return "unknown";
