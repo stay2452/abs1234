@@ -197,7 +197,7 @@ CREATE INDEX "BrowserSession_platform_kind_status_idx" ON "BrowserSession"("plat
 CREATE INDEX "BrowserSession_status_creditStatus_idx" ON "BrowserSession"("status", "creditStatus");
 CREATE INDEX "ProfileSnapshot_profileId_capturedAt_idx" ON "ProfileSnapshot"("profileId", "capturedAt");
 CREATE INDEX "Post_profileId_platform_sourceType_idx" ON "Post"("profileId", "platform", "sourceType");
-CREATE UNIQUE INDEX "Post_profileId_url_key" ON "Post"("profileId", "url");
+CREATE UNIQUE INDEX "Post_profileId_url_sourceType_key" ON "Post"("profileId", "url", "sourceType");
 CREATE INDEX "PostSnapshot_postId_capturedAt_idx" ON "PostSnapshot"("postId", "capturedAt");
 CREATE INDEX "ScrapeAttempt_scrapeRunId_startedAt_idx" ON "ScrapeAttempt"("scrapeRunId", "startedAt");
 CREATE INDEX "ScrapeAttempt_profileId_startedAt_idx" ON "ScrapeAttempt"("profileId", "startedAt");
@@ -216,7 +216,7 @@ ALTER TABLE "ProfileSnapshot" ADD CONSTRAINT "ProfileSnapshot_profileId_fkey" FO
 ALTER TABLE "Post" ADD CONSTRAINT "Post_profileId_fkey" FOREIGN KEY ("profileId") REFERENCES "Profile"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "PostSnapshot" ADD CONSTRAINT "PostSnapshot_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "ScrapeAttempt" ADD CONSTRAINT "ScrapeAttempt_scrapeRunId_fkey" FOREIGN KEY ("scrapeRunId") REFERENCES "ScrapeRun"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "ScrapeAttempt" ADD CONSTRAINT "ScrapeAttempt_profileId_fkey" FOREIGN KEY ("profileId") REFERENCES "Profile"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "ScrapeAttempt" ADD CONSTRAINT "ScrapeAttempt_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "BrowserSession"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ScrapeAttempt" ADD CONSTRAINT "ScrapeAttempt_profileId_fkey" FOREIGN KEY ("profileId") REFERENCES "Profile"("id");
+ALTER TABLE "ScrapeAttempt" ADD CONSTRAINT "ScrapeAttempt_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "BrowserSession"("id");
 ALTER TABLE "DiscordDelivery" ADD CONSTRAINT "DiscordDelivery_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "DiscordDelivery" ADD CONSTRAINT "DiscordDelivery_configId_fkey" FOREIGN KEY ("configId") REFERENCES "DiscordNotifyConfig"("id") ON DELETE CASCADE ON UPDATE CASCADE;
