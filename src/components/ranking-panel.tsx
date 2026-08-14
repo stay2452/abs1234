@@ -230,7 +230,7 @@ export function RankingPanel() {
           platform,
           period,
           metric,
-          limit: "25",
+          limit: "100",
         });
         if (folderId !== "all") {
           params.set("folderId", folderId);

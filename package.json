@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "build": "prisma generate && next build",
+    "start": "next start",
     "db:backup": "node scripts/backup-database.mjs",
     "db:migrate": "npm run db:backup && prisma migrate deploy",
     "prisma:generate": "prisma generate",

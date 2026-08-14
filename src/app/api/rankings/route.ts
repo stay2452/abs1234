@@ -48,8 +48,8 @@ function pickValue<T extends readonly string[]>(value: string | null, allowed: T
 }
 
 function pickLimit(value: string | null) {
-  const parsed = Number(value ?? 25);
-  return Number.isInteger(parsed) ? Math.min(Math.max(parsed, 1), 100) : 25;
+  const parsed = Number(value ?? 100);
+  return Number.isInteger(parsed) ? Math.min(Math.max(parsed, 1), 100) : 100;
 }
 
 async function getProfilesForRanking(
