@@ -58,5 +58,9 @@ Invariantes de custo, dados e operacao. Qualquer mudanca que as toque deve atual
 
 ## Operacao
 
+- **Regra de persistência absoluta (2026-08-30): tudo roda em Supabase (PostgreSQL) + Render. Nunca SQLite local.**
+  - `prisma/schema.prisma:5` `provider = "postgresql"` + `prisma/migrations/*` são a única fonte de verdade. `prisma/dev.db` e `prisma/backups/*.db` são legado git-ignorado e **não são usados** — `DATABASE_URL` e `DIRECT_URL` devem ser sempre `postgresql://...pooler.supabase.com` (app) e `postgresql://...supabase.co` / `pooler ...:5432` (migrations), tanto em `Render` quanto em `next dev` local. Desvio para `file:./dev.db` viola a regra e quebra `prisma validate` (`must start with postgresql://`).
+  - `npm run dev` local e `node scripts/start.mjs` em prod usam as mesmas credenciais Supabase. Não existe “modo offline” ou “banco local”.
+  - Backups, retenção e PITR são responsabilidade do Supabase. `tmp/` e `dwadaw/` são temporários git-ignorados e não são banco.
 - Sem push/commit no GitHub sem pedido explicito do usuario.
 - Toda regra nova de arquitetura, scraping, sessao, schema ou ranking entra em um `.md`.

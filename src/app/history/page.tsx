@@ -12,10 +12,29 @@ function duration(startedAt: Date, finishedAt: Date | null) {
 }
 
 export default async function HistoryPage() {
-  const runs = await prisma.scrapeRun.findMany({
-    orderBy: { startedAt: "desc" },
-    take: 100,
-  });
+  // Auto-limpeza: garante que print com RUNNING zumbi (>3h) seja corrigido sem ação manual
+  try {
+    const { reconcileZombieRuns } = await import("@/lib/scrape-reconcile");
+    await reconcileZombieRuns();
+  } catch {}
+  let runs: any[] = [];
+  try {
+    runs = await prisma.scrapeRun.findMany({
+      orderBy: { startedAt: "desc" },
+      take: 100,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    // Fallback dev: DATABASE_URL=file:... com provider postgresql não compatível
+    if (msg.includes("must start with the protocol `postgresql") || msg.includes("DATABASE_URL")) {
+      try {
+        const { listScrapeRunsSqliteFallback } = await import("@/lib/scrape-reconcile");
+        runs = (await listScrapeRunsSqliteFallback(100)) as typeof runs;
+      } catch {}
+    } else {
+      throw error;
+    }
+  }
 
   return (
     <main className="page history-page">
@@ -26,6 +45,11 @@ export default async function HistoryPage() {
           <p className="lede">
             Últimas 100 execuções do scraper e reparador. Acompanhe sucessos, falhas e métricas por varredura.
           </p>
+        </div>
+        <div className="page-header-actions">
+          <Link className="button" href="/history/errors">
+            <FileSearch size={16} /> Perfis com erro (últimas 5)
+          </Link>
         </div>
       </div>
 

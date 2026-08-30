@@ -143,6 +143,7 @@ model ScrapeRun {
   status            String          @default("running")
   startedAt         DateTime        @default(now())
   finishedAt        DateTime?
+  updatedAt         DateTime        @updatedAt
   profilesTotal     Int             @default(0)
   profilesAttempted Int             @default(0)
   profilesFinished  Int             @default(0)
@@ -155,6 +156,8 @@ model ScrapeRun {
   currentActivity   String?
   errorsJson        String?
   attempts          ScrapeAttempt[]
+
+  @@index([status, startedAt])
 }
 
 model ScrapeAttempt {

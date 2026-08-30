@@ -147,3 +147,9 @@ Bug #31 (validacao `Folder.color`): falsa positiva — validacao `z.enum(FOLDER_
 ### Testes e verificacao
 
 8 testes novos (66 vs baseline 63): 3 em `index.test.ts` cobrindo `lastPostsScrapeAt`, 0 lint regressao (mesmo 1 erro preexistente `react-hooks/set-state-in-effect`), `npm run build` **passou** (antes falhava por bug #34). 13 migrations aplicadas no total (3 novas).
+
+## 2026-08-30
+
+### Tudo em Supabase (Render+Supabase) — fim do SQLite local
+
+**Regra absoluta:** `prisma/schema.prisma:5` `provider = "postgresql"` é a única fonte de verdade. `DATABASE_URL` (pooler 6543) e `DIRECT_URL` (5432) são `postgresql://` do Supabase em `next dev` local e em `scripts/start.mjs` prod. `prisma/dev.db` + `prisma/backups/*.db` viraram legado git-ignorado (`/.gitignore:11`) e não são lidos. Motivação: auditoria mostrou 4 `ScrapeRun` `running` zumbis (print 27-28/ago) + `.env` local com `file:./dev.db` que quebra `prisma validate` e diverge de prod (240 perfis no Supabase vs 177 em dev.db de julho). Correção: `.env` local migrado para pooler Supabase, `src/lib/scrape-reconcile.ts:62` mantém fallback `file:` apenas como segurança para `.env` legado, `src/instrumentation.ts` e `src/app/history/page.tsx:14` reconciliam zumbis automaticamente (>3h) sem SQL manual, `prisma/migrations/20260830000000_add_scraperun_updatedat` adiciona `updatedAt` + índice, `scripts/start.mjs:51` e `src/lib/scrapers/index.ts:960` aplicam timeout global. Ver `CRITICAL_RULES.md` (Operação) e `ARCHITECTURE.md` (Limites).

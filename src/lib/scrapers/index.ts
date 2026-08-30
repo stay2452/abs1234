@@ -2,6 +2,8 @@ import type { CollectorSession, Prisma, Profile } from "@prisma/client";
 import type { Platform } from "@/lib/constants";
 import { SCRAPE_FRESHNESS_WINDOW_MINUTES, SCRAPE_MAX_PARALLEL_KEYS, SCRAPE_MAX_RETRIES_PER_PROFILE } from "@/lib/constants";
 import { prisma, withDbWriteRetry } from "@/lib/db";
+import { estimateScrapeMaxSeconds } from "@/lib/scrape-eta";
+import { reconcileZombieRuns } from "@/lib/scrape-reconcile";
 import { canonicalizePostUrl } from "@/lib/post-url";
 import {
   scrapeInstagramProfileWithBrightData,
@@ -355,6 +357,28 @@ async function setRunActivity(runId: string, activity: string) {
       data: { currentActivity: activity.slice(0, 240) },
     }),
   );
+}
+
+function getRunTimeoutMs(profileCount: number, sessionCount: number) {
+  const baseSeconds = estimateScrapeMaxSeconds(profileCount, Math.max(1, sessionCount));
+  // +10min buffer para overhead de retries/backoff/persistencia
+  const bufferSeconds = 10 * 60;
+  const cappedSeconds = Math.min(baseSeconds + bufferSeconds, 3 * 60 * 60); // teto 3h alinha com ZOMBIE_RUN_TIMEOUT_MS
+  return Math.max(5 * 60 * 1000, cappedSeconds * 1000);
+}
+
+async function withRunTimeout<T>(runId: string, timeoutMs: number, fn: () => Promise<T>): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(`Timeout global: coleta excedeu ${Math.round(timeoutMs / 60000)} min sem concluir`));
+    }, timeoutMs);
+  });
+  try {
+    return (await Promise.race([fn(), timeoutPromise])) as T;
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
 }
 
 async function recordRunAttemptProgress(
@@ -798,6 +822,12 @@ export function shouldScrapeProfile(
 }
 
 export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = {}) {
+  // Reconcilia zumbis antes de criar novo run — evita que auditoria acumule RUNNING eternos
+  try {
+    await reconcileZombieRuns(options.now ?? new Date());
+  } catch {
+    // não bloqueia coleta se reconciliação falhar
+  }
   const profileIds = scope.kind === "profiles" ? [...new Set(scope.profileIds)].filter(Boolean) : undefined;
   const requestedProfiles = await prisma.profile.findMany({
     where: {
@@ -909,63 +939,66 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
       }
     }
 
-    if (sessions.length > 0 && profiles.length > 0) {
-      let pendingJobs: ScrapeJob[] = profiles.map((profile) => ({
-        profile,
-        attemptedSessionIds: new Set<string>(),
-      }));
-      const maxRounds = Math.max(
-        Math.min(sessions.length, SCRAPE_MAX_RETRIES_PER_PROFILE),
-        1,
-      );
+    const runTimeoutMs = getRunTimeoutMs(profiles.length, Math.max(sessions.length, 1));
+    await withRunTimeout(run.id, runTimeoutMs, async () => {
+      if (sessions.length > 0 && profiles.length > 0) {
+        let pendingJobs: ScrapeJob[] = profiles.map((profile) => ({
+          profile,
+          attemptedSessionIds: new Set<string>(),
+        }));
+        const maxRounds = Math.max(
+          Math.min(sessions.length, SCRAPE_MAX_RETRIES_PER_PROFILE),
+          1,
+        );
 
-      for (let round = 0; round < maxRounds && pendingJobs.length > 0; round += 1) {
-        const healthySessions = sessions.filter((session) => !disabledSessionIds.has(session.id));
-        if (healthySessions.length === 0) {
-          break;
+        for (let round = 0; round < maxRounds && pendingJobs.length > 0; round += 1) {
+          const healthySessions = sessions.filter((session) => !disabledSessionIds.has(session.id));
+          if (healthySessions.length === 0) {
+            break;
+          }
+
+          // Backoff exponencial entre rounds: 1s, 2s, 4s, ..., teto 30s. Evita
+          // retry imediato em cenarios de rate-limit prolongado (20 contas 5xx).
+          if (round > 0) {
+            const delayMs = Math.min(30_000, 1_000 * 2 ** (round - 1));
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          }
+
+          const stage = await executeStage(
+            run.id,
+            pendingJobs,
+            sessions,
+            disabledSessionIds,
+            true,
+            reportDataset,
+          );
+          errors.push(...stage.errors);
+          profilesOk += stage.profilesOk;
+          postsFound += stage.postsFound;
+          postsNew += stage.postsNew;
+          postsUpdated += stage.postsUpdated;
+          recordsPersisted += stage.recordsPersisted;
+          requestsMade += stage.requestsMade;
+          recordsReceived += stage.recordsReceived;
+          pendingJobs = stage.retryJobs;
         }
 
-        // Backoff exponencial entre rounds: 1s, 2s, 4s, ..., teto 30s. Evita
-        // retry imediato em cenarios de rate-limit prolongado (20 contas 5xx).
-        if (round > 0) {
-          const delayMs = Math.min(30_000, 1_000 * 2 ** (round - 1));
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        for (const job of pendingJobs) {
+          errors.push({
+            profileId: job.profile.id,
+            handle: job.profile.handle,
+            platform: job.profile.platform,
+            error: "Nenhuma sessao API saudavel concluiu a coleta deste perfil.",
+            errorCode: "no_session",
+          });
+          await recordRunFinalFailure(
+            run.id,
+            job,
+            `Nenhuma API saudavel concluiu @${job.profile.handle}.`,
+          );
         }
-
-        const stage = await executeStage(
-          run.id,
-          pendingJobs,
-          sessions,
-          disabledSessionIds,
-          true,
-          reportDataset,
-        );
-        errors.push(...stage.errors);
-        profilesOk += stage.profilesOk;
-        postsFound += stage.postsFound;
-        postsNew += stage.postsNew;
-        postsUpdated += stage.postsUpdated;
-        recordsPersisted += stage.recordsPersisted;
-        requestsMade += stage.requestsMade;
-        recordsReceived += stage.recordsReceived;
-        pendingJobs = stage.retryJobs;
       }
-
-      for (const job of pendingJobs) {
-        errors.push({
-          profileId: job.profile.id,
-          handle: job.profile.handle,
-          platform: job.profile.platform,
-          error: "Nenhuma sessao API saudavel concluiu a coleta deste perfil.",
-          errorCode: "no_session",
-        });
-        await recordRunFinalFailure(
-          run.id,
-          job,
-          `Nenhuma API saudavel concluiu @${job.profile.handle}.`,
-        );
-      }
-    }
+    });
 
     // Erros not_found/partial_empty sao avisos de datasets opcionais e nao
     // tornam o run parcialmente falho sozinhos.
@@ -1008,6 +1041,7 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
     };
   } catch (error) {
     const message = errorMessage(error);
+    const isTimeout = message.toLowerCase().includes("timeout global");
     await withDbWriteRetry(() =>
       prisma.scrapeRun.update({
         where: { id: run.id },
@@ -1015,10 +1049,12 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
           status: "failed",
           finishedAt: new Date(),
           currentActivity: `Coleta interrompida: ${message}`.slice(0, 240),
-          errorsJson: JSON.stringify([{ error: message, errorCode: "unknown" }]),
+          errorsJson: JSON.stringify([{ error: message, errorCode: isTimeout ? "timeout" : "unknown" }]),
         },
       }),
     );
     throw error;
   }
 }
+
+export { reconcileZombieRuns } from "@/lib/scrape-reconcile";

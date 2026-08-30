@@ -40,7 +40,7 @@ Sempre que uma regra importante mudar, atualize um `.md` junto com o codigo.
 
 ## Notas operacionais (estado atual)
 
-- **PostgreSQL Supabase**: perfis, posts, historico e chaves ficam no banco remoto persistente.
+- **PostgreSQL Supabase (único banco — regra 2026-08-30: tudo em Render+Supabase, nada local)**. Perfis, posts, histórico e chaves ficam **sempre** no Postgres remoto. `npm run dev` local também usa `DATABASE_URL`/`DIRECT_URL` `postgresql://` do Supabase. `prisma/dev.db` é legado git-ignorado e não é usado (mantido só como backup). Sem Supabase no `.env`, o app falha em `prisma validate` / `requireDatabaseEnvironment()`.
 - **Chaves globais** em `/settings`: nao ha chave "so IG" ou "so TT"; a plataforma vem do perfil.
 - Workers usam chaves **com credito** (saldo oficial ou estimativa local 5k − uso no mes). Sem credito = fora da fila. **Atencao:** chave recem-criada sem refresh aparece como `unknown` e e tratada como `has_credit` (estimativa 5000 ate prova em contrario); rode **Atualizar saldos** antes de coletas em massa para evitar gasto em conta vazia.
 - Botao **Atualizar saldos** consulta `GET /customer/balance` (precisa permissao de billing na chave); senao estima localmente.
@@ -48,5 +48,5 @@ Sempre que uma regra importante mudar, atualize um `.md` junto com o codigo.
 - **Atualizar biblioteca**: todos os perfis ativos; puxa ultimos 5 Grade + 5 Reels (ou 10 videos); **upsert** sem duplicar; historico antigo permanece.
 - Importacao: ate **500** perfis/request; coleta em lotes de **20**; janela anti-recoleta **30 min** (salvo `force`).
 - Nao ha navegador, proxy, cookies ou Playwright.
-- `DATABASE_URL` usa a conexao transaction pooler; `DIRECT_URL` e usado pelas migrations.
-- Chaves e arquivos `.env` nao vao para o Git. Backups e retencao ficam sob responsabilidade do Supabase.
+- `DATABASE_URL` usa a conexao transaction pooler (`6543`); `DIRECT_URL` e usado pelas migrations (`5432`). Ambos são `postgresql://` do Supabase em todos os ambientes.
+- Chaves e arquivos `.env` nao vao para o Git. Backups e retencao ficam sob responsabilidade do Supabase (PITR). `tmp/` e `dwadaw/` são temporários.

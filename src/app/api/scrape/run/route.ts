@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { optionsCors, withCors } from "@/lib/extension-cors";
+import { prisma } from "@/lib/db";
 import { runScrape } from "@/lib/scrapers";
 import { parseScrapeRunRequest } from "@/lib/scrapers/scope";
+import { hasActiveRunningRun, reconcileZombieRuns } from "@/lib/scrape-reconcile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,11 +19,33 @@ export async function OPTIONS(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
 
+  // Reconcilia zumbis antes de checar lock — evita 409 falso por run travado
+  try {
+    await reconcileZombieRuns();
+  } catch {
+    // não bloqueia request se reconciliação falhar
+  }
+
+  // Lock persistente no DB (source of truth) + lock em memória (fast path)
   if (globalForScrape.activeScrape) {
     return withCors(
-      NextResponse.json({ error: "Ja existe uma atualizacao em andamento." }, { status: 409 }),
+      NextResponse.json({ error: "Ja existe uma atualizacao em andamento (memória)." }, { status: 409 }),
       origin,
     );
+  }
+  try {
+    const { hasActive, activeRunId } = await hasActiveRunningRun();
+    if (hasActive) {
+      return withCors(
+        NextResponse.json(
+          { error: "Ja existe uma atualizacao em andamento.", runId: activeRunId },
+          { status: 409 },
+        ),
+        origin,
+      );
+    }
+  } catch {
+    // se check no DB falhar, segue com lock em memória apenas
   }
 
   const body = await request.json().catch(() => null);
