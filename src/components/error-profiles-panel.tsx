@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckSquare, Square, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckSquare, ExternalLink, Square, Trash2 } from "lucide-react";
 
 type ErrorProfile = {
   profileId: string;
@@ -142,8 +142,23 @@ export function ErrorProfilesPanel() {
                   <input type="checkbox" checked={selected.has(p.profileId)} onChange={() => toggle(p.profileId)} aria-label={`Selecionar @${p.handle}`} />
                 </td>
                 <td>
-                  <strong>@{p.handle}</strong> <small>{p.platform}</small><br />
-                  <a href={p.url} target="_blank" rel="noreferrer" className="hint">{p.url}</a>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <div>
+                      <strong>@{p.handle}</strong> <small>{p.platform}</small><br />
+                      <a href={p.url} target="_blank" rel="noreferrer" className="hint">{p.url}</a>
+                    </div>
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="button secondary"
+                      aria-label={`Abrir perfil @${p.handle}`}
+                      title="Abrir perfil no Instagram/TikTok"
+                      style={{ padding: "6px 10px", whiteSpace: "nowrap" }}
+                    >
+                      <ExternalLink size={14} /> Abrir
+                    </a>
+                  </div>
                 </td>
                 <td>
                   <span className={`history-status ${p.errorCode}`}>{p.errorCode}</span>
