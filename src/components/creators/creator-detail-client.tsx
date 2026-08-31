@@ -17,6 +17,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<"profiles" | "folders" | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [potSort, setPotSort] = useState<{ key: "views" | "baseline" | "ratio" | "comments" | "date"; dir: "asc" | "desc" }>({ key: "ratio", dir: "desc" });
 
   const loadTracked = async () => {
     const res = await fetch(`/api/creators/${creator.id}/tracked-profiles`);
@@ -321,10 +322,24 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
       {actionMessage && <p className={`message ${actionMessage.startsWith("✅") ? "success" : "info"}`} style={{ marginTop: 8 }}>{actionMessage}</p>}
 
       {(() => {
-        const potentials = vault;
+        const potentialsRaw = vault;
         const pending = vault.filter((v: any) => v.aiStatus === "pending" || !v.aiStatus);
         const winners = vault.filter((v: any) => v.aiStatus === "approved");
         const rejected = vault.filter((v: any) => v.aiStatus === "rejected");
+        const potentials = [...potentialsRaw].sort((a: any, b: any) => {
+          const dir = potSort.dir === "asc" ? 1 : -1;
+          const get = (v: any) => {
+            if (potSort.key === "views") return v.views ?? -1;
+            if (potSort.key === "baseline") return v.baselineAvg ?? -1;
+            if (potSort.key === "ratio") return v.outlierRatio ?? -1;
+            if (potSort.key === "comments") return v.commentsRatio ?? -1;
+            if (potSort.key === "date") return new Date(v.createdAt).getTime();
+            return 0;
+          };
+          return (get(a) - get(b)) * dir;
+        });
+        const toggleSort = (key: typeof potSort.key) => setPotSort((p) => (p.key === key ? { key, dir: p.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" }));
+        const arrow = (key: typeof potSort.key) => (potSort.key === key ? (potSort.dir === "asc" ? " ▲" : " ▼") : "");
         return (
           <>
             <section className="panel" style={{ marginTop: 16 }}>
@@ -351,11 +366,11 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
                     <thead>
                       <tr>
                         <th>@</th>
-                        <th>Views</th>
-                        <th>Baseline 6+6</th>
-                        <th>Ratio</th>
-                        <th>Comentários/Views</th>
-                        <th>Data</th>
+                        <th onClick={() => toggleSort("views")} style={{ cursor: "pointer", userSelect: "none" }}>Views{arrow("views")}</th>
+                        <th onClick={() => toggleSort("baseline")} style={{ cursor: "pointer", userSelect: "none" }}>Baseline 6+6{arrow("baseline")}</th>
+                        <th onClick={() => toggleSort("ratio")} style={{ cursor: "pointer", userSelect: "none" }}>Ratio{arrow("ratio")}</th>
+                        <th onClick={() => toggleSort("comments")} style={{ cursor: "pointer", userSelect: "none" }}>Comentários/Views{arrow("comments")}</th>
+                        <th onClick={() => toggleSort("date")} style={{ cursor: "pointer", userSelect: "none" }}>Data{arrow("date")}</th>
                         <th>IA</th>
                         <th>Abrir</th>
                       </tr>
