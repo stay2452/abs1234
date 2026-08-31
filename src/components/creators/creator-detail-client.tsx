@@ -321,16 +321,17 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
       {actionMessage && <p className={`message ${actionMessage.startsWith("✅") ? "success" : "info"}`} style={{ marginTop: 8 }}>{actionMessage}</p>}
 
       {(() => {
-        const potentials = vault.filter((v: any) => v.aiStatus === "pending" || !v.aiStatus);
+        const potentials = vault;
+        const pending = vault.filter((v: any) => v.aiStatus === "pending" || !v.aiStatus);
         const winners = vault.filter((v: any) => v.aiStatus === "approved");
         const rejected = vault.filter((v: any) => v.aiStatus === "rejected");
         return (
           <>
             <section className="panel" style={{ marginTop: 16 }}>
               <div className="history-detail-header">
-                <h2>Potenciais winners — {potentials.length}</h2>
+                <h2>Potenciais winners — {potentials.length} <small style={{ fontWeight: 400 }}>{pending.length} pendentes</small></h2>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button className="button" onClick={scanPotentials} disabled={aiLoading || (!vaultLoading && potentials.length === 0 && tracked.length === 0)}>
+                  <button className="button" onClick={scanPotentials} disabled={aiLoading || vaultLoading}>
                     {vaultLoading ? "Cancelar escaneamento" : "Procurar potenciais winner"}
                   </button>
                   {vaultLoading && <span className="meta" style={{ alignSelf: "center" }}>clique em Cancelar para parar</span>}
@@ -343,7 +344,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
               )}
               {vaultMessage && <p className={`message ${vaultMessage.startsWith("✅") ? "success" : vaultMessage.startsWith("❌") ? "error" : "info"}`}>{vaultMessage}</p>}
               {vaultLoading ? null : potentials.length === 0 ? (
-                <p className="meta">Nenhum potencial pendente. Clique em “Procurar potenciais winner” para escanear os {tracked.length} perfis.</p>
+                <p className="meta">Nenhum potencial. Clique em “Procurar potenciais winner” para escanear os {tracked.length} perfis.</p>
               ) : (
                 <div className="table-scroll">
                   <table className="history-table">
@@ -355,6 +356,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
                         <th>Ratio</th>
                         <th>Comentários/Views</th>
                         <th>Data</th>
+                        <th>IA</th>
                         <th>Abrir</th>
                       </tr>
                     </thead>
@@ -372,6 +374,9 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
                           <td>{v.commentsRatio != null ? `${v.commentsRatio.toFixed(4)}%` : "—"}</td>
                           <td suppressHydrationWarning>{formatShortDate(v.createdAt)}</td>
                           <td>
+                            {v.aiStatus === "approved" ? <span className="history-status success">APROVADO</span> : v.aiStatus === "rejected" ? <span className="history-status failed">REPROVADO</span> : <span className="history-status">pendente</span>}
+                          </td>
+                          <td>
                             <a href={v.sourceUrl} target="_blank" rel="noreferrer" className="button secondary">
                               Abrir
                             </a>
@@ -388,8 +393,8 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
               <div className="history-detail-header">
                 <h2>Winners — {winners.length} <small style={{ fontWeight: 400 }}>({rejected.length} reprovados)</small></h2>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <button className="button" onClick={analyzeWithAI} disabled={vaultLoading || (!aiLoading && potentials.length === 0)} title={aiLoading ? "Clique para cancelar" : "Roda sozinho de 3 em 3 até acabar"}>
-                    {aiLoading ? "Cancelar IA" : `Análise com IA (todos ${potentials.length})`}
+                  <button className="button" onClick={analyzeWithAI} disabled={vaultLoading || (!aiLoading && pending.length === 0)} title={aiLoading ? "Clique para cancelar" : "Roda sozinho de 3 em 3 até acabar"}>
+                    {aiLoading ? "Cancelar IA" : `Análise com IA (todos ${pending.length})`}
                   </button>
                   {aiLoading && <span className="meta">rodando lote automático — clique em Cancelar para parar</span>}
                 </div>
