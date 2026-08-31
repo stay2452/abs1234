@@ -89,7 +89,12 @@ export async function POST(request: NextRequest) {
         if (!brightKey) {
           await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: "sem chave BrightData — heurística" }) + "\n"));
         } else {
+          // heartbeat para Render/Cloudflare não fechar a conexão (30s timeout)
+          let heartbeat: ReturnType<typeof setInterval> | null = null;
           try {
+            heartbeat = setInterval(() => {
+              writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: "aguardando BrightData..." }) + "\n")).catch(() => {});
+            }, 5000);
             const scrapePromise = scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, brightKey, { pollAttempts: 45, pollDelayMs: 2000 });
             const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout comentários (90s)")), 90000));
             const result: any = await Promise.race([scrapePromise, timeoutPromise]);
@@ -100,6 +105,8 @@ export async function POST(request: NextRequest) {
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: `sem comentários: ${msg.slice(0, 80)}` }) + "\n"));
+          } finally {
+            if (heartbeat) clearInterval(heartbeat);
           }
         }
 
