@@ -55,15 +55,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ total: 0, approved: 0, rejected: 0, message: "Nenhum potencial pendente" });
   }
 
-  // Tenta env primeiro, se não tiver usa 1 chave do pool global (mesmas de /settings)
-  let brightKey = process.env.BRIGHTDATA_API_KEY?.trim() ?? process.env.BRIGHT_DATA_API_KEY?.trim() ?? "";
-  if (!brightKey) {
-    try {
-      const pool = await getActiveCollectorSessions();
-      if (pool.length > 0) brightKey = pool[0].apiKey?.trim() ?? "";
-      if (brightKey) console.log("[vault/analyze-ai] usando chave do pool global", pool[0].name);
-    } catch {}
-  }
+  // Tenta env primeiro, depois todas as chaves do pool global (rotação em caso de Customer is not active)
+  const brightKeys: string[] = [];
+  const envKey = process.env.BRIGHTDATA_API_KEY?.trim() ?? process.env.BRIGHT_DATA_API_KEY?.trim() ?? "";
+  if (envKey) brightKeys.push(envKey);
+  try {
+    const pool = await getActiveCollectorSessions();
+    for (const s of pool) {
+      const k = s.apiKey?.trim();
+      if (k && !brightKeys.includes(k)) brightKeys.push(k);
+    }
+    if (brightKeys.length > 0) console.log(`[vault/analyze-ai] ${brightKeys.length} chave(s) BrightData disponíveis (pool global)`);
+  } catch {}
+  const brightKey = brightKeys[0] ?? "";
   if (!brightKey) {
     console.warn("[vault/analyze-ai] sem chave BrightData — cai para heurística sem comentários (todos REPROVADOS)");
   }
@@ -93,18 +97,47 @@ export async function POST(request: NextRequest) {
         } else {
           // heartbeat para Render/Cloudflare não fechar a conexão (30s timeout)
           let heartbeat: ReturnType<typeof setInterval> | null = null;
+          let lastError: string | null = null;
           try {
             heartbeat = setInterval(() => {
               writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: "aguardando BrightData..." }) + "\n")).catch(() => {});
             }, 5000);
-            const scrapePromise = scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, brightKey, { pollAttempts: 45, pollDelayMs: 2000 });
-            const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout comentários (90s)")), 90000));
-            const result: any = await Promise.race([scrapePromise, timeoutPromise]);
-            comments = (result.records as any[])
-              .map((r: any) => (r.comment_text ?? r.comment ?? r.text ?? r.body ?? "") as string)
-              .filter((t) => typeof t === "string" && t.trim().length > 0)
-              .slice(0, 20);
-            if (comments.length === 0) scrapeNote = `BrightData retornou 0 comentários para ${entry.sourceUrl.slice(0,40)}`;
+            // tenta cada chave do pool até uma funcionar (Customer is not active = tenta próxima)
+            let success = false;
+            for (let k = 0; k < brightKeys.length; k++) {
+              const keyTry = brightKeys[k];
+              try {
+                const scrapePromise = scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, keyTry, { pollAttempts: 45, pollDelayMs: 2000 });
+                const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout comentários (90s)")), 90000));
+                const result: any = await Promise.race([scrapePromise, timeoutPromise]);
+                const got = (result.records as any[])
+                  .map((r: any) => (r.comment_text ?? r.comment ?? r.text ?? r.body ?? "") as string)
+                  .filter((t) => typeof t === "string" && t.trim().length > 0)
+                  .slice(0, 20);
+                if (got.length > 0) {
+                  comments = got;
+                  success = true;
+                  if (k > 0) console.log(`[vault/analyze-ai] chave ${k+1}/${brightKeys.length} funcionou para @${entry.sourceHandle}`);
+                  break;
+                } else {
+                  lastError = `BrightData retornou 0 comentários (chave ${k+1})`;
+                }
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                lastError = msg.slice(0,120);
+                const isCustomerInactive = /Customer is not active/i.test(msg);
+                await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: `chave ${k+1} falhou: ${lastError.slice(0,50)}` }) + "\n"));
+                if (isCustomerInactive) {
+                  console.warn(`[vault/analyze-ai] chave ${k+1} Customer is not active, tentando próxima`);
+                  continue;
+                } else {
+                  break;
+                }
+              }
+            }
+            if (!success && comments.length === 0) {
+              scrapeNote = lastError ? lastError : `BrightData retornou 0 comentários para ${entry.sourceUrl.slice(0,40)}`;
+            }
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             scrapeNote = msg.slice(0,120);
@@ -164,9 +197,14 @@ export async function POST(request: NextRequest) {
   for (const entry of pending) {
     try {
       let comments: string[] = [];
-      if (brightKey) {
-        const result = await scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, brightKey, { pollAttempts: 45, pollDelayMs: 2000 });
-        comments = result.records.map((r: any) => (r.comment_text ?? r.comment ?? r.text ?? r.body ?? "") as string).filter(Boolean).slice(0, 20);
+      if (brightKeys.length > 0) {
+        for (const k of brightKeys) {
+          try {
+            const result = await scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, k, { pollAttempts: 45, pollDelayMs: 2000 });
+            const got = result.records.map((r: any) => (r.comment_text ?? r.comment ?? r.text ?? r.body ?? "") as string).filter(Boolean).slice(0, 20);
+            if (got.length > 0) { comments = got; break; }
+          } catch { continue; }
+        }
       }
       const ai = await classifyComments(comments);
       await prisma.patternVaultEntry.update({
