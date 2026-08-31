@@ -396,21 +396,40 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
                   <button className="button" onClick={analyzeWithAI} disabled={vaultLoading || (!aiLoading && pending.length === 0)} title={aiLoading ? "Clique para cancelar" : "Roda sozinho de 3 em 3 até acabar"}>
                     {aiLoading ? "Cancelar IA" : `Análise com IA (todos ${pending.length})`}
                   </button>
-                  {rejected.some((v: any) => v.aiMotivo?.includes("Sem comentários") || v.aiMotivo?.includes("Customer is not active") || v.aiMotivo?.includes("Timeout")) && !aiLoading && (
-                    <button
-                      className="button secondary"
-                      onClick={async () => {
-                        if (!confirm(`Resetar ${rejected.filter((v: any) => v.aiMotivo?.includes("Sem comentários") || v.aiMotivo?.includes("Customer") || v.aiMotivo?.includes("Timeout")).length} reprovados com erro para tentar de novo?`)) return;
-                        const r = await fetch("/api/vault/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creatorId: creator.id }) });
-                        const j = await r.json().catch(() => ({}));
-                        await refreshVault();
-                        setAiMessage(j.reset ? `🔄 ${j.reset} reprovados com erro resetados para pendente` : "Nada para resetar");
-                        setTimeout(() => setAiMessage(null), 4000);
-                      }}
-                      title="Volta os Sem comentários / Customer is not active para pendente"
-                    >
-                      Resetar erros ({rejected.filter((v: any) => v.aiMotivo?.includes("Sem comentários") || v.aiMotivo?.includes("Customer") || v.aiMotivo?.includes("Timeout")).length})
-                    </button>
+                  {rejected.length > 0 && !aiLoading && (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {rejected.some((v: any) => v.aiMotivo?.includes("Sem comentários") || v.aiMotivo?.includes("Customer is not active") || v.aiMotivo?.includes("Timeout")) && (
+                        <button
+                          className="button secondary"
+                          onClick={async () => {
+                            const n = rejected.filter((v: any) => v.aiMotivo?.includes("Sem comentários") || v.aiMotivo?.includes("Customer") || v.aiMotivo?.includes("Timeout")).length;
+                            if (!confirm(`Resetar ${n} reprovados com erro para tentar de novo?`)) return;
+                            const r = await fetch("/api/vault/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creatorId: creator.id }) });
+                            const j = await r.json().catch(() => ({}));
+                            await refreshVault();
+                            setAiMessage(j.reset ? `🔄 ${j.reset} com erro resetados` : "Nada para resetar");
+                            setTimeout(() => setAiMessage(null), 4000);
+                          }}
+                          title="Volta os Sem comentários / Customer is not active para pendente"
+                        >
+                          Resetar erros ({rejected.filter((v: any) => v.aiMotivo?.includes("Sem comentários") || v.aiMotivo?.includes("Customer") || v.aiMotivo?.includes("Timeout")).length})
+                        </button>
+                      )}
+                      <button
+                        className="button secondary"
+                        onClick={async () => {
+                          if (!confirm(`Resetar TODOS os ${rejected.length} reprovados para pendente?`)) return;
+                          const r = await fetch("/api/vault/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creatorId: creator.id, mode: "all" }) });
+                          const j = await r.json().catch(() => ({}));
+                          await refreshVault();
+                          setAiMessage(j.reset ? `🔄 ${j.reset} reprovados resetados` : "Nada para resetar");
+                          setTimeout(() => setAiMessage(null), 4000);
+                        }}
+                        title="Volta todos os reprovados para pendente"
+                      >
+                        Resetar reprovados ({rejected.length})
+                      </button>
+                    </div>
                   )}
                   {aiLoading && <span className="meta">rodando lote automático — clique em Cancelar para parar</span>}
                 </div>
