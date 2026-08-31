@@ -30,7 +30,6 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
   };
 
   const loadVault = async () => {
-    // Se já está carregando, cancela
     if (vaultLoading) {
       cancelScan();
       return;
@@ -38,48 +37,75 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
     const controller = new AbortController();
     abortRef.current = controller;
     setVaultLoading(true);
-    setVaultProgress(10);
-    setVaultMessage(`Escaneando ${tracked.length} perfis trackeados em busca de winners 6×6... (pode levar até 30s para 51 perfis)`);
-    let timer: ReturnType<typeof setInterval> | null = null;
+    setVaultProgress(0);
+    setVaultMessage(`Preparando escaneamento de ${tracked.length} perfis...`);
     try {
-      timer = setInterval(() => setVaultProgress((p) => Math.min(p + 8, 90)), 400);
-      const scanRes = await fetch(`/api/vault/scan`, {
+      const res = await fetch(`/api/vault/scan?stream=1`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ creatorId: creator.id }),
         signal: controller.signal,
       });
-      if (!scanRes.ok && scanRes.status !== 499) {
-        const err = await scanRes.json().catch(() => ({}));
-        throw new Error(err.error ?? "Falha no scan");
-      }
-      const scanData = await scanRes.json().catch(() => ({}));
-      if (timer) clearInterval(timer);
-      if (scanData.aborted) {
-        setVaultMessage("⏹️ Cancelado");
-        return;
-      }
-      setVaultProgress(90);
-      const res = await fetch(`/api/vault?creatorId=${creator.id}`, { signal: controller.signal });
-      const data = await res.json();
-      setVaultProgress(100);
-      setVault(data.entries ?? []);
-      if (scanData.winners > 0) {
-        setVaultMessage(`✅ ${scanData.winners} novo(s) winner(s) em ${scanData.scanned} posts (${scanData.profiles} perfis). Total: ${data.entries?.length ?? 0}`);
-      } else if (scanData.scanned > 0) {
-        setVaultMessage(`Nenhum novo winner nos ${scanData.profiles} perfis (${scanData.scanned} posts). Total: ${data.entries?.length ?? 0}`);
-      } else {
-        setVaultMessage(data.entries?.length ? `✅ ${data.entries.length} winner(s) no vault` : null);
+      if (!res.ok || !res.body) throw new Error("Falha no scan");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let lastProgress = 0;
+      let winnersFound = 0;
+      let scanned = 0;
+      let total = tracked.length;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const evt = JSON.parse(line);
+            if (evt.type === "progress") {
+              total = evt.total ?? total;
+              scanned = evt.scanned ?? scanned;
+              winnersFound = evt.winners ?? winnersFound;
+              const pct = Math.round((evt.current / evt.total) * 100);
+              setVaultProgress(pct);
+              setVaultMessage(`Analisando @${evt.handle} (${evt.current}/${evt.total}) — ${evt.scanned ?? 0} posts • ${winnersFound} winners`);
+              lastProgress = pct;
+            } else if (evt.type === "found") {
+              winnersFound = evt.winners ?? winnersFound;
+              setVaultMessage(`🎯 Winner @${evt.handle} ${evt.ratio}x — ${winnersFound} novo(s)`);
+            } else if (evt.type === "complete") {
+              setVaultProgress(100);
+              winnersFound = evt.winners ?? 0;
+              scanned = evt.scanned ?? 0;
+              const vaultRes = await fetch(`/api/vault?creatorId=${creator.id}`);
+              const vaultData = await vaultRes.json();
+              setVault(vaultData.entries ?? []);
+              if (evt.winners > 0) {
+                setVaultMessage(`✅ ${evt.winners} novo(s) winner(s) em ${evt.scanned} posts (${evt.profiles} perfis). Total no vault: ${vaultData.entries?.length ?? 0}`);
+              } else {
+                setVaultMessage(`Nenhum novo winner em ${evt.profiles} perfis (${evt.scanned} posts). Total: ${vaultData.entries?.length ?? 0}`);
+              }
+            } else if (evt.type === "aborted") {
+              setVaultMessage("⏹️ Cancelado");
+              setVaultProgress(0);
+              return;
+            } else if (evt.type === "error") {
+              throw new Error(evt.error);
+            }
+          } catch {}
+        }
       }
       setTimeout(() => setVaultProgress(0), 1200);
     } catch (e: any) {
       if (e.name === "AbortError") {
         setVaultMessage("⏹️ Cancelado");
+        setVaultProgress(0);
       } else {
         setVaultMessage(`❌ ${e.message ?? "Falha ao atualizar Vault"}`);
       }
     } finally {
-      if (timer) clearInterval(timer);
       setVaultLoading(false);
       abortRef.current = null;
     }
