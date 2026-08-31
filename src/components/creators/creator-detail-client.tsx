@@ -31,7 +31,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
       clearInterval(timer);
       setVaultProgress(100);
       setVault(data.entries ?? []);
-      setVaultMessage(data.entries?.length ? `✅ ${data.entries.length} winner(s) carregado(s)` : "Vault ainda vazio — salve o primeiro outlier da Biblioteca");
+      setVaultMessage(data.entries?.length ? `✅ ${data.entries.length} winner(s) carregado(s)` : null);
       setTimeout(() => setVaultProgress(0), 800);
     } catch {
       setVaultMessage("❌ Falha ao atualizar Vault");
