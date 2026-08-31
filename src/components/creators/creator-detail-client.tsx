@@ -139,52 +139,84 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
     aiAbortRef.current = controller;
     setAiLoading(true);
     setAiProgress(0);
-    const pendingCount = vault.filter((v: any) => v.aiStatus === "pending").length;
-    setAiMessage(`Iniciando análise IA de 5/${pendingCount} potenciais (lote para não travar)...`);
     try {
-      const res = await fetch(`/api/vault/analyze-ai?stream=1&limit=5`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ creatorId: creator.id, limit: 5 }),
-        signal: controller.signal,
-      });
-      if (!res.ok || !res.body) {
-        const txt = await res.text().catch(() => "");
-        let detail = txt.slice(0,300);
-        try { const j = JSON.parse(txt); detail = j.error || detail; } catch {}
-        throw new Error(detail || "Falha na IA");
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const evt = JSON.parse(line);
-            if (evt.type === "progress") {
-              const pct = Math.round((evt.current / evt.total) * 100);
-              setAiProgress(pct);
-              setAiMessage(`IA analisando @${evt.handle} (${evt.current}/${evt.total}) — ${evt.veredict ?? ""}`);
-            } else if (evt.type === "classified") {
-              setAiMessage(`${evt.veredict === "APROVADO" ? "✅" : "❌"} @${evt.handle}: ${evt.veredict} — ${evt.motivo}`);
-            } else if (evt.type === "complete") {
-              setAiProgress(100);
-              await refreshVault();
-              setAiMessage(`✅ IA finalizada: ${evt.approved} winner(s) aprovado(s), ${evt.rejected} reprovado(s) de ${evt.total} potenciais`);
-            } else if (evt.type === "aborted") {
-              setAiMessage("⏹️ IA cancelada");
-              return;
-            } else if (evt.type === "error") {
-              throw new Error(evt.error);
-            }
-          } catch {}
+      let totalApproved = 0;
+      let totalRejected = 0;
+      let batches = 0;
+      // loop automático: processa de 3 em 3 até acabar, sem precisar clicar toda hora
+      while (!controller.signal.aborted) {
+        const pendingNow = vault.filter((v: any) => v.aiStatus === "pending").length;
+        // recalcula via fresh vault após cada lote
+        const freshRes = await fetch(`/api/vault?creatorId=${creator.id}`, { signal: controller.signal });
+        const freshData = await freshRes.json().catch(() => ({ entries: [] }));
+        const freshVault = freshData.entries ?? [];
+        setVault(freshVault);
+        const pendingFresh = freshVault.filter((v: any) => v.aiStatus === "pending").length;
+        if (pendingFresh === 0) {
+          if (batches === 0) setAiMessage("Nenhum potencial pendente");
+          else setAiMessage(`✅ Finalizado: ${totalApproved} aprovado(s), ${totalRejected} reprovado(s) em ${batches} lote(s)`);
+          break;
         }
+        batches += 1;
+        setAiMessage(`Lote ${batches}: analisando 3 de ${pendingFresh} pendentes...`);
+        const res = await fetch(`/api/vault/analyze-ai?stream=1&limit=3`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ creatorId: creator.id, limit: 3 }),
+          signal: controller.signal,
+        });
+        if (!res.ok || !res.body) {
+          const txt = await res.text().catch(() => "");
+          let detail = txt.slice(0, 300);
+          try { const j = JSON.parse(txt); detail = j.error || detail; } catch {}
+          throw new Error(detail || "Falha na IA");
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let batchDone = false;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const evt = JSON.parse(line);
+              if (evt.type === "progress") {
+                const pct = Math.round((evt.current / evt.total) * 100);
+                setAiProgress(pct);
+                setAiMessage(`Lote ${batches} — IA analisando @${evt.handle} (${evt.current}/${evt.total})`);
+              } else if (evt.type === "classified") {
+                setAiMessage(`${evt.veredict === "APROVADO" ? "✅" : "❌"} @${evt.handle}: ${evt.veredict} — ${evt.motivo}`);
+              } else if (evt.type === "complete") {
+                totalApproved += evt.approved ?? 0;
+                totalRejected += evt.rejected ?? 0;
+                setAiProgress(100);
+                batchDone = true;
+              } else if (evt.type === "aborted") {
+                setAiMessage("⏹️ IA cancelada");
+                return;
+              } else if (evt.type === "error") {
+                throw new Error(evt.error);
+              }
+            } catch {}
+          }
+        }
+        if (!batchDone) await new Promise((r) => setTimeout(r, 300));
+        // atualiza vault para próximo loop
+        const afterRes = await fetch(`/api/vault?creatorId=${creator.id}`, { signal: controller.signal });
+        const afterData = await afterRes.json().catch(() => ({ entries: [] }));
+        setVault(afterData.entries ?? []);
+        const stillPending = (afterData.entries ?? []).filter((v: any) => v.aiStatus === "pending").length;
+        setAiMessage(`Lote ${batches} OK: ${totalApproved} aprov / ${totalRejected} reprov — faltam ${stillPending}`);
+        if (stillPending === 0) {
+          setAiMessage(`✅ Finalizado: ${totalApproved} aprovado(s), ${totalRejected} reprovado(s) em ${batches} lote(s)`);
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 600));
       }
       setTimeout(() => setAiProgress(0), 1200);
     } catch (e: any) {
@@ -354,8 +386,8 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
             <section className="panel" style={{ marginTop: 16 }}>
               <div className="history-detail-header">
                 <h2>Winners — {winners.length} <small style={{ fontWeight: 400 }}>({rejected.length} reprovados)</small></h2>
-                <button className="button" onClick={analyzeWithAI} disabled={aiLoading || vaultLoading || potentials.length === 0} title="Analisa 3 por vez para não travar">
-                  {aiLoading ? "Cancelar IA" : `Análise com IA (3 de ${potentials.length})`}
+                <button className="button" onClick={analyzeWithAI} disabled={aiLoading || vaultLoading || potentials.length === 0} title="Roda sozinho de 3 em 3 até acabar">
+                  {aiLoading ? "Cancelar IA" : `Análise com IA (todos ${potentials.length})`}
                 </button>
               </div>
               {aiLoading && (
