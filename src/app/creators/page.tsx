@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { CreateCreatorForm } from "@/components/creators/create-creator-form";
+import { formatShortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export default async function CreatorsPage() {
           <Link key={c.id} href={`/creators/${c.id}`} className="panel" style={{ textDecoration: "none" }}>
             <h3>{c.name}</h3>
             <p className="hint">{c._count.vaultEntries} winners no vault • {c._count.profileLinks} perfis + {c._count.folderLinks} pastas trackeadas</p>
-            <small className="meta">{new Date(c.createdAt).toLocaleDateString("pt-BR")}</small>
+            <small className="meta" suppressHydrationWarning>{formatShortDate(c.createdAt)}</small>
           </Link>
         ))}
         {creators.length === 0 && <div className="panel"><p className="meta">Nenhuma Creator ainda. Crie a primeira (ex: J - Techno girl).</p></div>}

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatShortDate, formatExactNumber } from "@/lib/format";
 
 export function CreatorDetailClient({ creator, allProfiles, allFolders, initialVault }: any) {
   const [tracked, setTracked] = useState<any[]>([]);
@@ -136,7 +137,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
     const pendingCount = vault.filter((v: any) => v.aiStatus === "pending").length;
     setAiMessage(`Iniciando análise IA de 5/${pendingCount} potenciais (lote para não travar)...`);
     try {
-      const res = await fetch(`/api/vault/analyze-ai?stream=1&limit=3&limit=5`, {
+      const res = await fetch(`/api/vault/analyze-ai?stream=1&limit=5`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ creatorId: creator.id, limit: 5 }),
@@ -320,13 +321,13 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
                           <td>
                             <strong>@{v.sourceHandle}</strong> <small>{v.platform}</small>
                           </td>
-                          <td>{v.views?.toLocaleString("pt-BR")}</td>
-                          <td>{v.baselineAvg?.toLocaleString("pt-BR")}</td>
+                          <td suppressHydrationWarning>{formatExactNumber(v.views)}</td>
+                          <td suppressHydrationWarning>{formatExactNumber(v.baselineAvg)}</td>
                           <td>
                             <span className={`history-status ${v.isOutlier ? "success" : ""}`}>{v.outlierRatio?.toFixed(2)}x</span>
                           </td>
                           <td>{v.commentsRatio != null ? `${v.commentsRatio.toFixed(4)}%` : "—"}</td>
-                          <td>{new Date(v.createdAt).toLocaleDateString("pt-BR")}</td>
+                          <td suppressHydrationWarning>{formatShortDate(v.createdAt)}</td>
                           <td>
                             <a href={v.sourceUrl} target="_blank" rel="noreferrer" className="button secondary">
                               Abrir
@@ -376,7 +377,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
                               <td>
                                 <strong>@{v.sourceHandle}</strong>
                               </td>
-                              <td>{v.views?.toLocaleString("pt-BR")}</td>
+                              <td suppressHydrationWarning>{formatExactNumber(v.views)}</td>
                               <td>{v.outlierRatio?.toFixed(2)}x</td>
                               <td>
                                 <span className="history-status success">{v.aiVeredict}</span> <small>{v.aiMotivo}</small><br />

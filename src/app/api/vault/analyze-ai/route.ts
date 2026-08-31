@@ -11,20 +11,36 @@ const schema = z.object({ creatorId: z.string().min(1), limit: z.number().min(1)
 const COMMENTS_DATASET = "gd_ltppn085pokosxh13";
 
 export async function POST(request: NextRequest) {
-  const url = new URL(request.url);
-  const wantStream = url.searchParams.get("stream") === "1";
-  const body = await request.json().catch(() => null);
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "creatorId obrigatório" }, { status: 400 });
+  try {
+    const url = new URL(request.url);
+    const wantStream = url.searchParams.get("stream") === "1";
+    const body = await request.json().catch(() => null);
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: "creatorId obrigatório" }, { status: 400 });
 
-  const { creatorId, limit: bodyLimit } = parsed.data;
-  const limit = Math.max(1, Math.min(20, bodyLimit ?? (parseInt(url.searchParams.get("limit") ?? "5", 10) || 5)));
+    const { creatorId, limit: bodyLimit } = parsed.data;
+    const limit = Math.max(1, Math.min(20, bodyLimit ?? (parseInt(url.searchParams.get("limit") ?? "5", 10) || 5)));
 
-  const pending = await prisma.patternVaultEntry.findMany({
-    where: { creatorId, aiStatus: "pending" },
-    orderBy: { outlierRatio: "desc" },
-    take: Math.min(limit, 3),
-  });
+    let pending: any[] = [];
+    try {
+      pending = await prisma.patternVaultEntry.findMany({
+        where: { creatorId, aiStatus: "pending" },
+        orderBy: { outlierRatio: "desc" },
+        take: Math.min(limit, 3),
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[vault/analyze-ai] prisma pending failed:", msg);
+      if (wantStream) {
+        const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+        const writer = writable.getWriter();
+        const enc = new TextEncoder();
+        await writer.write(enc.encode(JSON.stringify({ type: "error", error: `DB falhou: ${msg.slice(0, 200)}` }) + "\n"));
+        await writer.close().catch(() => {});
+        return new Response(readable, { headers: { "Content-Type": "application/x-ndjson" } });
+      }
+      return NextResponse.json({ error: `DB falhou: ${msg.slice(0, 300)}` }, { status: 500 });
+    }
 
   if (pending.length === 0) {
     if (wantStream) {
@@ -133,4 +149,9 @@ export async function POST(request: NextRequest) {
     } catch {}
   }
   return NextResponse.json({ total: pending.length, approved, rejected });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[vault/analyze-ai] unhandled:", msg);
+    return NextResponse.json({ error: `Falha interna: ${msg.slice(0, 300)}` }, { status: 500 });
+  }
 }

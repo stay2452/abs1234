@@ -1,4 +1,4 @@
-const GEMINI_MODEL = "gemini-3.6-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-1.5-flash";
 const PROMPT = `Você é o auditor de viral BR da OFM Vault Pro.
 
 TAREFA: Classifique esses 20 comentários de um reel.
