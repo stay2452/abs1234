@@ -86,8 +86,10 @@ export async function POST(request: NextRequest) {
         await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, url: entry.sourceUrl }) + "\n"));
 
         let comments: string[] = [];
+        let scrapeNote: string | null = null;
         if (!brightKey) {
-          await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: "sem chave BrightData — heurística" }) + "\n"));
+          scrapeNote = "sem chave BrightData — heurística";
+          await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: scrapeNote }) + "\n"));
         } else {
           // heartbeat para Render/Cloudflare não fechar a conexão (30s timeout)
           let heartbeat: ReturnType<typeof setInterval> | null = null;
@@ -102,9 +104,11 @@ export async function POST(request: NextRequest) {
               .map((r: any) => (r.comment_text ?? r.comment ?? r.text ?? r.body ?? "") as string)
               .filter((t) => typeof t === "string" && t.trim().length > 0)
               .slice(0, 20);
+            if (comments.length === 0) scrapeNote = `BrightData retornou 0 comentários para ${entry.sourceUrl.slice(0,40)}`;
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
-            await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: `sem comentários: ${msg.slice(0, 80)}` }) + "\n"));
+            scrapeNote = msg.slice(0,120);
+            await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: `sem comentários: ${scrapeNote.slice(0, 80)}` }) + "\n"));
           } finally {
             if (heartbeat) clearInterval(heartbeat);
           }
@@ -112,9 +116,10 @@ export async function POST(request: NextRequest) {
 
         try {
           if (comments.length === 0) {
+            const motivo = scrapeNote ? `Sem comentários: ${scrapeNote.slice(0,100)}` : "Sem comentários";
             await prisma.patternVaultEntry.update({
               where: { id: entry.id },
-              data: { aiStatus: "rejected", aiVeredict: "REPROVADO", aiMotivo: "Sem comentários", aiRealPct: 0, aiGringoPct: 100, aiAnalyzedAt: new Date(), aiResult: JSON.stringify({ comments: [] }) },
+              data: { aiStatus: "rejected", aiVeredict: "REPROVADO", aiMotivo: motivo, aiRealPct: 0, aiGringoPct: 100, aiAnalyzedAt: new Date(), aiResult: JSON.stringify({ comments: [], note: scrapeNote }) },
             });
             rejected++;
             await writer.write(encoder.encode(JSON.stringify({ type: "classified", handle: entry.sourceHandle, veredict: "REPROVADO", motivo: "Sem comentários" }) + "\n"));
