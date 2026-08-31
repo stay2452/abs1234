@@ -330,9 +330,10 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
               <div className="history-detail-header">
                 <h2>Potenciais winners — {potentials.length}</h2>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button className="button" onClick={scanPotentials} disabled={vaultLoading || aiLoading}>
-                    {vaultLoading ? "Cancelar" : "Procurar potenciais winner"}
+                  <button className="button" onClick={scanPotentials} disabled={aiLoading || (!vaultLoading && potentials.length === 0 && tracked.length === 0)}>
+                    {vaultLoading ? "Cancelar escaneamento" : "Procurar potenciais winner"}
                   </button>
+                  {vaultLoading && <span className="meta" style={{ alignSelf: "center" }}>clique em Cancelar para parar</span>}
                 </div>
               </div>
               {vaultLoading && (
@@ -386,9 +387,12 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
             <section className="panel" style={{ marginTop: 16 }}>
               <div className="history-detail-header">
                 <h2>Winners — {winners.length} <small style={{ fontWeight: 400 }}>({rejected.length} reprovados)</small></h2>
-                <button className="button" onClick={analyzeWithAI} disabled={aiLoading || vaultLoading || potentials.length === 0} title="Roda sozinho de 3 em 3 até acabar">
-                  {aiLoading ? "Cancelar IA" : `Análise com IA (todos ${potentials.length})`}
-                </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button className="button" onClick={analyzeWithAI} disabled={vaultLoading || (!aiLoading && potentials.length === 0)} title={aiLoading ? "Clique para cancelar" : "Roda sozinho de 3 em 3 até acabar"}>
+                    {aiLoading ? "Cancelar IA" : `Análise com IA (todos ${potentials.length})`}
+                  </button>
+                  {aiLoading && <span className="meta">rodando lote automático — clique em Cancelar para parar</span>}
+                </div>
               </div>
               {aiLoading && (
                 <div className="audit-progress" role="progressbar" aria-valuenow={aiProgress} aria-valuemin={0} aria-valuemax={100} style={{ marginBottom: 12 }}>
