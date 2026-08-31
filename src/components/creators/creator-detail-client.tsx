@@ -11,6 +11,9 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
   const [vaultLoading, setVaultLoading] = useState(false);
   const [vaultProgress, setVaultProgress] = useState(0);
   const [vaultMessage, setVaultMessage] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiProgress, setAiProgress] = useState(0);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<"profiles" | "folders" | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -20,7 +23,14 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
     setTracked(data.profiles ?? []);
   };
 
+  const refreshVault = async () => {
+    const res = await fetch(`/api/vault?creatorId=${creator.id}`);
+    const data = await res.json();
+    setVault(data.entries ?? []);
+  };
+
   const abortRef = React.useRef<AbortController | null>(null);
+  const aiAbortRef = React.useRef<AbortController | null>(null);
 
   const cancelScan = () => {
     abortRef.current?.abort();
@@ -29,7 +39,14 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
     setVaultMessage("⏹️ Escaneamento cancelado pelo usuário");
   };
 
-  const loadVault = async () => {
+  const cancelAI = () => {
+    aiAbortRef.current?.abort();
+    setAiLoading(false);
+    setAiProgress(0);
+    setAiMessage("⏹️ Análise IA cancelada");
+  };
+
+  const scanPotentials = async () => {
     if (vaultLoading) {
       cancelScan();
       return;
@@ -50,9 +67,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let lastProgress = 0;
       let winnersFound = 0;
-      let scanned = 0;
       let total = tracked.length;
       while (true) {
         const { value, done } = await reader.read();
@@ -66,26 +81,23 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
             const evt = JSON.parse(line);
             if (evt.type === "progress") {
               total = evt.total ?? total;
-              scanned = evt.scanned ?? scanned;
               winnersFound = evt.winners ?? winnersFound;
               const pct = Math.round((evt.current / evt.total) * 100);
               setVaultProgress(pct);
-              setVaultMessage(`Analisando @${evt.handle} (${evt.current}/${evt.total}) — ${evt.scanned ?? 0} posts • ${winnersFound} winners`);
-              lastProgress = pct;
+              setVaultMessage(`Analisando @${evt.handle} (${evt.current}/${evt.total}) — ${evt.scanned ?? 0} posts • ${winnersFound} potenciais`);
             } else if (evt.type === "found") {
               winnersFound = evt.winners ?? winnersFound;
-              setVaultMessage(`🎯 Winner @${evt.handle} ${evt.ratio}x — ${winnersFound} novo(s)`);
+              setVaultMessage(`🎯 Potencial @${evt.handle} ${evt.ratio}x — ${winnersFound} novo(s)`);
             } else if (evt.type === "complete") {
               setVaultProgress(100);
-              winnersFound = evt.winners ?? 0;
-              scanned = evt.scanned ?? 0;
+              await refreshVault();
               const vaultRes = await fetch(`/api/vault?creatorId=${creator.id}`);
               const vaultData = await vaultRes.json();
               setVault(vaultData.entries ?? []);
               if (evt.winners > 0) {
-                setVaultMessage(`✅ ${evt.winners} novo(s) winner(s) em ${evt.scanned} posts (${evt.profiles} perfis). Total no vault: ${vaultData.entries?.length ?? 0}`);
+                setVaultMessage(`✅ ${evt.winners} novo(s) potencial(is) em ${evt.scanned} posts (${evt.profiles} perfis).`);
               } else {
-                setVaultMessage(`Nenhum novo winner em ${evt.profiles} perfis (${evt.scanned} posts). Total: ${vaultData.entries?.length ?? 0}`);
+                setVaultMessage(`Nenhum novo potencial em ${evt.profiles} perfis (${evt.scanned} posts).`);
               }
             } else if (evt.type === "aborted") {
               setVaultMessage("⏹️ Cancelado");
@@ -103,11 +115,73 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
         setVaultMessage("⏹️ Cancelado");
         setVaultProgress(0);
       } else {
-        setVaultMessage(`❌ ${e.message ?? "Falha ao atualizar Vault"}`);
+        setVaultMessage(`❌ ${e.message ?? "Falha ao buscar potenciais"}`);
       }
     } finally {
       setVaultLoading(false);
       abortRef.current = null;
+      await refreshVault();
+    }
+  };
+
+  const analyzeWithAI = async () => {
+    if (aiLoading) {
+      cancelAI();
+      return;
+    }
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+    setAiLoading(true);
+    setAiProgress(0);
+    setAiMessage(`Iniciando análise IA dos potenciais pendentes...`);
+    try {
+      const res = await fetch(`/api/vault/analyze-ai?stream=1`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatorId: creator.id }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) throw new Error("Falha na IA");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const evt = JSON.parse(line);
+            if (evt.type === "progress") {
+              const pct = Math.round((evt.current / evt.total) * 100);
+              setAiProgress(pct);
+              setAiMessage(`IA analisando @${evt.handle} (${evt.current}/${evt.total}) — ${evt.veredict ?? ""}`);
+            } else if (evt.type === "classified") {
+              setAiMessage(`${evt.veredict === "APROVADO" ? "✅" : "❌"} @${evt.handle}: ${evt.veredict} — ${evt.motivo}`);
+            } else if (evt.type === "complete") {
+              setAiProgress(100);
+              await refreshVault();
+              setAiMessage(`✅ IA finalizada: ${evt.approved} winner(s) aprovado(s), ${evt.rejected} reprovado(s) de ${evt.total} potenciais`);
+            } else if (evt.type === "aborted") {
+              setAiMessage("⏹️ IA cancelada");
+              return;
+            } else if (evt.type === "error") {
+              throw new Error(evt.error);
+            }
+          } catch {}
+        }
+      }
+      setTimeout(() => setAiProgress(0), 1200);
+    } catch (e: any) {
+      if (e.name === "AbortError") setAiMessage("⏹️ Cancelado");
+      else setAiMessage(`❌ ${e.message ?? "Falha IA"}`);
+    } finally {
+      setAiLoading(false);
+      aiAbortRef.current = null;
+      await refreshVault();
     }
   };
 
@@ -202,62 +276,155 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
       </div>
       {actionMessage && <p className={`message ${actionMessage.startsWith("✅") ? "success" : "info"}`} style={{ marginTop: 8 }}>{actionMessage}</p>}
 
-      <section className="panel" style={{ marginTop: 16 }}>
-        <div className="history-detail-header">
-          <h2>Vault — {vault.length} winners</h2>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="button secondary" onClick={loadVault}>
-              {vaultLoading ? "Cancelar" : "Atualizar"}
-            </button>
-          </div>
-        </div>
-        {vaultLoading && (
-          <div className="audit-progress" role="progressbar" aria-valuenow={vaultProgress} aria-valuemin={0} aria-valuemax={100} style={{ marginBottom: 12 }}>
-            <span style={{ width: `${vaultProgress}%`, display: "block", height: 6, background: "var(--accent)", borderRadius: 4, transition: "width 0.2s" }} />
-          </div>
-        )}
-        {vaultMessage && <p className={`message ${vaultMessage.startsWith("✅") ? "success" : vaultMessage.startsWith("❌") ? "error" : "info"}`}>{vaultMessage}</p>}
-        {vaultLoading ? null : vault.length === 0 ? (
-          <p className="meta">Vault vazio. Vá na Biblioteca, clique em “Analisar outlier” em um reel e salve aqui.</p>
-        ) : (
-          <div className="table-scroll">
-            <table className="history-table">
-              <thead>
-                <tr>
-                  <th>@</th>
-                  <th>Views</th>
-                  <th>Baseline 6+6</th>
-                  <th>Ratio</th>
-                  <th>Comentários/Views</th>
-                  <th>Data</th>
-                  <th>Abrir</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vault.map((v: any) => (
-                  <tr key={v.id}>
-                    <td>
-                      <strong>@{v.sourceHandle}</strong> <small>{v.platform}</small>
-                    </td>
-                    <td>{v.views?.toLocaleString("pt-BR")}</td>
-                    <td>{v.baselineAvg?.toLocaleString("pt-BR")}</td>
-                    <td>
-                      <span className={`history-status ${v.isOutlier ? "success" : ""}`}>{v.outlierRatio?.toFixed(2)}x</span>
-                    </td>
-                    <td>{v.commentsRatio != null ? `${v.commentsRatio.toFixed(4)}%` : "—"}</td>
-                    <td>{new Date(v.createdAt).toLocaleDateString("pt-BR")}</td>
-                    <td>
-                      <a href={v.sourceUrl} target="_blank" rel="noreferrer" className="button secondary">
-                        Abrir
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      {(() => {
+        const potentials = vault.filter((v: any) => v.aiStatus === "pending" || !v.aiStatus);
+        const winners = vault.filter((v: any) => v.aiStatus === "approved");
+        const rejected = vault.filter((v: any) => v.aiStatus === "rejected");
+        return (
+          <>
+            <section className="panel" style={{ marginTop: 16 }}>
+              <div className="history-detail-header">
+                <h2>Potenciais winners — {potentials.length}</h2>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="button" onClick={scanPotentials} disabled={vaultLoading || aiLoading}>
+                    {vaultLoading ? "Cancelar" : "Procurar potenciais winner"}
+                  </button>
+                </div>
+              </div>
+              {vaultLoading && (
+                <div className="audit-progress" role="progressbar" aria-valuenow={vaultProgress} aria-valuemin={0} aria-valuemax={100} style={{ marginBottom: 12 }}>
+                  <span style={{ width: `${vaultProgress}%`, display: "block", height: 6, background: "var(--accent)", borderRadius: 4, transition: "width 0.2s" }} />
+                </div>
+              )}
+              {vaultMessage && <p className={`message ${vaultMessage.startsWith("✅") ? "success" : vaultMessage.startsWith("❌") ? "error" : "info"}`}>{vaultMessage}</p>}
+              {vaultLoading ? null : potentials.length === 0 ? (
+                <p className="meta">Nenhum potencial pendente. Clique em “Procurar potenciais winner” para escanear os {tracked.length} perfis.</p>
+              ) : (
+                <div className="table-scroll">
+                  <table className="history-table">
+                    <thead>
+                      <tr>
+                        <th>@</th>
+                        <th>Views</th>
+                        <th>Baseline 6+6</th>
+                        <th>Ratio</th>
+                        <th>Comentários/Views</th>
+                        <th>Data</th>
+                        <th>Abrir</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {potentials.map((v: any) => (
+                        <tr key={v.id}>
+                          <td>
+                            <strong>@{v.sourceHandle}</strong> <small>{v.platform}</small>
+                          </td>
+                          <td>{v.views?.toLocaleString("pt-BR")}</td>
+                          <td>{v.baselineAvg?.toLocaleString("pt-BR")}</td>
+                          <td>
+                            <span className={`history-status ${v.isOutlier ? "success" : ""}`}>{v.outlierRatio?.toFixed(2)}x</span>
+                          </td>
+                          <td>{v.commentsRatio != null ? `${v.commentsRatio.toFixed(4)}%` : "—"}</td>
+                          <td>{new Date(v.createdAt).toLocaleDateString("pt-BR")}</td>
+                          <td>
+                            <a href={v.sourceUrl} target="_blank" rel="noreferrer" className="button secondary">
+                              Abrir
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <section className="panel" style={{ marginTop: 16 }}>
+              <div className="history-detail-header">
+                <h2>Winners — {winners.length} <small style={{ fontWeight: 400 }}>({rejected.length} reprovados)</small></h2>
+                <button className="button" onClick={analyzeWithAI} disabled={aiLoading || vaultLoading || potentials.length === 0}>
+                  {aiLoading ? "Cancelar IA" : `Análise com IA (${potentials.length})`}
+                </button>
+              </div>
+              {aiLoading && (
+                <div className="audit-progress" role="progressbar" aria-valuenow={aiProgress} aria-valuemin={0} aria-valuemax={100} style={{ marginBottom: 12 }}>
+                  <span style={{ width: `${aiProgress}%`, display: "block", height: 6, background: "#f59e0b", borderRadius: 4, transition: "width 0.2s" }} />
+                </div>
+              )}
+              {aiMessage && <p className={`message ${aiMessage.startsWith("✅") ? "success" : aiMessage.startsWith("❌") ? "error" : "info"}`}>{aiMessage}</p>}
+              {winners.length === 0 && rejected.length === 0 ? (
+                <p className="meta">Nenhum winner ainda. A IA analisará apenas os potenciais acima.</p>
+              ) : (
+                <>
+                  {winners.length > 0 && (
+                    <div className="table-scroll" style={{ marginBottom: 16 }}>
+                      <h3 style={{ marginBottom: 8 }}>✅ Aprovados pela IA</h3>
+                      <table className="history-table">
+                        <thead>
+                          <tr>
+                            <th>@</th>
+                            <th>Views</th>
+                            <th>Ratio</th>
+                            <th>IA</th>
+                            <th>Abrir</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {winners.map((v: any) => (
+                            <tr key={v.id}>
+                              <td>
+                                <strong>@{v.sourceHandle}</strong>
+                              </td>
+                              <td>{v.views?.toLocaleString("pt-BR")}</td>
+                              <td>{v.outlierRatio?.toFixed(2)}x</td>
+                              <td>
+                                <span className="history-status success">{v.aiVeredict}</span> <small>{v.aiMotivo}</small><br />
+                                <small>
+                                  {v.aiRealPct}% real, {v.aiGringoPct}% gringo
+                                </small>
+                              </td>
+                              <td>
+                                <a href={v.sourceUrl} target="_blank" rel="noreferrer" className="button secondary">
+                                  Abrir
+                                </a>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {rejected.length > 0 && (
+                    <div className="table-scroll">
+                      <h3 style={{ marginBottom: 8 }}>❌ Reprovados pela IA</h3>
+                      <table className="history-table">
+                        <thead>
+                          <tr>
+                            <th>@</th>
+                            <th>Ratio</th>
+                            <th>Motivo IA</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rejected.map((v: any) => (
+                            <tr key={v.id}>
+                              <td>@{v.sourceHandle}</td>
+                              <td>{v.outlierRatio?.toFixed(2)}x</td>
+                              <td>
+                                <span className="history-status failed">REPROVADO</span> {v.aiMotivo}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+          </>
+        );
+      })()}
     </main>
   );
 }
