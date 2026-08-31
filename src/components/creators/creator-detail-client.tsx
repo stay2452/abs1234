@@ -472,6 +472,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
                             <th>@</th>
                             <th>Ratio</th>
                             <th>Motivo IA</th>
+                            <th>Abrir</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -481,6 +482,11 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
                               <td>{v.outlierRatio?.toFixed(2)}x</td>
                               <td>
                                 <span className="history-status failed">REPROVADO</span> {v.aiMotivo}
+                              </td>
+                              <td>
+                                <a href={v.sourceUrl} target="_blank" rel="noreferrer" className="button secondary">
+                                  Abrir
+                                </a>
                               </td>
                             </tr>
                           ))}
