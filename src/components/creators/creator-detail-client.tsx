@@ -22,17 +22,32 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
 
   const loadVault = async () => {
     setVaultLoading(true);
-    setVaultProgress(20);
-    setVaultMessage("Buscando winners no Supabase...");
+    setVaultProgress(10);
+    setVaultMessage(`Escaneando ${tracked.length} perfis trackeados em busca de winners 6×6...`);
     try {
-      const timer = setInterval(() => setVaultProgress((p) => Math.min(p + 15, 85)), 200);
+      const timer = setInterval(() => setVaultProgress((p) => Math.min(p + 8, 90)), 400);
+      // Primeiro escaneia todos os perfis trackeados e salva novos winners automaticamente
+      const scanRes = await fetch(`/api/vault/scan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatorId: creator.id }),
+      });
+      const scanData = await scanRes.json();
+      clearInterval(timer);
+      setVaultProgress(90);
+      // Depois busca o vault atualizado
       const res = await fetch(`/api/vault?creatorId=${creator.id}`);
       const data = await res.json();
-      clearInterval(timer);
       setVaultProgress(100);
       setVault(data.entries ?? []);
-      setVaultMessage(data.entries?.length ? `✅ ${data.entries.length} winner(s) carregado(s)` : null);
-      setTimeout(() => setVaultProgress(0), 800);
+      if (scanData.winners > 0) {
+        setVaultMessage(`✅ ${scanData.winners} novo(s) winner(s) encontrado(s) em ${scanData.scanned} posts analisados (${scanData.profiles} perfis). Total no vault: ${data.entries?.length ?? 0}`);
+      } else if (scanData.scanned > 0) {
+        setVaultMessage(`Nenhum novo winner nos ${scanData.profiles} perfis (${scanData.scanned} posts). Total no vault: ${data.entries?.length ?? 0}`);
+      } else {
+        setVaultMessage(data.entries?.length ? `✅ ${data.entries.length} winner(s) no vault` : null);
+      }
+      setTimeout(() => setVaultProgress(0), 1200);
     } catch {
       setVaultMessage("❌ Falha ao atualizar Vault");
     } finally {
