@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const creatorId = url.searchParams.get("creatorId");
   const isOutlier = url.searchParams.get("isOutlier");
-  const take = Math.min(100, parseInt(url.searchParams.get("take") ?? "50", 10) || 50);
+  const take = Math.min(500, parseInt(url.searchParams.get("take") ?? "500", 10) || 500);
 
   const where: any = {};
   if (creatorId) where.creatorId = creatorId;

@@ -11,7 +11,7 @@ export default async function CreatorDetailPage({ params }: { params: Promise<{ 
   const [allProfiles, allFolders, vaultEntries] = await Promise.all([
     prisma.profile.findMany({ orderBy: { handle: "asc" }, take: 500, select: { id: true, handle: true, platform: true } }),
     prisma.folder.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
-    prisma.patternVaultEntry.findMany({ where: { creatorId: id }, orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.patternVaultEntry.findMany({ where: { creatorId: id }, orderBy: { createdAt: "desc" }, take: 500 }),
   ]);
 
   return <CreatorDetailClient creator={creator} allProfiles={allProfiles} allFolders={allFolders} initialVault={vaultEntries} />;
