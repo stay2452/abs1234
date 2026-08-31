@@ -54,9 +54,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ total: 0, approved: 0, rejected: 0, message: "Nenhum potencial pendente" });
   }
 
-  const brightKey = process.env.BRIGHTDATA_API_KEY?.trim() ?? process.env.BRIGHT_DATA_API_KEY?.trim();
+  const brightKey = process.env.BRIGHTDATA_API_KEY?.trim() ?? process.env.BRIGHT_DATA_API_KEY?.trim() ?? "";
   if (!brightKey) {
-    return NextResponse.json({ error: "BRIGHTDATA_API_KEY não configurada" }, { status: 500 });
+    console.warn("[vault/analyze-ai] BRIGHTDATA_API_KEY ausente — cai para heurística sem comentários (todos REPROVADOS)");
+    if (wantStream) {
+      // segue para fluxo heurístico abaixo (comments vazio)
+    } else {
+      // modo não-stream também segue heurístico
+    }
   }
 
   if (wantStream) {
@@ -77,17 +82,21 @@ export async function POST(request: NextRequest) {
         await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, url: entry.sourceUrl }) + "\n"));
 
         let comments: string[] = [];
-        try {
-          const scrapePromise = scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, brightKey, { pollAttempts: 10, pollDelayMs: 1500 });
-          const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout comentários (15s)")), 15000));
-          const result: any = await Promise.race([scrapePromise, timeoutPromise]);
-          comments = (result.records as any[])
-            .map((r: any) => (r.comment_text ?? r.text ?? r.comment ?? r.body ?? "") as string)
-            .filter((t) => typeof t === "string" && t.trim().length > 0)
-            .slice(0, 20);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: `sem comentários: ${msg.slice(0, 60)}` }) + "\n"));
+        if (!brightKey) {
+          await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: "sem chave BrightData — heurística" }) + "\n"));
+        } else {
+          try {
+            const scrapePromise = scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, brightKey, { pollAttempts: 10, pollDelayMs: 1500 });
+            const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout comentários (15s)")), 15000));
+            const result: any = await Promise.race([scrapePromise, timeoutPromise]);
+            comments = (result.records as any[])
+              .map((r: any) => (r.comment_text ?? r.text ?? r.comment ?? r.body ?? "") as string)
+              .filter((t) => typeof t === "string" && t.trim().length > 0)
+              .slice(0, 20);
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: `sem comentários: ${msg.slice(0, 60)}` }) + "\n"));
+          }
         }
 
         try {
@@ -138,8 +147,11 @@ export async function POST(request: NextRequest) {
   let rejected = 0;
   for (const entry of pending) {
     try {
-      const result = await scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, brightKey, { pollAttempts: 10, pollDelayMs: 1500 });
-      const comments: string[] = result.records.map((r: any) => (r.comment_text ?? r.text ?? "") as string).filter(Boolean).slice(0, 20);
+      let comments: string[] = [];
+      if (brightKey) {
+        const result = await scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, brightKey, { pollAttempts: 10, pollDelayMs: 1500 });
+        comments = result.records.map((r: any) => (r.comment_text ?? r.text ?? "") as string).filter(Boolean).slice(0, 20);
+      }
       const ai = await classifyComments(comments);
       await prisma.patternVaultEntry.update({
         where: { id: entry.id },
@@ -152,6 +164,18 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[vault/analyze-ai] unhandled:", msg);
+    // se cliente pediu stream, devolve NDJSON para não dar 500 opaco
+    try {
+      const url = new URL(request.url);
+      if (url.searchParams.get("stream") === "1") {
+        const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+        const writer = writable.getWriter();
+        const enc = new TextEncoder();
+        await writer.write(enc.encode(JSON.stringify({ type: "error", error: msg.slice(0, 300) }) + "\n"));
+        await writer.close().catch(() => {});
+        return new Response(readable, { headers: { "Content-Type": "application/x-ndjson" } });
+      }
+    } catch {}
     return NextResponse.json({ error: `Falha interna: ${msg.slice(0, 300)}` }, { status: 500 });
   }
 }

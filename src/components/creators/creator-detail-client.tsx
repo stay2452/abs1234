@@ -64,7 +64,12 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
         body: JSON.stringify({ creatorId: creator.id, limit: 3 }),
         signal: controller.signal,
       });
-      if (!res.ok || !res.body) throw new Error("Falha no scan");
+      if (!res.ok || !res.body) {
+        const txt = await res.text().catch(() => "");
+        let detail = txt.slice(0,300);
+        try { const j = JSON.parse(txt); detail = j.error || detail; } catch {}
+        throw new Error(detail || "Falha no scan");
+      }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -143,7 +148,12 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
         body: JSON.stringify({ creatorId: creator.id, limit: 5 }),
         signal: controller.signal,
       });
-      if (!res.ok || !res.body) throw new Error("Falha na IA");
+      if (!res.ok || !res.body) {
+        const txt = await res.text().catch(() => "");
+        let detail = txt.slice(0,300);
+        try { const j = JSON.parse(txt); detail = j.error || detail; } catch {}
+        throw new Error(detail || "Falha na IA");
+      }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
