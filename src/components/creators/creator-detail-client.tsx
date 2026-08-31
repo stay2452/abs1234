@@ -8,6 +8,11 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
   const [vault, setVault] = useState<any[]>(initialVault);
   const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
+  const [vaultLoading, setVaultLoading] = useState(false);
+  const [vaultProgress, setVaultProgress] = useState(0);
+  const [vaultMessage, setVaultMessage] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<"profiles" | "folders" | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const loadTracked = async () => {
     const res = await fetch(`/api/creators/${creator.id}/tracked-profiles`);
@@ -16,9 +21,23 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
   };
 
   const loadVault = async () => {
-    const res = await fetch(`/api/vault?creatorId=${creator.id}`);
-    const data = await res.json();
-    setVault(data.entries ?? []);
+    setVaultLoading(true);
+    setVaultProgress(20);
+    setVaultMessage("Buscando winners no Supabase...");
+    try {
+      const timer = setInterval(() => setVaultProgress((p) => Math.min(p + 15, 85)), 200);
+      const res = await fetch(`/api/vault?creatorId=${creator.id}`);
+      const data = await res.json();
+      clearInterval(timer);
+      setVaultProgress(100);
+      setVault(data.entries ?? []);
+      setVaultMessage(data.entries?.length ? `✅ ${data.entries.length} winner(s) carregado(s)` : "Vault ainda vazio — salve o primeiro outlier da Biblioteca");
+      setTimeout(() => setVaultProgress(0), 800);
+    } catch {
+      setVaultMessage("❌ Falha ao atualizar Vault");
+    } finally {
+      setVaultLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -27,24 +46,34 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
 
   const addProfiles = async () => {
     if (selectedProfiles.length === 0) return;
+    setActionLoading("profiles");
+    setActionMessage(`Adicionando ${selectedProfiles.length} perfil(is)...`);
     await fetch(`/api/creators/${creator.id}/profiles`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ profileIds: selectedProfiles }),
     });
     setSelectedProfiles([]);
-    loadTracked();
+    await loadTracked();
+    setActionMessage(`✅ ${selectedProfiles.length} perfil(is) adicionado(s)`);
+    setActionLoading(null);
+    setTimeout(() => setActionMessage(null), 3000);
   };
 
   const addFolders = async () => {
     if (selectedFolders.length === 0) return;
+    setActionLoading("folders");
+    setActionMessage(`Associando ${selectedFolders.length} pasta(s)...`);
     await fetch(`/api/creators/${creator.id}/folders`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ folderIds: selectedFolders }),
     });
     setSelectedFolders([]);
-    loadTracked();
+    await loadTracked();
+    setActionMessage(`✅ ${selectedFolders.length} pasta(s) associada(s)`);
+    setActionLoading(null);
+    setTimeout(() => setActionMessage(null), 3000);
   };
 
   return (
@@ -81,8 +110,8 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
               </option>
             ))}
           </select>
-          <button className="button" onClick={addProfiles} style={{ marginTop: 8 }}>
-            Adicionar selecionados
+          <button className="button" onClick={addProfiles} disabled={actionLoading === "profiles" || selectedProfiles.length === 0} style={{ marginTop: 8 }}>
+            {actionLoading === "profiles" ? "Adicionando..." : "Adicionar selecionados"}
           </button>
         </section>
 
@@ -95,18 +124,27 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
               </option>
             ))}
           </select>
-          <button className="button" onClick={addFolders} style={{ marginTop: 8 }}>
-            Associar pastas
+          <button className="button" onClick={addFolders} disabled={actionLoading === "folders" || selectedFolders.length === 0} style={{ marginTop: 8 }}>
+            {actionLoading === "folders" ? "Associando..." : "Associar pastas"}
           </button>
         </section>
       </div>
+      {actionMessage && <p className={`message ${actionMessage.startsWith("✅") ? "success" : "info"}`} style={{ marginTop: 8 }}>{actionMessage}</p>}
 
       <section className="panel" style={{ marginTop: 16 }}>
         <div className="history-detail-header">
           <h2>Vault — {vault.length} winners</h2>
-          <button className="button secondary" onClick={loadVault}>Atualizar</button>
+          <button className="button secondary" onClick={loadVault} disabled={vaultLoading}>
+            {vaultLoading ? "Atualizando..." : "Atualizar"}
+          </button>
         </div>
-        {vault.length === 0 ? (
+        {vaultLoading && (
+          <div className="audit-progress" role="progressbar" aria-valuenow={vaultProgress} aria-valuemin={0} aria-valuemax={100} style={{ marginBottom: 12 }}>
+            <span style={{ width: `${vaultProgress}%`, display: "block", height: 6, background: "var(--accent)", borderRadius: 4, transition: "width 0.2s" }} />
+          </div>
+        )}
+        {vaultMessage && <p className={`message ${vaultMessage.startsWith("✅") ? "success" : vaultMessage.startsWith("❌") ? "error" : "info"}`}>{vaultMessage}</p>}
+        {vaultLoading ? null : vault.length === 0 ? (
           <p className="meta">Vault vazio. Vá na Biblioteca, clique em “Analisar outlier” em um reel e salve aqui.</p>
         ) : (
           <div className="table-scroll">
