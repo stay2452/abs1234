@@ -60,7 +60,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
       const res = await fetch(`/api/vault/scan?stream=1`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ creatorId: creator.id }),
+        body: JSON.stringify({ creatorId: creator.id, limit: 3 }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error("Falha no scan");
@@ -133,12 +133,13 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
     aiAbortRef.current = controller;
     setAiLoading(true);
     setAiProgress(0);
-    setAiMessage(`Iniciando análise IA dos potenciais pendentes...`);
+    const pendingCount = vault.filter((v: any) => v.aiStatus === "pending").length;
+    setAiMessage(`Iniciando análise IA de 5/${pendingCount} potenciais (lote para não travar)...`);
     try {
-      const res = await fetch(`/api/vault/analyze-ai?stream=1`, {
+      const res = await fetch(`/api/vault/analyze-ai?stream=1&limit=3&limit=5`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ creatorId: creator.id }),
+        body: JSON.stringify({ creatorId: creator.id, limit: 5 }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error("Falha na IA");
@@ -342,8 +343,8 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
             <section className="panel" style={{ marginTop: 16 }}>
               <div className="history-detail-header">
                 <h2>Winners — {winners.length} <small style={{ fontWeight: 400 }}>({rejected.length} reprovados)</small></h2>
-                <button className="button" onClick={analyzeWithAI} disabled={aiLoading || vaultLoading || potentials.length === 0}>
-                  {aiLoading ? "Cancelar IA" : `Análise com IA (${potentials.length})`}
+                <button className="button" onClick={analyzeWithAI} disabled={aiLoading || vaultLoading || potentials.length === 0} title="Analisa 3 por vez para não travar">
+                  {aiLoading ? "Cancelar IA" : `Análise com IA (3 de ${potentials.length})`}
                 </button>
               </div>
               {aiLoading && (
