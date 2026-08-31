@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowDownWideNarrow, ExternalLink, Grid3X3, PlaySquare } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDownWideNarrow, ExternalLink, Grid3X3, PlaySquare, Sparkles } from "lucide-react";
 import { formatDate, formatNumber } from "@/lib/format";
+import { OutlierModal } from "@/components/research/outlier-modal";
 
 export type ProfileContentPost = {
   id: string;
@@ -102,6 +103,15 @@ export function ProfileContentTabs({ groups }: { groups: ProfileContentGroup[] }
   const [activeKey, setActiveKey] = useState(groups[0]?.key ?? "");
   const [sortKey, setSortKey] = useState<SortKey>("published");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [outlierPostId, setOutlierPostId] = useState<string | null>(null);
+  const [creators, setCreators] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    fetch("/api/creators")
+      .then((r) => r.json())
+      .then((d) => setCreators(d.creators ?? []))
+      .catch(() => {});
+  }, []);
 
   const activeGroup = useMemo(
     () => groups.find((group) => group.key === activeKey) ?? groups[0],
@@ -228,6 +238,14 @@ export function ProfileContentTabs({ groups }: { groups: ProfileContentGroup[] }
                       {post.publishedAt ? formatDate(post.publishedAt) : "sem data de publicação"}
                     </p>
                   </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <button className="button secondary" onClick={() => setOutlierPostId(post.id)} style={{ padding: "6px 10px", whiteSpace: "nowrap" }}>
+                      <Sparkles size={12} /> Vault 6×6
+                    </button>
+                    <a className="button secondary" href={post.url} target="_blank" rel="noreferrer" style={{ padding: "6px 10px" }}>
+                      <ExternalLink size={12} /> Abrir
+                    </a>
+                  </div>
                   <div className="metric-strip">
                     <div
                       className={`mini-metric ${sortKey === "views" ? "is-sorted" : ""}`}
@@ -271,6 +289,7 @@ export function ProfileContentTabs({ groups }: { groups: ProfileContentGroup[] }
           </div>
         )}
       </section>
+      {outlierPostId && <OutlierModal postId={outlierPostId} creators={creators} onClose={() => setOutlierPostId(null)} />}
     </div>
   );
 }

@@ -8,6 +8,7 @@ const navItems = [
   { href: "/", label: "Ranking", icon: BarChart3 },
   { href: "/profiles", label: "Perfis", icon: Library },
   { href: "/folders", label: "Pastas", icon: FolderOpen },
+  { href: "/creators", label: "Vaults", icon: Sparkles },
   { href: "/settings", label: "Sessões", icon: Settings },
   { href: "/history", label: "Auditoria", icon: ClipboardList },
   { href: "/discord", label: "Discord", icon: MessageCircle },

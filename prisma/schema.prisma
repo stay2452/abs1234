@@ -26,6 +26,8 @@ model Profile {
   posts             Post[]
   scrapeAttempts    ScrapeAttempt[]
   profileFolders    ProfileFolder[]
+  creatorProfiles   CreatorProfile[]
+  vaultEntries      PatternVaultEntry[]
 
   @@unique([platform, handle])
   @@index([platform, status])
@@ -40,6 +42,7 @@ model Folder {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   profiles    ProfileFolder[]
+  creatorFolders CreatorFolder[]
 
   @@index([name])
 }
@@ -119,6 +122,7 @@ model Post {
   profile           Profile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
   snapshots         PostSnapshot[]
   discordDeliveries DiscordDelivery[]
+  vaultEntries      PatternVaultEntry[]
 
   @@unique([profileId, url])
   @@index([profileId, platform, sourceType])
@@ -229,4 +233,82 @@ model DiscordDelivery {
   @@index([postId])
   @@index([configId, sentAt])
   @@index([sentAt])
+}
+
+// Vault por Creator — Pattern Vault (OFM Research Machine Ch.5)
+model Creator {
+  id        String   @id @default(cuid())
+  name      String
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profileLinks CreatorProfile[]
+  folderLinks  CreatorFolder[]
+  vaultEntries PatternVaultEntry[]
+
+  @@index([name])
+}
+
+model CreatorProfile {
+  creatorId String
+  profileId String
+  createdAt DateTime @default(now())
+
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([creatorId, profileId])
+  @@index([profileId])
+  @@index([creatorId])
+}
+
+model CreatorFolder {
+  creatorId String
+  folderId  String
+  createdAt DateTime @default(now())
+
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  folder  Folder  @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@id([creatorId, folderId])
+  @@index([folderId])
+  @@index([creatorId])
+}
+
+model PatternVaultEntry {
+  id              String    @id @default(cuid())
+  creatorId       String
+  sourceProfileId String?
+  sourcePostId    String
+  platform        String
+  sourceHandle    String
+  sourceUrl       String
+  publishedAt     DateTime?
+
+  views     Float?
+  likes     Float?
+  comments  Float?
+  shares    Float?
+  caption   String?
+
+  baselineAvg   Float?
+  outlierRatio  Float?
+  isOutlier     Boolean   @default(false)
+  commentsRatio Float?
+
+  pattern String?
+  tags    String?
+  notes   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator       Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  sourceProfile Profile? @relation(fields: [sourceProfileId], references: [id], onDelete: SetNull)
+  sourcePost    Post     @relation(fields: [sourcePostId], references: [id], onDelete: Cascade)
+
+  @@unique([sourcePostId, creatorId])
+  @@index([creatorId, isOutlier])
+  @@index([createdAt])
 }
