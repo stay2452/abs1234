@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 
 export function CreatorDetailClient({ creator, allProfiles, allFolders, initialVault }: any) {
@@ -20,38 +20,68 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
     setTracked(data.profiles ?? []);
   };
 
+  const abortRef = React.useRef<AbortController | null>(null);
+
+  const cancelScan = () => {
+    abortRef.current?.abort();
+    setVaultLoading(false);
+    setVaultProgress(0);
+    setVaultMessage("⏹️ Escaneamento cancelado pelo usuário");
+  };
+
   const loadVault = async () => {
+    // Se já está carregando, cancela
+    if (vaultLoading) {
+      cancelScan();
+      return;
+    }
+    const controller = new AbortController();
+    abortRef.current = controller;
     setVaultLoading(true);
     setVaultProgress(10);
-    setVaultMessage(`Escaneando ${tracked.length} perfis trackeados em busca de winners 6×6...`);
+    setVaultMessage(`Escaneando ${tracked.length} perfis trackeados em busca de winners 6×6... (pode levar até 30s para 51 perfis)`);
+    let timer: ReturnType<typeof setInterval> | null = null;
     try {
-      const timer = setInterval(() => setVaultProgress((p) => Math.min(p + 8, 90)), 400);
-      // Primeiro escaneia todos os perfis trackeados e salva novos winners automaticamente
+      timer = setInterval(() => setVaultProgress((p) => Math.min(p + 8, 90)), 400);
       const scanRes = await fetch(`/api/vault/scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ creatorId: creator.id }),
+        signal: controller.signal,
       });
-      const scanData = await scanRes.json();
-      clearInterval(timer);
+      if (!scanRes.ok && scanRes.status !== 499) {
+        const err = await scanRes.json().catch(() => ({}));
+        throw new Error(err.error ?? "Falha no scan");
+      }
+      const scanData = await scanRes.json().catch(() => ({}));
+      if (timer) clearInterval(timer);
+      if (scanData.aborted) {
+        setVaultMessage("⏹️ Cancelado");
+        return;
+      }
       setVaultProgress(90);
-      // Depois busca o vault atualizado
-      const res = await fetch(`/api/vault?creatorId=${creator.id}`);
+      const res = await fetch(`/api/vault?creatorId=${creator.id}`, { signal: controller.signal });
       const data = await res.json();
       setVaultProgress(100);
       setVault(data.entries ?? []);
       if (scanData.winners > 0) {
-        setVaultMessage(`✅ ${scanData.winners} novo(s) winner(s) encontrado(s) em ${scanData.scanned} posts analisados (${scanData.profiles} perfis). Total no vault: ${data.entries?.length ?? 0}`);
+        setVaultMessage(`✅ ${scanData.winners} novo(s) winner(s) em ${scanData.scanned} posts (${scanData.profiles} perfis). Total: ${data.entries?.length ?? 0}`);
       } else if (scanData.scanned > 0) {
-        setVaultMessage(`Nenhum novo winner nos ${scanData.profiles} perfis (${scanData.scanned} posts). Total no vault: ${data.entries?.length ?? 0}`);
+        setVaultMessage(`Nenhum novo winner nos ${scanData.profiles} perfis (${scanData.scanned} posts). Total: ${data.entries?.length ?? 0}`);
       } else {
         setVaultMessage(data.entries?.length ? `✅ ${data.entries.length} winner(s) no vault` : null);
       }
       setTimeout(() => setVaultProgress(0), 1200);
-    } catch {
-      setVaultMessage("❌ Falha ao atualizar Vault");
+    } catch (e: any) {
+      if (e.name === "AbortError") {
+        setVaultMessage("⏹️ Cancelado");
+      } else {
+        setVaultMessage(`❌ ${e.message ?? "Falha ao atualizar Vault"}`);
+      }
     } finally {
+      if (timer) clearInterval(timer);
       setVaultLoading(false);
+      abortRef.current = null;
     }
   };
 
@@ -149,9 +179,11 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
       <section className="panel" style={{ marginTop: 16 }}>
         <div className="history-detail-header">
           <h2>Vault — {vault.length} winners</h2>
-          <button className="button secondary" onClick={loadVault} disabled={vaultLoading}>
-            {vaultLoading ? "Atualizando..." : "Atualizar"}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="button secondary" onClick={loadVault}>
+              {vaultLoading ? "Cancelar" : "Atualizar"}
+            </button>
+          </div>
         </div>
         {vaultLoading && (
           <div className="audit-progress" role="progressbar" aria-valuenow={vaultProgress} aria-valuemin={0} aria-valuemax={100} style={{ marginBottom: 12 }}>
