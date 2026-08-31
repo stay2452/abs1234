@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { scrapeBrightDataDataset } from "@/lib/scrapers/brightdata-client";
 import { classifyComments } from "@/lib/ai/comment-classifier";
+import { getActiveCollectorSessions } from "@/lib/scrapers/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,14 +55,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ total: 0, approved: 0, rejected: 0, message: "Nenhum potencial pendente" });
   }
 
-  const brightKey = process.env.BRIGHTDATA_API_KEY?.trim() ?? process.env.BRIGHT_DATA_API_KEY?.trim() ?? "";
+  // Tenta env primeiro, se não tiver usa 1 chave do pool global (mesmas de /settings)
+  let brightKey = process.env.BRIGHTDATA_API_KEY?.trim() ?? process.env.BRIGHT_DATA_API_KEY?.trim() ?? "";
   if (!brightKey) {
-    console.warn("[vault/analyze-ai] BRIGHTDATA_API_KEY ausente — cai para heurística sem comentários (todos REPROVADOS)");
-    if (wantStream) {
-      // segue para fluxo heurístico abaixo (comments vazio)
-    } else {
-      // modo não-stream também segue heurístico
-    }
+    try {
+      const pool = await getActiveCollectorSessions();
+      if (pool.length > 0) brightKey = pool[0].apiKey?.trim() ?? "";
+      if (brightKey) console.log("[vault/analyze-ai] usando chave do pool global", pool[0].name);
+    } catch {}
+  }
+  if (!brightKey) {
+    console.warn("[vault/analyze-ai] sem chave BrightData — cai para heurística sem comentários (todos REPROVADOS)");
   }
 
   if (wantStream) {
@@ -86,16 +90,16 @@ export async function POST(request: NextRequest) {
           await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: "sem chave BrightData — heurística" }) + "\n"));
         } else {
           try {
-            const scrapePromise = scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, brightKey, { pollAttempts: 10, pollDelayMs: 1500 });
-            const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout comentários (15s)")), 15000));
+            const scrapePromise = scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, brightKey, { pollAttempts: 45, pollDelayMs: 2000 });
+            const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout comentários (90s)")), 90000));
             const result: any = await Promise.race([scrapePromise, timeoutPromise]);
             comments = (result.records as any[])
-              .map((r: any) => (r.comment_text ?? r.text ?? r.comment ?? r.body ?? "") as string)
+              .map((r: any) => (r.comment_text ?? r.comment ?? r.text ?? r.body ?? "") as string)
               .filter((t) => typeof t === "string" && t.trim().length > 0)
               .slice(0, 20);
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
-            await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: `sem comentários: ${msg.slice(0, 60)}` }) + "\n"));
+            await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: `sem comentários: ${msg.slice(0, 80)}` }) + "\n"));
           }
         }
 
@@ -149,8 +153,8 @@ export async function POST(request: NextRequest) {
     try {
       let comments: string[] = [];
       if (brightKey) {
-        const result = await scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, brightKey, { pollAttempts: 10, pollDelayMs: 1500 });
-        comments = result.records.map((r: any) => (r.comment_text ?? r.text ?? "") as string).filter(Boolean).slice(0, 20);
+        const result = await scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, brightKey, { pollAttempts: 45, pollDelayMs: 2000 });
+        comments = result.records.map((r: any) => (r.comment_text ?? r.comment ?? r.text ?? r.body ?? "") as string).filter(Boolean).slice(0, 20);
       }
       const ai = await classifyComments(comments);
       await prisma.patternVaultEntry.update({
