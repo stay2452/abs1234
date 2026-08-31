@@ -392,10 +392,26 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
             <section className="panel" style={{ marginTop: 16 }}>
               <div className="history-detail-header">
                 <h2>Winners — {winners.length} <small style={{ fontWeight: 400 }}>({rejected.length} reprovados)</small></h2>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <button className="button" onClick={analyzeWithAI} disabled={vaultLoading || (!aiLoading && pending.length === 0)} title={aiLoading ? "Clique para cancelar" : "Roda sozinho de 3 em 3 até acabar"}>
                     {aiLoading ? "Cancelar IA" : `Análise com IA (todos ${pending.length})`}
                   </button>
+                  {rejected.some((v: any) => v.aiMotivo?.includes("Sem comentários") || v.aiMotivo?.includes("Customer is not active") || v.aiMotivo?.includes("Timeout")) && !aiLoading && (
+                    <button
+                      className="button secondary"
+                      onClick={async () => {
+                        if (!confirm(`Resetar ${rejected.filter((v: any) => v.aiMotivo?.includes("Sem comentários") || v.aiMotivo?.includes("Customer") || v.aiMotivo?.includes("Timeout")).length} reprovados com erro para tentar de novo?`)) return;
+                        const r = await fetch("/api/vault/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creatorId: creator.id }) });
+                        const j = await r.json().catch(() => ({}));
+                        await refreshVault();
+                        setAiMessage(j.reset ? `🔄 ${j.reset} reprovados com erro resetados para pendente` : "Nada para resetar");
+                        setTimeout(() => setAiMessage(null), 4000);
+                      }}
+                      title="Volta os Sem comentários / Customer is not active para pendente"
+                    >
+                      Resetar erros ({rejected.filter((v: any) => v.aiMotivo?.includes("Sem comentários") || v.aiMotivo?.includes("Customer") || v.aiMotivo?.includes("Timeout")).length})
+                    </button>
+                  )}
                   {aiLoading && <span className="meta">rodando lote automático — clique em Cancelar para parar</span>}
                 </div>
               </div>
