@@ -706,25 +706,6 @@ export async function recordCollectorSessionNoData(id: string) {
   });
 }
 
-export async function recordCollectorSessionVaultUse(id: string, records: number) {
-  const cost = Math.max(1, Math.trunc(records));
-  return withDbWriteRetry(async () => {
-    const session = await prisma.collectorSession.findUnique({ where: { id }, select: { creditsRemaining: true, creditsSource: true } });
-    if (!session || session.creditsSource !== "estimated_local" || session.creditsRemaining === null) {
-      return session;
-    }
-    const remaining = Math.max(0, (session.creditsRemaining ?? 0) - cost);
-    return prisma.collectorSession.update({
-      where: { id },
-      data: {
-        creditsRemaining: remaining,
-        creditStatus: remaining > 0 ? "has_credit" : "no_credit",
-        lastAttemptedAt: new Date(),
-      },
-    });
-  });
-}
-
 export async function recordCollectorSessionFailure(
   id: string,
   error: string,

@@ -5,9 +5,9 @@ App Next.js hospedado no Render com PostgreSQL gerenciado pelo Supabase para cat
 ## Stack
 
 - Next.js (App Router) + React + TypeScript.
-- PostgreSQL Supabase + Prisma Migrate (`npm run db:migrate`).
-- Bright Data Web Scraper API (datasets Instagram e TikTok).
-- Vitest + ESLint.
+  - PostgreSQL Supabase + Prisma Migrate (`npm run db:migrate`).
+  - Bright Data Web Scraper API (datasets Instagram e TikTok — Vault não usa mais dataset de comentários).
+  - Vitest + ESLint.
 
 ## Fluxo de coleta
 

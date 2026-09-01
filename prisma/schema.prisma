@@ -301,12 +301,12 @@ model PatternVaultEntry {
   tags    String?
   notes   String?
 
-  // Potencial winner (6x6) -> Winner (IA)
-  aiStatus     String  @default("pending") // pending | approved | rejected | analyzing
-  aiResult     String? // JSON bruto da IA
+  // Legado IA removida 2026-09-01 — potenciais já são winners (outlier 6x6). Colunas mantidas por compatibilidade, não usadas.
+  aiStatus     String  @default("pending")
+  aiResult     String?
   aiRealPct    Float?
   aiGringoPct  Float?
-  aiVeredict   String? // APROVADO | REPROVADO
+  aiVeredict   String?
   aiMotivo     String?
   aiAnalyzedAt DateTime?
 

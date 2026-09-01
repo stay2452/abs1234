@@ -14,21 +14,10 @@ Fronteira app ↔ Bright Data. Mudanca de dataset ou limite deve atualizar este 
 - Instagram: 3 datasets/perfil — perfil + Grade (`num_of_posts: 5`) + Reels (`num_of_posts: 5`).
 - TikTok: perfil + videos (`num_of_posts: 10`).
 
-## Contrato Vault — dataset de COMENTARIOS (2026-08-31)
+## Vault — winners diretos (sem IA desde 2026-09-01)
 
-Dataset `gd_ltppn085pokosxh13` (Instagram Comments), usado so pela IA do Vault
-(`src/app/api/vault/analyze-ai/route.ts`). Regras obrigatorias — este dataset ja
-consumiu 5 contas free (5k creditos cada) em ~25 min sem elas:
+Vault não usa mais dataset de comentários. `POST /api/vault/scan` cria winners direto via outlier 6x6 (ratio ≥2.0) — sem IA, sem `gd_ltppn085pokosxh13`, sem `limit_per_input`. Histórico de IA removido em 2026-09-01.
 
-1. **1 registro = 1 comentario**: a Bright Data cobra por comentario entregue.
-   Posts virais tem milhares de comentarios.
-2. **`limit_per_input=20` obrigatorio** no trigger — teto de 20 comentarios/post
-   por coleta (≈20 creditos), independente do tamanho do post.
-3. **Timeout (90s) nao cancela a cobranca** no lado Bright Data: a coleta
-   continua e entrega/cobra tudo mesmo se o app desistir de esperar.
-4. `Customer is not active` = conta suspensa pelo Billing (credito zerado).
-   Pausa a chave automaticamente e a entrada fica pendente — falha de provedor
-   nunca vira REPROVADO.
 - Limite no **request** ao provedor; proibido baixar catalogo inteiro e filtrar no app.
 
 ## Retentativa e cobranca (auditoria 2026-08-31)
