@@ -140,6 +140,8 @@ export async function repairMissingPostMetrics(
       profile: true,
       snapshots: { orderBy: { capturedAt: "desc" }, take: 1 },
     },
+    take: 500,
+    orderBy: { createdAt: "asc" },
   });
 
   const targets = posts
@@ -164,12 +166,14 @@ export async function repairMissingPostMetrics(
   // 30 min — reparar de novo imediatamente duplicaria o custo sem dados novos.
   const now = Date.now();
   const freshnessMs = SCRAPE_FRESHNESS_WINDOW_MINUTES * 60 * 1000;
-  const groups = [...byProfile.values()].filter((group) => {
+  let groups = [...byProfile.values()].filter((group) => {
     const last = group[0].profile.lastPostsScrapeAt?.getTime?.() ?? null;
     const lastSnapshot = (group[0].profile as any).snapshots?.[0]?.capturedAt?.getTime?.() ?? null;
     const latestRelevant = Math.max(last ?? 0, lastSnapshot ?? 0);
     return latestRelevant === 0 || now - latestRelevant >= freshnessMs;
   });
+  // Teto para não queimar biblioteca inteira em 1 clique (100 perfis × ~5 créd = 500)
+  if (groups.length > 100) groups = groups.slice(0, 100);
   await onProgress?.({
     type: "started",
     profilesTotal: groups.length,

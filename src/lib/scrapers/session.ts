@@ -321,7 +321,16 @@ function applyLocalCreditEstimate(
     };
   }
 
-  const remaining = Math.max(0, FREE_TIER_CREDITS - monthRecordsUsed);
+  let remaining = Math.max(0, FREE_TIER_CREDITS - monthRecordsUsed);
+  // Se já há um saldo local decrementado (no_data, vault), respeita o menor valor
+  // — evita ressuscitar crédito que ScrapeAttempt não contou (0 registros mas 1 créd).
+  if (
+    session.creditsRemaining !== null &&
+    Number.isFinite(session.creditsRemaining) &&
+    session.creditsSource === "estimated_local"
+  ) {
+    remaining = Math.min(remaining, Math.max(0, Math.trunc(session.creditsRemaining)));
+  }
   return {
     creditStatus: remaining > 0 ? "has_credit" : "no_credit",
     creditsRemaining: remaining,
@@ -596,6 +605,18 @@ export async function getActiveCollectorSessions(): Promise<ActiveCollectorSessi
   const enriched = withKey.map((session) => {
     const used = usage.get(session.id) ?? 0;
     const local = applyLocalCreditEstimate(session, used);
+    // Chave recém-criada sem nenhum refresh: bloqueia até provar saldo (evita has_credit fantasma 5000)
+    const isFreshUnknown =
+      (session.creditStatus === "unknown" || session.creditStatus === null) &&
+      !session.balanceCheckedAt;
+    if (isFreshUnknown && local.creditStatus === "has_credit" && local.creditsSource === "estimated_local") {
+      return {
+        ...session,
+        creditStatus: "unknown",
+        creditsRemaining: null,
+        creditsSource: null,
+      } as CollectorSession;
+    }
     return {
       ...session,
       creditStatus: local.creditStatus,
@@ -605,7 +626,7 @@ export async function getActiveCollectorSessions(): Promise<ActiveCollectorSessi
   });
 
   const withCredit = enriched
-    .filter((session) => session.creditStatus !== "no_credit")
+    .filter((session) => session.creditStatus === "has_credit")
     .sort((left, right) => {
       const leftCredits = left.creditsRemaining ?? 0;
       const rightCredits = right.creditsRemaining ?? 0;
@@ -682,6 +703,25 @@ export async function recordCollectorSessionNoData(id: string) {
     }
 
     return prisma.collectorSession.findUniqueOrThrow({ where: { id } });
+  });
+}
+
+export async function recordCollectorSessionVaultUse(id: string, records: number) {
+  const cost = Math.max(1, Math.trunc(records));
+  return withDbWriteRetry(async () => {
+    const session = await prisma.collectorSession.findUnique({ where: { id }, select: { creditsRemaining: true, creditsSource: true } });
+    if (!session || session.creditsSource !== "estimated_local" || session.creditsRemaining === null) {
+      return session;
+    }
+    const remaining = Math.max(0, (session.creditsRemaining ?? 0) - cost);
+    return prisma.collectorSession.update({
+      where: { id },
+      data: {
+        creditsRemaining: remaining,
+        creditStatus: remaining > 0 ? "has_credit" : "no_credit",
+        lastAttemptedAt: new Date(),
+      },
+    });
   });
 }
 

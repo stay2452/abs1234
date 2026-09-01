@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { scrapeBrightDataDataset } from "@/lib/scrapers/brightdata-client";
 import { classifyComments } from "@/lib/ai/comment-classifier";
-import { getActiveCollectorSessions } from "@/lib/scrapers/session";
+import { getActiveCollectorSessions, recordCollectorSessionVaultUse } from "@/lib/scrapers/session";
 import { isAuthorizedByToken } from "@/lib/access-token";
 
 export const runtime = "nodejs";
@@ -166,6 +166,11 @@ export async function POST(request: NextRequest) {
                   comments = got;
                   success = true;
                   if (k > 0) console.log(`[vault/analyze-ai] chave ${k+1}/${brightKeys.length} funcionou para @${entry.sourceHandle}`);
+                  // Contabiliza crédito no pool (evita has_credit fantasma)
+                  try {
+                    const sess = await prisma.collectorSession.findFirst({ where: { apiKey: keyTry }, select: { id: true } });
+                    if (sess) await recordCollectorSessionVaultUse(sess.id, got.length);
+                  } catch {}
                   break;
                 } else {
                   lastError = `BrightData retornou 0 comentários (chave ${k+1})`;
@@ -286,7 +291,14 @@ export async function POST(request: NextRequest) {
           try {
             const result = await scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, k, { pollAttempts: 45, pollDelayMs: 2000, query: { limit_per_input: 20 } });
             const got = result.records.map((r: any) => (r.comment_text ?? r.comment ?? r.text ?? r.body ?? "") as string).filter(Boolean).slice(0, 20);
-            if (got.length > 0) { comments = got; break; }
+            if (got.length > 0) {
+              comments = got;
+              try {
+                const sess = await prisma.collectorSession.findFirst({ where: { apiKey: k }, select: { id: true } });
+                if (sess) await recordCollectorSessionVaultUse(sess.id, got.length);
+              } catch {}
+              break;
+            }
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             // Qualquer falha da Bright Data e erro de provedor: sem comentarios reais nao ha como julgar

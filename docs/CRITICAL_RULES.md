@@ -6,7 +6,7 @@ Invariantes de custo, dados e operacao. Qualquer mudanca que as toque deve atual
 
 - Referencia oficial da API e free tier (5k/conta): `docs/BRIGHT_DATA_API.md`.
 - Cada chave = token de **uma conta** Bright Data; free tier = **5.000 creditos/mes** por conta distinta.
-- `POST /api/scrape/run`: so `scope: "all"` ou `scope: "profiles"` com 1–100 IDs. Invalido → **400** (nunca vira `all`).
+- `POST /api/scrape/run`: so `scope: "all"` (capado em `MAX_SCRAPE_ALL_PROFILES=200` perfis elegíveis por rodada) ou `scope: "profiles"` com 1–100 IDs. Invalido → **400** (nunca vira `all`). `force:true` exige `X-Confirm-Force: 1`.
 - Importacao: ate **500** perfis validos e 200k caracteres; coleta pos-import em lotes de **20**.
 - Falha de um lote de coleta **nao** desfaz o cadastro local nem impede os lotes seguintes.
 - Import aceita URLs IG/TT e `@handles`; `@` sem URL usa o seletor do formulario.
@@ -23,8 +23,10 @@ Invariantes de custo, dados e operacao. Qualquer mudanca que as toque deve atual
 
 - Chaves **nao** tem plataforma: `platform=global`; IG/TT vem do `Profile`.
 - Entram no worker: ativas + **com credito** (oficial ou estimado). **Sem credito** fica fora da fila. `getActiveCollectorSessions()` retorna `[]` (nao throw) quando vazia — orquestrador marca perfis como `no_session`.
-- Prioridade: mais `creditsRemaining` primeiro. Ate `SCRAPE_MAX_PARALLEL_KEYS` (20) em paralelo; 1 perfil por chave por vez.
-- `no_data` consome 1 credito (estimativa local decrementa `creditsRemaining`); saldo oficial e revalidado no proximo refresh.
+- Prioridade: mais `creditsRemaining` primeiro. Ate `SCRAPE_MAX_PARALLEL_KEYS` (10) em paralelo; 1 perfil por chave por vez.
+- `no_data` consome 1 credito e Vault consome `records.length` (estimativa local decrementa `creditsRemaining` via `recordCollectorSessionVaultUse`); saldo oficial e revalidado no proximo refresh.
+- Pre-flight `ESTIMATED_CREDITS_PER_PROFILE=11`: se `profiles×11 > Σ creditsRemaining` o run falha com `insufficient_credits` (evita começar e parar no meio). `GET /api/scrape/estimate` expõe `required/available/deficit`.
+- Chave `unknown` recém-criada sem `balanceCheckedAt` não entra no pool até `Atualizar saldos` (evita `has_credit` fantasma 5000).
 - Heuristica de saldo: `/customer/balance` doc oficial retorna USD; valor `>=100` assume creditos diretos sem multiplicar por `CREDITS_PER_USD`.
 - Erro `provider`/`transient` da Bright Data **nao** esgota a chave no run (so aquele perfil retry). So `authentication`/`account` matam a chave no worker.
 - Auth/conta: esgotam + **pausam** a chave. `provider`/`transient`: **nao** esgotam no run — trocam de chave so para o perfil. `not_found`: nao troca chave (perfil indisponivel). Erros transitorios de Prisma/PostgreSQL (timeout, deadlock ou falha de conexao): perfil retenta com outra chave em vez de falhar `unknown` sem retry. Fonte de verdade: `src/lib/scrapers/index.ts` (`isSessionUnrecoverable`) e `src/lib/scrapers/types.ts`.
@@ -64,5 +66,5 @@ Invariantes de custo, dados e operacao. Qualquer mudanca que as toque deve atual
   - Backups, retenção e PITR são responsabilidade do Supabase. `tmp/` e `dwadaw/` são temporários git-ignorados e não são banco.
 - Sem push/commit no GitHub sem pedido explicito do usuario.
 - Toda regra nova de arquitetura, scraping, sessao, schema ou ranking entra em um `.md`.
-- **Proteção opt-in dos endpoints que gastam crédito (2026-08-31):** se `API_ACCESS_TOKEN` estiver definido no ambiente, `POST /api/scrape/run` e `POST /api/vault/analyze-ai` exigem `Authorization: Bearer <token>` ou `?token=<token>` (401 sem). Sem a variável, permanecem abertos (compatibilidade com a extensão e uso local). A extensão envia o token se `chrome.storage.sync.apiToken` estiver configurado. `CRON_SECRET` protege `/api/cron/reconcile` da mesma forma (recomendado definir no Render).
-- **Vault IA — malha anti-re-trigger (2026-08-31):** claim atômico (`pending → analyzing`) impede duas abas de analisar a mesma entrada; cooldown de 5 min (`aiAnalyzedAt`) antes de re-tentar entrada que falhou por provedor/IA; lock global in-memory (409 se já há análise rodando); rotação tenta todas as chaves do pool; falha de IA/provedor nunca deixa entrada presa em `analyzing`. Fonte de verdade: `src/app/api/vault/analyze-ai/route.ts`.
+- **Proteção opt-in dos endpoints que gastam crédito (2026-08-31, ampliado 2026-09-01):** se `API_ACCESS_TOKEN` estiver definido no ambiente, `POST /api/scrape/run`, `POST /api/vault/analyze-ai`, `POST /api/vault/reset` e `POST /api/metrics/repair` exigem `Authorization: Bearer <token>` ou `?token=<token>` (401 sem). Sem a variável, permanecem abertos (compatibilidade com a extensão e uso local). A extensão envia o token se `chrome.storage.sync.apiToken` estiver configurado. `CRON_SECRET` protege `/api/cron/reconcile` da mesma forma (recomendado definir no Render).
+- **Vault IA — malha anti-re-trigger (2026-08-31, ampliado 2026-09-01):** claim atômico (`pending → analyzing`) impede duas abas de analisar a mesma entrada; cooldown de 5 min (`aiAnalyzedAt`) antes de re-tentar entrada que falhou por provedor/IA; lock global in-memory (409 se já há análise rodando); rotação tenta todas as chaves do pool; falha de IA/provedor nunca deixa entrada presa em `analyzing`. `POST /api/vault/reset` mantém `aiAnalyzedAt=now` (não zera) + rate 10 min/creator; `limit_per_input=20` é contrato testado (`brightdata-vault.test.ts`). Fonte de verdade: `src/app/api/vault/analyze-ai/route.ts`.

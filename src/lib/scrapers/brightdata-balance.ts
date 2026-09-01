@@ -62,6 +62,16 @@ export async function fetchBrightDataBalance(apiKey: string): Promise<BalancePro
     const text = await response.text();
 
     if (response.status === 401 || response.status === 403) {
+      const detailLower = text.toLowerCase();
+      if (/customer is not active|suspended|inactive|no credit|insufficient|balance/.test(detailLower)) {
+        return {
+          creditStatus: "no_credit",
+          balanceUsd: null,
+          pendingBalanceUsd: null,
+          creditsFromBalance: null,
+          message: `Bright Data conta inativa/sem crédito (HTTP ${response.status}): ${text.slice(0,120)}`,
+        };
+      }
       return {
         creditStatus: "permission_denied",
         balanceUsd: null,
@@ -76,7 +86,7 @@ export async function fetchBrightDataBalance(apiKey: string): Promise<BalancePro
       const detail = text.replace(/[\r\n\t]+/g, " ").trim().slice(0, 180);
       const looksEmpty =
         response.status === 402 ||
-        /credit|balance|funds|insufficient|payment/i.test(detail);
+        /credit|balance|funds|insufficient|payment|customer is not active|suspended|inactive/i.test(detail);
       return {
         creditStatus: looksEmpty ? "no_credit" : "unknown",
         balanceUsd: null,
@@ -154,7 +164,7 @@ export async function fetchBrightDataBalance(apiKey: string): Promise<BalancePro
 }
 
 export function isInsufficientCreditError(message: string) {
-  return /credit|balance|funds|insufficient|payment required|402|sem credito|no credit/i.test(
+  return /credit|balance|funds|insufficient|payment required|402|sem credito|no credit|customer is not active|suspended|inactive/i.test(
     message,
   );
 }

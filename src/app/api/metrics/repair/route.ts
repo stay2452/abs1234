@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { optionsCors, withCors } from "@/lib/extension-cors";
+import { isAuthorizedByToken } from "@/lib/access-token";
 import {
   REPAIRABLE_POST_METRICS,
   repairMissingPostMetrics,
@@ -29,6 +30,9 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
+  if (!isAuthorizedByToken(request)) {
+    return withCors(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), origin);
+  }
   if (globalForRepair.activeMetricsRepair) {
     return withCors(
       NextResponse.json({ error: "Ja existe uma reparacao de metricas em andamento." }, { status: 409 }),

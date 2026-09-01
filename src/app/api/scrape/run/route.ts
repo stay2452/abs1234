@@ -68,6 +68,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (parsedBody.force) {
+    const confirm = request.headers.get("x-confirm-force");
+    if (confirm !== "1") {
+      return withCors(
+        NextResponse.json(
+          { error: "force:true exige header X-Confirm-Force: 1 (proteção contra re-coleta que queima crédito)." },
+          { status: 400 },
+        ),
+        origin,
+      );
+    }
+  }
+
   if (!parsedBody.stream) {
     try {
       const promise = runScrape(parsedBody.scope, { force: parsedBody.force, signal: request.signal });

@@ -24,6 +24,10 @@ export const INSTAGRAM_REELS_LIMIT = 5;
 export const TIKTOK_VIDEO_LIMIT = 10;
 /** Teto do body de POST /api/scrape/run com scope profiles. */
 export const MAX_SCRAPE_PROFILE_IDS = 100;
+/** Teto para scope:all — evita 1 clique queimar 400+ perfis ×11 créditos. */
+export const MAX_SCRAPE_ALL_PROFILES = 200;
+/** Custo máximo estimado por perfil (IG 3 datasets 1+5+5=11, TT 1+10=11). */
+export const ESTIMATED_CREDITS_PER_PROFILE = 11;
 /**
  * Lotes menores na importacao em massa: conexao stream + free tier 5k.
  * Continua respeitando MAX_SCRAPE_PROFILE_IDS na API.
@@ -39,7 +43,7 @@ export const SCRAPE_FRESHNESS_WINDOW_MINUTES = 30;
  * Cada chave ainda faz 1 perfil por vez; com N chaves boas, ~N× mais rápido (até o teto).
  * 1 = fila estrita (lenta). Padrão atual: pool multi-conta (ex.: 20 chaves).
  */
-export const SCRAPE_MAX_PARALLEL_KEYS = 20;
+export const SCRAPE_MAX_PARALLEL_KEYS = 10;
 
 /**
  * Numero maximo de retentativas por perfil quando todas as chaves saudaveis falham

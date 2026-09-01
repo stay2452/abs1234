@@ -1,6 +1,12 @@
 import type { CollectorSession, Prisma, Profile } from "@prisma/client";
 import type { Platform } from "@/lib/constants";
-import { SCRAPE_FRESHNESS_WINDOW_MINUTES, SCRAPE_MAX_PARALLEL_KEYS, SCRAPE_MAX_RETRIES_PER_PROFILE } from "@/lib/constants";
+import {
+  ESTIMATED_CREDITS_PER_PROFILE,
+  MAX_SCRAPE_ALL_PROFILES,
+  SCRAPE_FRESHNESS_WINDOW_MINUTES,
+  SCRAPE_MAX_PARALLEL_KEYS,
+  SCRAPE_MAX_RETRIES_PER_PROFILE,
+} from "@/lib/constants";
 import { prisma, withDbWriteRetry } from "@/lib/db";
 import { estimateScrapeMaxSeconds } from "@/lib/scrape-eta";
 import { reconcileZombieRuns } from "@/lib/scrape-reconcile";
@@ -910,10 +916,16 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
     orderBy: [{ platform: "asc" }, { createdAt: "asc" }],
   });
   const now = options.now ?? new Date();
-  const profiles = requestedProfiles.filter((profile) =>
+  let profiles = requestedProfiles.filter((profile) =>
     shouldScrapeProfile(profile, now, Boolean(options.force)),
   );
   const profilesSkipped = requestedProfiles.length - profiles.length;
+  // Cap scope:all para evitar 1 clique queimar biblioteca inteira (400×11 ≈ 4400 créd)
+  let cappedByAllLimit = false;
+  if (scope.kind === "all" && profiles.length > MAX_SCRAPE_ALL_PROFILES) {
+    cappedByAllLimit = true;
+    profiles = profiles.slice(0, MAX_SCRAPE_ALL_PROFILES);
+  }
   const run = await prisma.scrapeRun.create({
     data: {
       status: "running",
@@ -922,6 +934,12 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
     },
   });
   await options.onRunCreated?.(run.id);
+  if (cappedByAllLimit) {
+    await setRunActivity(
+      run.id,
+      `Biblioteca capada em ${MAX_SCRAPE_ALL_PROFILES} perfis por rodada (total elegível: ${requestedProfiles.length - profilesSkipped}). Use scope profiles para paginar.`,
+    );
+  }
 
   try {
     const disabledSessionIds = new Set<string>();
@@ -996,6 +1014,32 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
       }
     }
 
+    // Pre-flight de crédito: evita iniciar run que já sabe que vai ficar sem saldo no meio
+    let insufficientCredits = false;
+    if (!noSessionsAvailable && profiles.length > 0) {
+      const availableCredits = sessions.reduce((sum, s) => sum + (s.creditsRemaining ?? 0), 0);
+      const requiredCredits = profiles.length * ESTIMATED_CREDITS_PER_PROFILE;
+      if (availableCredits < requiredCredits) {
+        insufficientCredits = true;
+        const msg = `Saldo insuficiente: precisa ~${requiredCredits} créditos para ${profiles.length} perfil(is) (≈${ESTIMATED_CREDITS_PER_PROFILE}/perfil), mas pool tem ~${Math.round(availableCredits)}. Atualize saldos em /settings ou cadastre mais chaves.`;
+        await setRunActivity(run.id, msg);
+        for (const profile of profiles) {
+          errors.push({
+            profileId: profile.id,
+            handle: profile.handle,
+            platform: profile.platform,
+            error: msg,
+            errorCode: "insufficient_credits",
+          });
+          await recordRunFinalFailure(
+            run.id,
+            { profile, attemptedSessionIds: new Set<string>() },
+            `Saldo insuficiente para @${profile.handle}.`,
+          );
+        }
+      }
+    }
+
     const runTimeoutMs = getRunTimeoutMs(profiles.length, Math.max(sessions.length, 1));
     // AbortSignal do run: cancela workers + fetches quando o timeout global estourar
     // (antes: o run falhava mas as coletas seguiam pagando) ou quando options.signal abortar.
@@ -1010,7 +1054,7 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
     await withRunTimeout(
       runTimeoutMs,
       async () => {
-        if (sessions.length > 0 && profiles.length > 0) {
+        if (sessions.length > 0 && profiles.length > 0 && !insufficientCredits) {
           let pendingJobs: ScrapeJob[] = profiles.map((profile) => ({
             profile,
             attemptedSessionIds: new Set<string>(),
