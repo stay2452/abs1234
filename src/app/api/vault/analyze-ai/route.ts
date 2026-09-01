@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { scrapeBrightDataDataset } from "@/lib/scrapers/brightdata-client";
 import { classifyComments } from "@/lib/ai/comment-classifier";
 import { getActiveCollectorSessions } from "@/lib/scrapers/session";
+import { isAuthorizedByToken } from "@/lib/access-token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,8 +12,25 @@ export const dynamic = "force-dynamic";
 const schema = z.object({ creatorId: z.string().min(1), limit: z.number().min(1).max(20).optional() });
 const COMMENTS_DATASET = "gd_ltppn085pokosxh13";
 
+/**
+ * Cooldown antes de re-tentar a MESMA entrada apos erro de provedor.
+ * Sem isso, o loop de lotes do client re-disparava o mesmo post infinitamente
+ * (mecanismo do acidente de 31/08: 5 contas x 5k creditos consumidas em ~25 min).
+ */
+const PROVIDER_RETRY_COOLDOWN_MS = 5 * 60 * 1000;
+
+const globalForVaultAI = globalThis as unknown as {
+  vaultAiRun?: Promise<unknown>;
+};
+
 export async function POST(request: NextRequest) {
   try {
+    if (!isAuthorizedByToken(request)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (globalForVaultAI.vaultAiRun) {
+      return NextResponse.json({ error: "Já existe uma análise IA em andamento." }, { status: 409 });
+    }
     const url = new URL(request.url);
     const wantStream = url.searchParams.get("stream") === "1";
     const body = await request.json().catch(() => null);
@@ -22,10 +40,18 @@ export async function POST(request: NextRequest) {
     const { creatorId, limit: bodyLimit } = parsed.data;
     const limit = Math.max(1, Math.min(20, bodyLimit ?? (parseInt(url.searchParams.get("limit") ?? "5", 10) || 5)));
 
+    // Cooldown: so pega pendentes nunca analisados OU cuja ultima tentativa falhou
+    // ha mais de PROVIDER_RETRY_COOLDOWN_MS (evita re-trigger imediato da mesma URL).
+    const cooldownCutoff = new Date(Date.now() - PROVIDER_RETRY_COOLDOWN_MS);
+
     let pending: any[] = [];
     try {
       pending = await prisma.patternVaultEntry.findMany({
-        where: { creatorId, aiStatus: "pending" },
+        where: {
+          creatorId,
+          aiStatus: "pending",
+          OR: [{ aiAnalyzedAt: null }, { aiAnalyzedAt: { lte: cooldownCutoff } }],
+        },
         orderBy: { outlierRatio: "desc" },
         take: Math.min(limit, 3),
       });
@@ -42,6 +68,28 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ error: `DB falhou: ${msg.slice(0, 300)}` }, { status: 500 });
     }
+
+  // Claim atomico: marca aiStatus=analyzing so nas entradas que AINDA estao pending.
+  // Duas abas/duas chamadas concorrentes nunca processam a mesma entrada (sem gasto duplo).
+  const candidateIds = pending.map((e: any) => e.id);
+  let claimedCount = 0;
+  if (candidateIds.length > 0) {
+    try {
+      const claimed = await prisma.patternVaultEntry.updateMany({
+        where: { id: { in: candidateIds }, aiStatus: "pending" },
+        data: { aiStatus: "analyzing" },
+      });
+      claimedCount = claimed.count;
+    } catch {}
+  }
+  if (claimedCount > 0 && candidateIds.length > 0) {
+    try {
+      pending = await prisma.patternVaultEntry.findMany({
+        where: { id: { in: candidateIds }, aiStatus: "analyzing" },
+        orderBy: { outlierRatio: "desc" },
+      });
+    } catch {}
+  }
 
   if (pending.length === 0) {
     if (wantStream) {
@@ -107,7 +155,7 @@ export async function POST(request: NextRequest) {
             for (let k = 0; k < brightKeys.length; k++) {
               const keyTry = brightKeys[k];
               try {
-                const scrapePromise = scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, keyTry, { pollAttempts: 45, pollDelayMs: 2000 });
+                const scrapePromise = scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, keyTry, { pollAttempts: 45, pollDelayMs: 2000, query: { limit_per_input: 20 } });
                 const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout comentários (90s)")), 90000));
                 const result: any = await Promise.race([scrapePromise, timeoutPromise]);
                 const got = (result.records as any[])
@@ -125,13 +173,21 @@ export async function POST(request: NextRequest) {
               } catch (e) {
                 const msg = e instanceof Error ? e.message : String(e);
                 lastError = msg.slice(0,120);
-                const isCustomerInactive = /Customer is not active/i.test(msg);
+                const isCustomerInactive = /customer is not active/i.test(msg);
+                const isAuthError = /http 40[13]|authe?ntic|permission/i.test(msg);
                 await writer.write(encoder.encode(JSON.stringify({ type: "progress", current: idx, total: pending.length, handle: entry.sourceHandle, note: `chave ${k+1} falhou: ${lastError.slice(0,50)}` }) + "\n"));
-                if (isCustomerInactive) {
-                  console.warn(`[vault/analyze-ai] chave ${k+1} Customer is not active, tentando próxima`);
+                if (isCustomerInactive || isAuthError) {
+                  console.warn(`[vault/analyze-ai] chave ${k+1} falhou (${isCustomerInactive ? "conta inativa" : "auth"}) — pausando chave e tentando próxima`);
+                  try {
+                    await prisma.collectorSession.updateMany({ where: { apiKey: keyTry }, data: { status: "paused", lastError: lastError } });
+                  } catch {}
+                  brightKeys.splice(k, 1);
+                  k--;
                   continue;
                 } else {
-                  break;
+                  // Timeout/transient/provider: tenta a PRÓXIMA chave (antes: break deixava
+                  // só 1 tentativa por entrada — agora roda o pool, limitado pelo claim+cooldown).
+                  continue;
                 }
               }
             }
@@ -150,6 +206,21 @@ export async function POST(request: NextRequest) {
         try {
           if (comments.length === 0) {
             const motivo = scrapeNote ? `Sem comentários: ${scrapeNote.slice(0,100)}` : "Sem comentários";
+            // Erro de provedor (chave morta/timeout/sem chave) NÃO reprova — entrada fica pendente para tentar de novo
+            const isProviderError = !brightKey || /customer is not active|timeout|sem chave|http 40[13]|authe?ntic|permission/i.test(scrapeNote ?? "");
+            if (isProviderError) {
+              console.warn(`[vault/analyze-ai] provedor indisponível para @${entry.sourceHandle} — entrada volta a pendente com cooldown: ${motivo}`);
+              // Volta para pending com cooldown (aiAnalyzedAt) — o proximo lote so
+              // re-tenta esta entrada depois de PROVIDER_RETRY_COOLDOWN_MS.
+              try {
+                await prisma.patternVaultEntry.update({
+                  where: { id: entry.id },
+                  data: { aiStatus: "pending", aiAnalyzedAt: new Date() },
+                });
+              } catch {}
+              await writer.write(encoder.encode(JSON.stringify({ type: "error", handle: entry.sourceHandle, error: `Provedor indisponível — entrada em cooldown (5 min): ${motivo.slice(0, 150)}` }) + "\n"));
+              continue;
+            }
             await prisma.patternVaultEntry.update({
               where: { id: entry.id },
               data: { aiStatus: "rejected", aiVeredict: "REPROVADO", aiMotivo: motivo, aiRealPct: 0, aiGringoPct: 100, aiAnalyzedAt: new Date(), aiResult: JSON.stringify({ comments: [], note: scrapeNote }) },
@@ -180,7 +251,14 @@ export async function POST(request: NextRequest) {
           await writer.write(encoder.encode(JSON.stringify({ type: "classified", handle: entry.sourceHandle, veredict: ai.veredito, motivo: ai.motivo_curto, real_pct: ai.real_pct, gringo_pct: ai.gringo_pct }) + "\n"));
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          await writer.write(encoder.encode(JSON.stringify({ type: "error", handle: entry.sourceHandle, error: msg.slice(0, 200) }) + "\n"));
+          // Falha da IA (Gemini): entrada volta a pendente com cooldown — nunca fica presa em "analyzing".
+          try {
+            await prisma.patternVaultEntry.update({
+              where: { id: entry.id },
+              data: { aiStatus: "pending", aiAnalyzedAt: new Date() },
+            });
+          } catch {}
+          await writer.write(encoder.encode(JSON.stringify({ type: "error", handle: entry.sourceHandle, error: `IA falhou (entrada em cooldown): ${msg.slice(0, 200)}` }) + "\n"));
         }
       }
       const winners = await prisma.patternVaultEntry.count({ where: { creatorId, aiStatus: "approved" } });
@@ -188,32 +266,75 @@ export async function POST(request: NextRequest) {
       try { await writer.close(); } catch {}
     };
 
-    void run();
+    const runPromise = run();
+    globalForVaultAI.vaultAiRun = runPromise.finally(() => {
+      globalForVaultAI.vaultAiRun = undefined;
+    });
+    void globalForVaultAI.vaultAiRun;
     return new Response(readable, { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache" } });
   }
 
   let approved = 0;
   let rejected = 0;
-  for (const entry of pending) {
-    try {
-      let comments: string[] = [];
-      if (brightKeys.length > 0) {
-        for (const k of brightKeys) {
+  const runNonStream = async () => {
+    for (const entry of pending) {
+      try {
+        let comments: string[] = [];
+        let providerError = false;
+        for (let i = 0; i < brightKeys.length; i++) {
+          const k = brightKeys[i];
           try {
-            const result = await scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, k, { pollAttempts: 45, pollDelayMs: 2000 });
+            const result = await scrapeBrightDataDataset(COMMENTS_DATASET, { url: entry.sourceUrl }, k, { pollAttempts: 45, pollDelayMs: 2000, query: { limit_per_input: 20 } });
             const got = result.records.map((r: any) => (r.comment_text ?? r.comment ?? r.text ?? r.body ?? "") as string).filter(Boolean).slice(0, 20);
             if (got.length > 0) { comments = got; break; }
-          } catch { continue; }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            // Qualquer falha da Bright Data e erro de provedor: sem comentarios reais nao ha como julgar
+            providerError = true;
+            const isCustomerInactive = /customer is not active/i.test(msg);
+            const isAuthError = /http 40[13]|authe?ntic|permission/i.test(msg);
+            if (isCustomerInactive || isAuthError) {
+              try { await prisma.collectorSession.updateMany({ where: { apiKey: k }, data: { status: "paused", lastError: msg.slice(0, 120) } }); } catch {}
+              brightKeys.splice(i, 1);
+              i--;
+            }
+            continue;
+          }
         }
+        if (comments.length === 0) {
+          // falha de provedor (chave morta) ou pool vazio: volta a pendente COM cooldown
+          if (providerError || brightKeys.length === 0) {
+            try {
+              await prisma.patternVaultEntry.update({
+                where: { id: entry.id },
+                data: { aiStatus: "pending", aiAnalyzedAt: new Date() },
+              });
+            } catch {}
+            continue;
+          }
+        }
+        const ai = await classifyComments(comments);
+        await prisma.patternVaultEntry.update({
+          where: { id: entry.id },
+          data: { aiStatus: ai.veredito === "APROVADO" ? "approved" : "rejected", aiVeredict: ai.veredito, aiRealPct: ai.real_pct, aiGringoPct: ai.gringo_pct, aiMotivo: ai.motivo_curto, aiResult: JSON.stringify(ai), aiAnalyzedAt: new Date() },
+        });
+        if (ai.veredito === "APROVADO") approved++; else rejected++;
+      } catch {
+        // Falha inesperada: nunca deixa a entrada presa em "analyzing".
+        try {
+          await prisma.patternVaultEntry.update({
+            where: { id: entry.id },
+            data: { aiStatus: "pending", aiAnalyzedAt: new Date() },
+          });
+        } catch {}
       }
-      const ai = await classifyComments(comments);
-      await prisma.patternVaultEntry.update({
-        where: { id: entry.id },
-        data: { aiStatus: ai.veredito === "APROVADO" ? "approved" : "rejected", aiVeredict: ai.veredito, aiRealPct: ai.real_pct, aiGringoPct: ai.gringo_pct, aiMotivo: ai.motivo_curto, aiResult: JSON.stringify(ai), aiAnalyzedAt: new Date() },
-      });
-      if (ai.veredito === "APROVADO") approved++; else rejected++;
-    } catch {}
-  }
+    }
+  };
+  const nonStreamPromise = runNonStream();
+  globalForVaultAI.vaultAiRun = nonStreamPromise.finally(() => {
+    globalForVaultAI.vaultAiRun = undefined;
+  });
+  await nonStreamPromise;
   return NextResponse.json({ total: pending.length, approved, rejected });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

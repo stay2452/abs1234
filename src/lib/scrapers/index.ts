@@ -67,6 +67,8 @@ export type ScrapeScope =
 type RunScrapeOptions = {
   force?: boolean;
   now?: Date;
+  /** Cancela o run (workers param de agendar e fetches são aborted). */
+  signal?: AbortSignal;
   onRunCreated?: (runId: string) => void | Promise<void>;
   onProgress?: (event: ScrapeProgressEvent) => void | Promise<void>;
 };
@@ -316,6 +318,7 @@ async function scrapeWithApiSession(
   session: ActiveCollectorSession,
   profile: Profile,
   reportDataset?: DatasetProgressReporter,
+  signal?: AbortSignal,
 ) {
   if (session.provider !== "brightdata" || !session.apiKey?.trim()) {
     throw new Error("Sessao API sem provedor Bright Data ou chave cadastrada.");
@@ -326,6 +329,7 @@ async function scrapeWithApiSession(
       { id: profile.id, platform: "instagram", handle: profile.handle, url: profile.url },
       session.apiKey,
       reportDataset,
+      signal,
     );
   }
 
@@ -334,6 +338,7 @@ async function scrapeWithApiSession(
       { id: profile.id, platform: "tiktok", handle: profile.handle, url: profile.url },
       session.apiKey,
       reportDataset,
+      signal,
     );
   }
 
@@ -367,10 +372,16 @@ function getRunTimeoutMs(profileCount: number, sessionCount: number) {
   return Math.max(5 * 60 * 1000, cappedSeconds * 1000);
 }
 
-async function withRunTimeout<T>(runId: string, timeoutMs: number, fn: () => Promise<T>): Promise<T> {
+async function withRunTimeout<T>(
+  timeoutMs: number,
+  fn: () => Promise<T>,
+  onTimeout?: (() => void) | undefined,
+): Promise<T> {
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutHandle = setTimeout(() => {
+      // Aborta o run ANTES de rejeitar — workers param de agendar e fetches são cancelados.
+      onTimeout?.();
       reject(new Error(`Timeout global: coleta excedeu ${Math.round(timeoutMs / 60000)} min sem concluir`));
     }, timeoutMs);
   });
@@ -408,7 +419,8 @@ async function recordRunAttemptProgress(
         requestsMade: { increment: totals.requestsMade },
         recordsReceived: { increment: totals.recordsReceived },
         recordsPersisted: { increment: outcome.recordsPersisted },
-        estimatedCredits: { increment: totals.requestsMade },
+        // Custo estimado = registros entregues (BD cobra por registro), nao requests.
+        estimatedCredits: { increment: totals.recordsReceived },
         currentActivity: activity,
       },
     }),
@@ -543,13 +555,47 @@ async function executeAttempt(
   job: ScrapeJob,
   session: ActiveCollectorSession,
   reportDataset?: DatasetProgressReporter,
+  signal?: AbortSignal,
 ): Promise<AttemptOutcome> {
+  // Fase 1 — COLETA (Bright Data). Se falhar aqui, classificacao normal + retry decide.
+  let result: ScrapedProfileResult;
   try {
     await setRunActivity(
       runId,
       `Coletando @${job.profile.handle}: perfil e conteudos recentes de ${job.profile.platform}.`,
     );
-    const result = await scrapeWithApiSession(session, job.profile, reportDataset);
+    result = await scrapeWithApiSession(session, job.profile, reportDataset, signal);
+  } catch (error) {
+    const datasets = getScrapeDatasetUsage(error);
+    const errorCode = getScrapeErrorCode(error);
+    const message = errorMessage(error);
+    await recordDatasetAttempts(runId, job.profile, session, datasets);
+    await recordCollectorSessionFailure(session.id, message, shouldPauseSession(errorCode));
+
+    return {
+      success: false,
+      retryable: shouldRetryWithAnotherSession(errorCode),
+      datasets,
+      postsFound: 0,
+      postsNew: 0,
+      postsUpdated: 0,
+      recordsPersisted: 0,
+      error: {
+        profileId: job.profile.id,
+        handle: job.profile.handle,
+        platform: job.profile.platform,
+        sessionId: session.id,
+        sessionName: session.name,
+        error: message,
+        errorCode,
+      },
+    };
+  }
+
+  // Fase 2 — PERSISTENCIA. A coleta JÁ FOI PAGA (registros entregues/cobrados pela BD).
+  // Falha de banco aqui NÃO deve re-disparar a coleta com outra chave (custo duplicado):
+  // retornamos falha NÃO-retryável e registramos uso real dos datasets.
+  try {
     const persisted = await persistScrapeResult(job.profile, result);
     const datasets = persisted.noData ? markDatasetsNoData(result.datasets) : result.datasets;
     await recordDatasetAttempts(runId, job.profile, session, datasets);
@@ -578,16 +624,21 @@ async function executeAttempt(
       recordsPersisted: persisted.recordsPersisted,
     };
   } catch (error) {
-    const datasets = getScrapeDatasetUsage(error);
-    const errorCode = getScrapeErrorCode(error);
     const message = errorMessage(error);
-    await recordDatasetAttempts(runId, job.profile, session, datasets);
-    await recordCollectorSessionFailure(session.id, message, shouldPauseSession(errorCode));
+    console.warn(
+      `[scrapers] persistencia falhou apos coleta paga de @${job.profile.handle} — nao recolhendo: ${message.slice(0, 200)}`,
+    );
+    await recordDatasetAttempts(runId, job.profile, session, result.datasets);
+    await recordCollectorSessionFailure(
+      session.id,
+      `Persistencia falhou apos coleta paga (nao recolhendo): ${message.slice(0, 160)}`,
+      false,
+    );
 
     return {
       success: false,
-      retryable: shouldRetryWithAnotherSession(errorCode),
-      datasets,
+      retryable: false,
+      datasets: result.datasets,
       postsFound: 0,
       postsNew: 0,
       postsUpdated: 0,
@@ -598,8 +649,8 @@ async function executeAttempt(
         platform: job.profile.platform,
         sessionId: session.id,
         sessionName: session.name,
-        error: message,
-        errorCode,
+        error: `Falha ao persistir resultado da coleta ja paga (nao sera refeita): ${message}`,
+        errorCode: "persist_error",
       },
     };
   }
@@ -653,6 +704,7 @@ async function executeStage(
   disabledSessionIds: Set<string>,
   allowRetry: boolean,
   reportDataset?: (job: ScrapeJob, progress: ScrapeDatasetProgress) => void | Promise<void>,
+  signal?: AbortSignal,
 ): Promise<StageOutcome> {
   const { assignments, unassigned } = scheduleJobs(jobs, sessions, disabledSessionIds);
   const errors: ScrapeError[] = unassigned.map((job) => ({
@@ -695,6 +747,10 @@ async function executeStage(
       }
 
       for (const job of assignedJobs) {
+        if (signal?.aborted) {
+          // Run cancelado/timeout — para de agendar novos perfis (evita gasto órfão).
+          break;
+        }
         if (disabledSessionIds.has(session.id)) {
           outcomes.push({ job });
           continue;
@@ -710,6 +766,7 @@ async function executeStage(
           job,
           session,
           reportDataset ? (progress) => reportDataset(job, progress) : undefined,
+          signal,
         );
         const errorCode = outcome.error?.errorCode ?? "unknown";
         if (!outcome.success && shouldExhaustSessionInQueue(errorCode)) {
@@ -940,65 +997,91 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
     }
 
     const runTimeoutMs = getRunTimeoutMs(profiles.length, Math.max(sessions.length, 1));
-    await withRunTimeout(run.id, runTimeoutMs, async () => {
-      if (sessions.length > 0 && profiles.length > 0) {
-        let pendingJobs: ScrapeJob[] = profiles.map((profile) => ({
-          profile,
-          attemptedSessionIds: new Set<string>(),
-        }));
-        const maxRounds = Math.max(
-          Math.min(sessions.length, SCRAPE_MAX_RETRIES_PER_PROFILE),
-          1,
-        );
+    // AbortSignal do run: cancela workers + fetches quando o timeout global estourar
+    // (antes: o run falhava mas as coletas seguiam pagando) ou quando options.signal abortar.
+    const runController = new AbortController();
+    const externalSignal = options.signal;
+    const forwardExternalAbort = () => runController.abort();
+    if (externalSignal?.aborted) {
+      runController.abort();
+    } else {
+      externalSignal?.addEventListener("abort", forwardExternalAbort, { once: true });
+    }
+    await withRunTimeout(
+      runTimeoutMs,
+      async () => {
+        if (sessions.length > 0 && profiles.length > 0) {
+          let pendingJobs: ScrapeJob[] = profiles.map((profile) => ({
+            profile,
+            attemptedSessionIds: new Set<string>(),
+          }));
+          const maxRounds = Math.max(
+            Math.min(sessions.length, SCRAPE_MAX_RETRIES_PER_PROFILE),
+            1,
+          );
 
-        for (let round = 0; round < maxRounds && pendingJobs.length > 0; round += 1) {
-          const healthySessions = sessions.filter((session) => !disabledSessionIds.has(session.id));
-          if (healthySessions.length === 0) {
-            break;
+          for (let round = 0; round < maxRounds && pendingJobs.length > 0; round += 1) {
+            if (runController.signal.aborted) {
+              break;
+            }
+            const healthySessions = sessions.filter((session) => !disabledSessionIds.has(session.id));
+            if (healthySessions.length === 0) {
+              break;
+            }
+
+            // Backoff exponencial entre rounds: 1s, 2s, 4s, ..., teto 30s. Evita
+            // retry imediato em cenarios de rate-limit prolongado (20 contas 5xx).
+            if (round > 0) {
+              const delayMs = Math.min(30_000, 1_000 * 2 ** (round - 1));
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+
+            const stage = await executeStage(
+              run.id,
+              pendingJobs,
+              sessions,
+              disabledSessionIds,
+              true,
+              reportDataset,
+              runController.signal,
+            );
+            errors.push(...stage.errors);
+            profilesOk += stage.profilesOk;
+            postsFound += stage.postsFound;
+            postsNew += stage.postsNew;
+            postsUpdated += stage.postsUpdated;
+            recordsPersisted += stage.recordsPersisted;
+            requestsMade += stage.requestsMade;
+            recordsReceived += stage.recordsReceived;
+            pendingJobs = stage.retryJobs;
           }
 
-          // Backoff exponencial entre rounds: 1s, 2s, 4s, ..., teto 30s. Evita
-          // retry imediato em cenarios de rate-limit prolongado (20 contas 5xx).
-          if (round > 0) {
-            const delayMs = Math.min(30_000, 1_000 * 2 ** (round - 1));
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          if (runController.signal.aborted) {
+            // Timeout global ou cancelamento: encerra sem agendar novos perfis.
+            throw new Error("Coleta cancelada (timeout global ou pedido do usuário).");
           }
 
-          const stage = await executeStage(
-            run.id,
-            pendingJobs,
-            sessions,
-            disabledSessionIds,
-            true,
-            reportDataset,
-          );
-          errors.push(...stage.errors);
-          profilesOk += stage.profilesOk;
-          postsFound += stage.postsFound;
-          postsNew += stage.postsNew;
-          postsUpdated += stage.postsUpdated;
-          recordsPersisted += stage.recordsPersisted;
-          requestsMade += stage.requestsMade;
-          recordsReceived += stage.recordsReceived;
-          pendingJobs = stage.retryJobs;
+          for (const job of pendingJobs) {
+            errors.push({
+              profileId: job.profile.id,
+              handle: job.profile.handle,
+              platform: job.profile.platform,
+              error: "Nenhuma sessao API saudavel concluiu a coleta deste perfil.",
+              errorCode: "no_session",
+            });
+            await recordRunFinalFailure(
+              run.id,
+              job,
+              `Nenhuma API saudavel concluiu @${job.profile.handle}.`,
+            );
+          }
         }
-
-        for (const job of pendingJobs) {
-          errors.push({
-            profileId: job.profile.id,
-            handle: job.profile.handle,
-            platform: job.profile.platform,
-            error: "Nenhuma sessao API saudavel concluiu a coleta deste perfil.",
-            errorCode: "no_session",
-          });
-          await recordRunFinalFailure(
-            run.id,
-            job,
-            `Nenhuma API saudavel concluiu @${job.profile.handle}.`,
-          );
-        }
-      }
-    });
+      },
+      () => runController.abort(),
+    );
+    if (externalSignal) {
+      externalSignal.removeEventListener("abort", forwardExternalAbort);
+    }
 
     // Erros not_found/partial_empty sao avisos de datasets opcionais e nao
     // tornam o run parcialmente falho sozinhos.
@@ -1014,7 +1097,8 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
           requestsMade,
           recordsReceived,
           recordsPersisted,
-          estimatedCredits: requestsMade,
+          // Custo estimado = registros entregues (BD cobra por registro), nao requests.
+          estimatedCredits: recordsReceived,
           currentActivity: `Coleta concluida: ${profilesOk}/${requestedProfiles.length} perfil(is) finalizado(s).`,
           errorsJson: errors.length > 0 ? JSON.stringify(errors) : null,
         },

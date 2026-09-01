@@ -18,6 +18,11 @@ junto com o codigo.
 | Scraping Browser / Playwright | Nao | Removido do produto |
 | SERP API | Nao | Fora do escopo |
 | Dataset Marketplace (compra de dumps) | Nao | Coleta on-demand por URL de perfil |
+
+> **Cobranca = por registro entregue.** O dataset de comentarios Instagram
+> (`gd_ltppn085pokosxh13`, usado pela IA do Vault) entrega 1 registro por
+> comentario — **sempre** usar `limit_per_input=20` no trigger. Detalhes em
+> [CREDIT_USAGE.md](./CREDIT_USAGE.md) e [SCRAPING_RULES.md](./SCRAPING_RULES.md).
 | Scraper Studio (DCA custom) | Nao | Usamos scrapers da biblioteca |
 
 Cada **chave API** cadastrada em `/settings` e um Bearer token de **uma conta Bright Data**.

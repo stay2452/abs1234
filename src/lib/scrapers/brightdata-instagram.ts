@@ -257,12 +257,13 @@ function sortRecentPosts(posts: ScrapedPost[]) {
 export async function scrapeInstagramRecentReelsWithBrightData(
   profile: ScrapeProfileInput,
   apiKey?: string | null,
+  signal?: AbortSignal,
 ) {
   const result = await scrapeBrightDataDataset(
     DATASET_INSTAGRAM_REELS,
     { url: profile.url, num_of_posts: INSTAGRAM_REELS_LIMIT },
     apiKey,
-    { query: { type: "discover_new", discover_by: "url_all_reels" } },
+    { query: { type: "discover_new", discover_by: "url_all_reels" }, signal },
   );
 
   return sortRecentPosts(
@@ -286,6 +287,7 @@ export async function scrapeInstagramProfileWithBrightData(
   profile: ScrapeProfileInput,
   apiKey?: string | null,
   reportDataset?: DatasetProgressReporter,
+  signal?: AbortSignal,
 ): Promise<ScrapedProfileResult> {
   const datasetIds = [
     DATASET_INSTAGRAM_PROFILE,
@@ -295,7 +297,7 @@ export async function scrapeInstagramProfileWithBrightData(
   const settled = await Promise.allSettled([
     observeDataset(
       DATASET_INSTAGRAM_PROFILE,
-      scrapeBrightDataDataset(DATASET_INSTAGRAM_PROFILE, { url: profile.url }, apiKey),
+      scrapeBrightDataDataset(DATASET_INSTAGRAM_PROFILE, { url: profile.url }, apiKey, { signal }),
       reportDataset,
     ),
     observeDataset(
@@ -309,7 +311,7 @@ export async function scrapeInstagramProfileWithBrightData(
           num_of_posts: INSTAGRAM_GRID_LIMIT,
         },
         apiKey,
-        { query: { type: "discover_new", discover_by: "url" } },
+        { query: { type: "discover_new", discover_by: "url" }, signal },
       ),
       reportDataset,
     ),
@@ -323,7 +325,7 @@ export async function scrapeInstagramProfileWithBrightData(
           num_of_posts: INSTAGRAM_REELS_LIMIT,
         },
         apiKey,
-        { query: { type: "discover_new", discover_by: "url_all_reels" } },
+        { query: { type: "discover_new", discover_by: "url_all_reels" }, signal },
       ),
       reportDataset,
     ),

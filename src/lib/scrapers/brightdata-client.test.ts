@@ -25,7 +25,13 @@ describe("getBrightDataErrorInfo", () => {
       getBrightDataErrorInfo(
         new BrightDataRequestError("Bright Data ainda nao concluiu o snapshot."),
       ).code,
-    ).toBe("transient");
+    ).toBe("snapshot_pending");
+    // Timeout de POST (trigger pode já estar rodando/cobrando) também não é retry-imediato
+    expect(
+      getBrightDataErrorInfo(
+        new BrightDataRequestError("Bright Data demorou demais para responder (>90s)."),
+      ).code,
+    ).toBe("snapshot_pending");
   });
 
   it("never swallows plain Error details as empty unknown", () => {

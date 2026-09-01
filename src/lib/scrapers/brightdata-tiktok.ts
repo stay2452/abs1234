@@ -202,11 +202,13 @@ export function mapBrightDataTikTokPost(record: BrightDataRecord, handle: string
 export async function scrapeTikTokRecentVideosWithBrightData(
   profile: ScrapeProfileInput,
   apiKey?: string | null,
+  signal?: AbortSignal,
 ) {
   const result = await scrapeBrightDataDataset(
     DATASET_TIKTOK_POSTS_BY_PROFILE,
     { url: profile.url, num_of_posts: TIKTOK_VIDEO_LIMIT },
     apiKey,
+    { signal },
   );
 
   return result.records
@@ -219,12 +221,13 @@ export async function scrapeTikTokProfileWithBrightData(
   profile: ScrapeProfileInput,
   apiKey?: string | null,
   reportDataset?: DatasetProgressReporter,
+  signal?: AbortSignal,
 ): Promise<ScrapedProfileResult> {
   const datasetIds = [DATASET_TIKTOK_PROFILE, DATASET_TIKTOK_POSTS_BY_PROFILE];
   const settled = await Promise.allSettled([
     observeDataset(
       DATASET_TIKTOK_PROFILE,
-      scrapeBrightDataDataset(DATASET_TIKTOK_PROFILE, { url: profile.url }, apiKey),
+      scrapeBrightDataDataset(DATASET_TIKTOK_PROFILE, { url: profile.url }, apiKey, { signal }),
       reportDataset,
     ),
     observeDataset(
@@ -233,6 +236,7 @@ export async function scrapeTikTokProfileWithBrightData(
         DATASET_TIKTOK_POSTS_BY_PROFILE,
         { url: profile.url, num_of_posts: TIKTOK_VIDEO_LIMIT },
         apiKey,
+        { signal },
       ),
       reportDataset,
     ),

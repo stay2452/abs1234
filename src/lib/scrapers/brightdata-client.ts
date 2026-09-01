@@ -37,6 +37,8 @@ type BrightDataScrapeOptions = {
   pollAttempts?: number;
   pollDelayMs?: number;
   query?: Record<string, string | number | boolean>;
+  /** AbortSignal externo (ex.: cancelamento pelo usuário ou timeout do run) — aborta fetch/poll em andamento. */
+  signal?: AbortSignal;
 };
 
 function brightDataApiKey(apiKey?: string | null) {
@@ -210,7 +212,12 @@ function formatUnknownError(error: unknown): string {
   }
 }
 
-async function brightDataFetch(path: string, init?: RequestInit, apiKeyOverride?: string | null) {
+async function brightDataFetch(
+  path: string,
+  init?: RequestInit,
+  apiKeyOverride?: string | null,
+  externalSignal?: AbortSignal,
+) {
   const apiKey = brightDataApiKey(apiKeyOverride);
 
   if (!apiKey) {
@@ -219,6 +226,12 @@ async function brightDataFetch(path: string, init?: RequestInit, apiKeyOverride?
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  const forwardAbort = () => controller.abort();
+  if (externalSignal?.aborted) {
+    controller.abort();
+  } else {
+    externalSignal?.addEventListener("abort", forwardAbort, { once: true });
+  }
 
   try {
     const response = await fetch(`${BRIGHTDATA_API_BASE}${path}`, {
@@ -248,6 +261,12 @@ async function brightDataFetch(path: string, init?: RequestInit, apiKeyOverride?
 
     return parseJson(text, path.slice(0, 80));
   } catch (error) {
+    if (externalSignal?.aborted) {
+      // Cancelamento de verdade (usuário/timeout do run) — não é falha do provedor.
+      throw new BrightDataRequestError(
+        `Coleta cancelada pela Bright Data client (${path.slice(0, 60)}).`,
+      );
+    }
     if (isBrightDataRequestError(error)) {
       throw error;
     }
@@ -262,14 +281,16 @@ async function brightDataFetch(path: string, init?: RequestInit, apiKeyOverride?
     );
   } finally {
     clearTimeout(timeout);
+    externalSignal?.removeEventListener("abort", forwardAbort);
   }
 }
 
-async function downloadSnapshot(snapshotId: string, apiKey?: string | null) {
+async function downloadSnapshot(snapshotId: string, apiKey?: string | null, signal?: AbortSignal) {
   return brightDataFetch(
     `/snapshot/${encodeURIComponent(snapshotId)}?format=json`,
     undefined,
     apiKey,
+    signal,
   );
 }
 
@@ -296,10 +317,14 @@ async function waitForSnapshot(
   const pollDelayMs = options?.pollDelayMs ?? SNAPSHOT_POLL_DELAY_MS;
 
   for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
+    if (options?.signal?.aborted) {
+      throw new BrightDataRequestError("Coleta cancelada durante a espera do snapshot.");
+    }
     const progress = await brightDataFetch(
       `/progress/${encodeURIComponent(snapshotId)}`,
       undefined,
       apiKey,
+      options?.signal,
     );
 
     if (typeof progress === "object" && progress !== null) {
@@ -307,7 +332,7 @@ async function waitForSnapshot(
       const status = String(record.status ?? "").toLowerCase();
 
       if (status === "ready") {
-        return downloadSnapshot(snapshotId, apiKey);
+        return downloadSnapshot(snapshotId, apiKey, options?.signal);
       }
 
       if (status === "failed" || status === "error") {
@@ -345,6 +370,7 @@ export async function scrapeBrightDataDataset(
         body: JSON.stringify(request.body),
       },
       apiKey,
+      options?.signal,
     );
 
     if (Array.isArray(result)) {
@@ -433,12 +459,16 @@ function classifyBrightDataMessage(message: string, statusCode?: number) {
   ) {
     return "not_found";
   }
+  // Snapshot nao concluido (timeout de poll) ou POST que estourou o timeout local:
+  // o trigger pode JÁ ESTAR rodando/cobrando no lado Bright Data. Retentar com outra
+  // chave re-dispara e paga de novo. Tratamos como NÃO-retryável-imediato (snapshot_pending).
+  if (/ainda nao concluiu o snapshot|demorou demais|coleta cancelada/.test(lower)) {
+    return "snapshot_pending";
+  }
   if (
     statusCode === 429 ||
     (statusCode !== undefined && statusCode >= 500) ||
-    /ainda nao concluiu o snapshot|demorou demais|timeout|temporar|fetch failed|econnreset|enotfound|network|socket/.test(
-      lower,
-    )
+    /timeout|temporar|fetch failed|econnreset|enotfound|network|socket/.test(lower)
   ) {
     return "transient";
   }

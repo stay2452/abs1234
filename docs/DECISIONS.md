@@ -153,3 +153,16 @@ Bug #31 (validacao `Folder.color`): falsa positiva — validacao `z.enum(FOLDER_
 ### Tudo em Supabase (Render+Supabase) — fim do SQLite local
 
 **Regra absoluta:** `prisma/schema.prisma:5` `provider = "postgresql"` é a única fonte de verdade. `DATABASE_URL` (pooler 6543) e `DIRECT_URL` (5432) são `postgresql://` do Supabase em `next dev` local e em `scripts/start.mjs` prod. `prisma/dev.db` + `prisma/backups/*.db` viraram legado git-ignorado (`/.gitignore:11`) e não são lidos. Motivação: auditoria mostrou 4 `ScrapeRun` `running` zumbis (print 27-28/ago) + `.env` local com `file:./dev.db` que quebra `prisma validate` e diverge de prod (240 perfis no Supabase vs 177 em dev.db de julho). Correção: `.env` local migrado para pooler Supabase, `src/lib/scrape-reconcile.ts:62` mantém fallback `file:` apenas como segurança para `.env` legado, `src/instrumentation.ts` e `src/app/history/page.tsx:14` reconciliam zumbis automaticamente (>3h) sem SQL manual, `prisma/migrations/20260830000000_add_scraperun_updatedat` adiciona `updatedAt` + índice, `scripts/start.mjs:51` e `src/lib/scrapers/index.ts:960` aplicam timeout global. Ver `CRITICAL_RULES.md` (Operação) e `ARCHITECTURE.md` (Limites).
+## 2026-08-31
+
+### Post-mortem: 20 contas Bright Data perdidas + auditoria completa (Fase 0-4)
+
+**Acidente:** o dataset de comentarios Instagram (`gd_ltppn085pokosxh13`) cobra 1 registro por COMENTARIO entregue. A IA do Vault analisava posts outliers (virais, milhares de comentarios) sem limite no trigger; `.slice(0,20)` era apos a entrega/cobranca. Resultado: 5 contas free (5k creditos cada) consumidas em ~25 min e suspensas automaticamente pelo Billing (evento `Conta suspenso automatico`). Depois, as 19 contas restantes do pool entraram na mesma condicao (`Customer is not active`). A auditoria completa encontrou 3 vetores criticos genericos (nao so comentarios):
+
+1. **CRITICO — retry re-dispara trigger pago:** timeout de snapshot/POST era `transient` → retry com OUTRA chave re-triggerava; o trigger original seguia rodando/cobrando no lado BD. Corrigido: novo codigo `snapshot_pending` (nao-retry-imediato) em `brightdata-client.ts`.
+2. **CRITICO — timeout global nao cancelava workers:** `withRunTimeout` (Promise.race) rejeitava mas as coletas seguiam em background pagando. Corrigido: `AbortController` do run propagado por workers/fetches; `request.signal` do cliente tambem cancela.
+3. **ALTO — falha de banco apos coleta paga re-coletava:** falha de persistencia era `transient` → re-coleta com outra chave (paga 2x). Corrigido: persistencia separada da coleta no `executeAttempt`, `retryable: false` (`persist_error`).
+
+**Outras correcoes da auditoria:** Fase0 — caminho nao-stream do `analyze-ai` nao reprova por erro de provedor e pausa chave em auth; UI da IA tem teto de 10 lotes/rodada + confirmacao com estimativa de custo (~20 creditos/post); `.env.example` aponta `DIRECT_URL` para pooler :5432; docs de credito/comentarios atualizadas. Fase4 — rota `scrape/run` ja tinha lock (memoria + `hasActiveRunningRun` 409); confirmado e documentado.
+
+**Decisao de custo:** comentarios limitados a `limit_per_input=20` (≈20 creditos/post). Timeout (90s) NAO cancela cobranca no lado BD — documentado. "Cancelar" no UI agora cancela de verdade o run.

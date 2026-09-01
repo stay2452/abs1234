@@ -136,6 +136,22 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
       cancelAI();
       return;
     }
+    // Guarda de custo (Fase 0 da auditoria 2026-08-31): cada post custa ~20 creditos (limit_per_input=20)
+    const MAX_AI_BATCHES = 10;
+    const pendingNow = vault.filter((v: any) => v.aiStatus === "pending" || !v.aiStatus).length;
+    if (pendingNow === 0) {
+      setAiMessage("Nenhum potencial pendente");
+      return;
+    }
+    const estimatedCredits = Math.min(pendingNow, MAX_AI_BATCHES * 3) * 20;
+    if (!confirm(
+      `Análise IA usa Bright Data: ~20 créditos por post (teto de 20 comentários/post).\n\n` +
+      `Pendentes agora: ${pendingNow}\n` +
+      `Esta rodada: até ${MAX_AI_BATCHES} lotes de 3 = ${Math.min(pendingNow, MAX_AI_BATCHES * 3)} posts ≈ ${estimatedCredits} créditos.\n\n` +
+      `Continuar? (Dica: confira o saldo real no painel Bright Data — o saldo da UI é estimativa local.)`
+    )) {
+      return;
+    }
     const controller = new AbortController();
     aiAbortRef.current = controller;
     setAiLoading(true);
@@ -144,9 +160,13 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
       let totalApproved = 0;
       let totalRejected = 0;
       let batches = 0;
-      // loop automático: processa de 3 em 3 até acabar, sem precisar clicar toda hora
+      // loop automático: processa de 3 em 3 até acabar ou atingir o teto de lotes da rodada
       while (!controller.signal.aborted) {
-        const pendingNow = vault.filter((v: any) => v.aiStatus === "pending").length;
+        if (batches >= MAX_AI_BATCHES) {
+          const stillPending = vault.filter((v: any) => v.aiStatus === "pending" || !v.aiStatus).length;
+          setAiMessage(`⏸️ Pausado após ${MAX_AI_BATCHES} lotes (~${totalApproved + totalRejected} posts analisados). Clique em "Análise com IA" para continuar${stillPending > 0 ? ` — faltam ${stillPending}` : ""}.`);
+          break;
+        }
         // recalcula via fresh vault após cada lote
         const freshRes = await fetch(`/api/vault?creatorId=${creator.id}`, { signal: controller.signal });
         const freshData = await freshRes.json().catch(() => ({ entries: [] }));
@@ -176,6 +196,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
         const decoder = new TextDecoder();
         let buffer = "";
         let batchDone = false;
+        let providerErrors = 0;
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
@@ -201,7 +222,10 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
                 setAiMessage("⏹️ IA cancelada");
                 return;
               } else if (evt.type === "error") {
-                throw new Error(evt.error);
+                // Erro de provedor/IA: entrada entrou em cooldown (5 min) no servidor.
+                // NAO aborta o run inteiro — conta e segue; o lote termina sem progresso.
+                providerErrors += 1;
+                setAiMessage(`⚠️ ${evt.error}`);
               }
             } catch {}
           }
@@ -212,6 +236,12 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
         const afterData = await afterRes.json().catch(() => ({ entries: [] }));
         setVault(afterData.entries ?? []);
         const stillPending = (afterData.entries ?? []).filter((v: any) => v.aiStatus === "pending").length;
+        // Sem progresso = lote inteiro em cooldown (provedor/IA falhou). Parar de re-trigger
+        // imediatamente — clicar de novo so faz sentido depois do cooldown (5 min).
+        if (stillPending >= pendingFresh && providerErrors > 0) {
+          setAiMessage(`⏸️ ${providerErrors} entrada(s) em cooldown (provedor/IA falhou). Aguarde ~5 min e clique novamente — faltam ${stillPending}.`);
+          break;
+        }
         setAiMessage(`Lote ${batches} OK: ${totalApproved} aprov / ${totalRejected} reprov — faltam ${stillPending}`);
         if (stillPending === 0) {
           setAiMessage(`✅ Finalizado: ${totalApproved} aprovado(s), ${totalRejected} reprovado(s) em ${batches} lote(s)`);
@@ -409,7 +439,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
                 <h2>Winners — {winners.length} <small style={{ fontWeight: 400 }}>({rejected.length} reprovados)</small></h2>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <button className="button" onClick={analyzeWithAI} disabled={vaultLoading || (!aiLoading && pending.length === 0)} title={aiLoading ? "Clique para cancelar" : "Roda sozinho de 3 em 3 até acabar"}>
-                    {aiLoading ? "Cancelar IA" : `Análise com IA (todos ${pending.length})`}
+                    {aiLoading ? "Cancelar IA" : `Análise com IA (até 10 lotes de 3 — ~20 créditos/post)`}
                   </button>
                   {rejected.length > 0 && !aiLoading && (
                     <div style={{ display: "flex", gap: 6 }}>

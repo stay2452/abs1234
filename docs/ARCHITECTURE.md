@@ -46,7 +46,7 @@ App Next.js hospedado no Render com PostgreSQL gerenciado pelo Supabase para cat
 
 - **Tudo em Supabase + Render — nada local (regra 2026-08-30).** `DATABASE_URL` (pooler `6543`) e `DIRECT_URL` (migrations `5432`) são `postgresql://` do Supabase em **todos** os ambientes (`next dev` local e `scripts/start.mjs` em prod). `prisma/dev.db` é legado git-ignorado e não é lido. `npm run dev` sem `.env` Supabase falha em `requireDatabaseEnvironment()` / `prisma validate`.
 - PostgreSQL remoto no Supabase; chaves ficam armazenadas no banco remoto e nunca entram no Git.
-- `estimatedCredits` ≈ `requestsMade` (proxy). Fatura = painel Bright Data.
+- `estimatedCredits` = `recordsReceived` (registros entregues — BD cobra por registro). Fatura = painel Bright Data.
 - Testes automatizados nao chamam Bright Data real.
 - Saldo oficial via `GET /customer/balance` (permissao de billing); senao estimativa local free tier.
 - Fallback `file:./dev.db` em `src/lib/scrape-reconcile.ts:62` existe apenas como segurança para `.env` legado mal configurado e não é caminho oficial.

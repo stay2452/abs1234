@@ -12,6 +12,17 @@ async function getBaseUrl() {
   }
 }
 
+/** Token opcional (API_ACCESS_TOKEN no app). Enviado como Bearer se configurado. */
+async function authHeaders() {
+  try {
+    const stored = await chrome.storage.sync.get(["apiToken"]);
+    const token = (stored.apiToken || "").trim();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 async function health() {
   const base = await getBaseUrl();
   try {
@@ -37,7 +48,7 @@ async function importProfiles(payload) {
   const base = await getBaseUrl();
   const res = await fetch(`${base}/api/profiles/import`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(payload),
   });
   const data = await res.json().catch(() => ({}));
@@ -55,7 +66,7 @@ async function scrapeProfile(profileId, opts = {}) {
   const base = await getBaseUrl();
   const res = await fetch(`${base}/api/scrape/run`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({
       scope: "profiles",
       profileIds: [profileId],

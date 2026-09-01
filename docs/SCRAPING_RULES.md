@@ -13,7 +13,29 @@ Fronteira app ↔ Bright Data. Mudanca de dataset ou limite deve atualizar este 
 
 - Instagram: 3 datasets/perfil — perfil + Grade (`num_of_posts: 5`) + Reels (`num_of_posts: 5`).
 - TikTok: perfil + videos (`num_of_posts: 10`).
+
+## Contrato Vault — dataset de COMENTARIOS (2026-08-31)
+
+Dataset `gd_ltppn085pokosxh13` (Instagram Comments), usado so pela IA do Vault
+(`src/app/api/vault/analyze-ai/route.ts`). Regras obrigatorias — este dataset ja
+consumiu 5 contas free (5k creditos cada) em ~25 min sem elas:
+
+1. **1 registro = 1 comentario**: a Bright Data cobra por comentario entregue.
+   Posts virais tem milhares de comentarios.
+2. **`limit_per_input=20` obrigatorio** no trigger — teto de 20 comentarios/post
+   por coleta (≈20 creditos), independente do tamanho do post.
+3. **Timeout (90s) nao cancela a cobranca** no lado Bright Data: a coleta
+   continua e entrega/cobra tudo mesmo se o app desistir de esperar.
+4. `Customer is not active` = conta suspensa pelo Billing (credito zerado).
+   Pausa a chave automaticamente e a entrada fica pendente — falha de provedor
+   nunca vira REPROVADO.
 - Limite no **request** ao provedor; proibido baixar catalogo inteiro e filtrar no app.
+
+## Retentativa e cobranca (auditoria 2026-08-31)
+
+- **`snapshot_pending`**: timeout de snapshot/POST (`ainda nao concluiu o snapshot`, `demorou demais`) NAO e retry-imediato com outra chave — o trigger pode ja estar rodando/cobrando no lado Bright Data; re-disparar paga de novo. Classificado em `brightdata-client.ts` (`classifyBrightDataMessage`) como `snapshot_pending`, fora de `shouldRetryWithAnotherSession` em `index.ts`.
+- **Timeout global do run `withRunTimeout`** agora aborta os workers via `AbortController` compartilhado (checado por worker/perfil e nos fetches). Cancelar no UI/stream (`request.signal`) tambem cancela para de agendar novos perfis. Antes: o run falhava mas as coletas seguiam em background pagando.
+- **Persistencia separada da coleta** (`executeAttempt`): falha de banco apos coleta **paga** nao re-dispara a coleta com outra chave (`retryable: false`, `errorCode: persist_error`) — evita custo duplicado. A coleta inteira so e refeita se a propria coleta (Bright Data) falhar.
 
 ## Biblioteca acumulativa
 
@@ -57,12 +79,13 @@ Fronteira app ↔ Bright Data. Mudanca de dataset ou limite deve atualizar este 
 ## Falhas e telemetria
 
 - Telemetria por dataset sem chave/payload bruto.
-- `estimatedCredits` ≈ `requestsMade` (proxy operacional; nao e a fatura Bright Data).
+- `estimatedCredits` = `recordsReceived` (registros entregues; proxy operacional, nao e a fatura Bright Data).
 - Resposta final de run pode incluir `postsNew` / `postsUpdated`.
-- Auth/conta pausam chave; provider nao esgota a chave neste run; transient re-tenta perfil; not_found nao troca chave.
+- Auth/conta pausam chave; provider nao esgota a chave neste run; transient re-tenta perfil; not_found nao troca chave; `snapshot_pending` nao re-dispara trigger pago (ver "Retentativa e cobranca").
 - "no public posts" / empty content → dataset vazio, nao falha de chave.
 - Timeout HTTP request ~90s; poll de snapshot ate **45×2s (~90s)**. Status async: collecting / digesting / ready / failed. Fonte de verdade: `src/lib/scrapers/brightdata-client.ts`.
 - Coleta parcial: salva o valido; run pode ser `partial_failed`.
+- Reparo de metricas respeita a janela anti-recoleta de 30 min (pula perfil coletado recentemente).
 
 ## Teste controlado de dataset
 

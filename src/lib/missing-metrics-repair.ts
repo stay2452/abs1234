@@ -1,5 +1,5 @@
 import type { Profile } from "@prisma/client";
-import { SCRAPE_MAX_PARALLEL_KEYS } from "@/lib/constants";
+import { SCRAPE_FRESHNESS_WINDOW_MINUTES, SCRAPE_MAX_PARALLEL_KEYS } from "@/lib/constants";
 import { prisma, withDbWriteRetry } from "@/lib/db";
 import { canonicalizePostUrl } from "@/lib/post-url";
 import { scrapeInstagramRecentReelsWithBrightData } from "@/lib/scrapers/brightdata-instagram";
@@ -160,7 +160,16 @@ export async function repairMissingPostMetrics(
     group.push(target);
     byProfile.set(target.profileId, group);
   }
-  const groups = [...byProfile.values()];
+  // Janela anti-recoleta (auditoria 2026-08-31): pula perfis coletados nos ultimos
+  // 30 min — reparar de novo imediatamente duplicaria o custo sem dados novos.
+  const now = Date.now();
+  const freshnessMs = SCRAPE_FRESHNESS_WINDOW_MINUTES * 60 * 1000;
+  const groups = [...byProfile.values()].filter((group) => {
+    const last = group[0].profile.lastPostsScrapeAt?.getTime?.() ?? null;
+    const lastSnapshot = (group[0].profile as any).snapshots?.[0]?.capturedAt?.getTime?.() ?? null;
+    const latestRelevant = Math.max(last ?? 0, lastSnapshot ?? 0);
+    return latestRelevant === 0 || now - latestRelevant >= freshnessMs;
+  });
   await onProgress?.({
     type: "started",
     profilesTotal: groups.length,

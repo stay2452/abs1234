@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { runScrape } from "@/lib/scrapers";
 import { parseScrapeRunRequest } from "@/lib/scrapers/scope";
 import { hasActiveRunningRun, reconcileZombieRuns } from "@/lib/scrape-reconcile";
+import { isAuthorizedByToken } from "@/lib/access-token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,10 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
+
+  if (!isAuthorizedByToken(request)) {
+    return withCors(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), origin);
+  }
 
   // Reconcilia zumbis antes de checar lock — evita 409 falso por run travado
   try {
@@ -65,7 +70,7 @@ export async function POST(request: NextRequest) {
 
   if (!parsedBody.stream) {
     try {
-      const promise = runScrape(parsedBody.scope, { force: parsedBody.force });
+      const promise = runScrape(parsedBody.scope, { force: parsedBody.force, signal: request.signal });
       globalForScrape.activeScrape = promise;
       const result = await promise;
       return withCors(NextResponse.json(result), origin);
@@ -89,13 +94,14 @@ export async function POST(request: NextRequest) {
         try {
           await writeEvent(event);
         } catch {
-          // cliente fechou a aba/stream — coleta segue no servidor
+          // stream fechado/cancelado — request.signal aborta o run (workers param de agendar).
         }
       };
       try {
         await safeWrite({ type: "status", message: "Coleta iniciada. Preparando os perfis..." });
         const result = await runScrape(parsedBody.scope, {
           force: parsedBody.force,
+          signal: request.signal,
           onRunCreated: (runId) => {
             void safeWrite({ type: "run", runId });
           },

@@ -44,7 +44,7 @@ export const SCRAPE_MAX_PARALLEL_KEYS = 20;
 /**
  * Numero maximo de retentativas por perfil quando todas as chaves saudaveis falham
  * com erros transient/provider/authentication/account. Backoff exponencial aplicado
- * entre rounds (`min(30s, 1s × 2^round)`). Evita que 20 contas instaveis gerem 20
+ * entre rounds (`min(30s, 1s × 2^(round-1))` = 1s, 2s, 4s). Evita que 20 contas instaveis gerem 20
  * tentativas seguidas sem pausa num cenario de rate limit prolongado.
  */
 export const SCRAPE_MAX_RETRIES_PER_PROFILE = 3;
