@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Clock3, Info, Library, RefreshCw } from "lucide-react";
+import { Clock3, FolderSync, Info, Library, RefreshCw } from "lucide-react";
 import {
+  ESTIMATED_CREDITS_PER_PROFILE,
   INSTAGRAM_GRID_LIMIT,
   INSTAGRAM_REELS_LIMIT,
+  MAX_SCRAPE_ALL_PROFILES,
+  MAX_SCRAPE_PROFILE_IDS,
   SCRAPE_FRESHNESS_WINDOW_MINUTES,
   SCRAPE_MAX_PARALLEL_KEYS,
   TIKTOK_VIDEO_LIMIT,
@@ -136,6 +139,7 @@ async function readProgressStream(
  * Atualiza a biblioteca de perfis.
  * - scope all: todos os ativos (respeita janela de 30 min, salvo force)
  * - profileId: um perfil (com painel de transparencia e ETA)
+ * - mode folder + profileIds: só os perfis da pasta (em lotes de MAX_SCRAPE_PROFILE_IDS)
  */
 export function RunScrapeButton({
   compact = false,
@@ -145,14 +149,20 @@ export function RunScrapeButton({
   mode = "default",
   /** Perfis ativos na biblioteca (para ETA total da puxada). */
   profileCount,
+  /** IDs dos perfis da pasta (modo folder). */
+  profileIds,
+  /** Nome da pasta (só para textos do confirm/mensagens). */
+  folderName,
 }: {
   compact?: boolean;
   profileId?: string;
   handle?: string;
   platform?: Platform;
-  /** library = botao principal "Atualizar biblioteca" */
-  mode?: "default" | "library";
+  /** library = botao principal "Atualizar biblioteca" | folder = "Atualizar pasta" */
+  mode?: "default" | "library" | "folder";
   profileCount?: number;
+  profileIds?: string[];
+  folderName?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -164,9 +174,20 @@ export function RunScrapeButton({
   const [error, setError] = useState<string | null>(null);
   const [keyCount, setKeyCount] = useState(1);
   const resolvedProfileCount = Math.max(0, profileCount ?? 0);
+  const folderIds = useMemo(
+    () => [...new Set((profileIds ?? []).filter((id) => id.trim().length > 0))],
+    [profileIds],
+  );
 
   const isSingle = Boolean(profileId);
-  const isLibrary = mode === "library" || !profileId;
+  const isFolderMode = mode === "folder";
+  const isFolder = isFolderMode || (!isSingle && folderIds.length > 0 && mode !== "library");
+  // Quando profileIds é passado explicitamente (mesmo com mode default), trata como pasta.
+  const effectiveIsFolder = isFolder && folderIds.length > 0;
+  // NUNCA cair para library quando mode="folder" (pasta vazia virava "Atualizar biblioteca" → scope:all).
+  const isLibrary =
+    !isSingle && !effectiveIsFolder && !isFolderMode && (mode === "library" || !profileId);
+  const folderLabel = folderName?.trim() ? folderName.trim() : "pasta";
   const profileLabel = handle ? `@${handle}` : "este perfil";
   const isTikTok = platform === "tiktok";
   const maxTimeOne = formatMaxDurationLabel(1);
@@ -174,21 +195,23 @@ export function RunScrapeButton({
     ? `perfil + ate ${TIKTOK_VIDEO_LIMIT} videos`
     : `perfil + ate ${INSTAGRAM_GRID_LIMIT} Grade + ${INSTAGRAM_REELS_LIMIT} Reels`;
 
+  const effectiveCount = effectiveIsFolder ? folderIds.length : resolvedProfileCount;
+
   const libraryEta = useMemo(() => {
-    const n = Math.max(resolvedProfileCount, 1);
+    const n = Math.max(effectiveCount, 1);
     const keys = Math.max(1, Math.min(keyCount, SCRAPE_MAX_PARALLEL_KEYS));
     const seconds = estimateScrapeMaxSeconds(n, keys);
     return {
-      n: resolvedProfileCount,
+      n: effectiveCount,
       keys,
       label: formatMaxDurationLabel(n, keys),
       seconds,
       duration: formatDurationSeconds(seconds),
     };
-  }, [keyCount, resolvedProfileCount]);
+  }, [keyCount, effectiveCount]);
 
   useEffect(() => {
-    if (!isLibrary || isSingle) {
+    if (isSingle || (!isLibrary && !effectiveIsFolder)) {
       return;
     }
 
@@ -217,7 +240,7 @@ export function RunScrapeButton({
     return () => {
       cancelled = true;
     };
-  }, [isLibrary, isSingle]);
+  }, [isLibrary, effectiveIsFolder, isSingle]);
 
   useEffect(() => {
     if (startedAt === null) {
@@ -229,8 +252,61 @@ export function RunScrapeButton({
     return () => window.clearInterval(id);
   }, [startedAt]);
 
+  async function runSingleRequest(body: Record<string, unknown>) {
+    const response = await fetch("/api/scrape/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stream: true, ...body }),
+    });
+    if (!response.ok) {
+      const payload = (await response.json()) as { error?: string };
+      throw new Error(payload.error ?? "Falha ao atualizar.");
+    }
+    return readProgressStream(response, setProgressDetail, isSingle ? 1 : libraryEta.keys);
+  }
+
+  function mergeResults(acc: ScrapeResult, cur: ScrapeResult): ScrapeResult {
+    const ok = (acc.profilesOk ?? 0) + (cur.profilesOk ?? 0);
+    const total = (acc.profilesTotal ?? 0) + (cur.profilesTotal ?? 0);
+    const status =
+      acc.status === "success" && cur.status === "success"
+        ? "success"
+        : ok > 0
+          ? "partial_failed"
+          : total > 0
+            ? "failed"
+            : cur.status;
+    return {
+      status,
+      profilesTotal: (acc.profilesTotal ?? 0) + (cur.profilesTotal ?? 0),
+      profilesAttempted: (acc.profilesAttempted ?? 0) + (cur.profilesAttempted ?? 0),
+      profilesOk: (acc.profilesOk ?? 0) + (cur.profilesOk ?? 0),
+      profilesSkipped: (acc.profilesSkipped ?? 0) + (cur.profilesSkipped ?? 0),
+      postsFound: (acc.postsFound ?? 0) + (cur.postsFound ?? 0),
+      postsNew: (acc.postsNew ?? 0) + (cur.postsNew ?? 0),
+      postsUpdated: (acc.postsUpdated ?? 0) + (cur.postsUpdated ?? 0),
+      errors: [...(acc.errors ?? []), ...(cur.errors ?? [])],
+    };
+  }
+
   async function runScrape() {
-    if (isLibrary && !isSingle) {
+    // Guard do modo pasta: nunca deixar cair para scope:all (queimaria a biblioteca inteira).
+    if (isFolderMode && folderIds.length === 0) {
+      setError("Esta pasta não tem perfis para atualizar.");
+      return;
+    }
+
+    // Teto anti-credit-burn: igual ao cap do scope:all (200). Pasta gigante = N runs
+    // sequenciais sem cap queimaria crédito ilimitado em 1 clique.
+    if (isFolderMode && folderIds.length > MAX_SCRAPE_ALL_PROFILES) {
+      setError(
+        `Esta pasta tem ${folderIds.length} perfil(is), acima do teto de ${MAX_SCRAPE_ALL_PROFILES} por rodada. ` +
+          "Divida em pastas menores ou atualize pelos perfis individuais.",
+      );
+      return;
+    }
+
+    if (isLibrary && !isSingle && !effectiveIsFolder) {
       const confirmed = window.confirm(
         "Atualizar a biblioteca de todos os perfis ativos?\n\n" +
           "• Busca os ultimos 5 da Grade e 5 Reels (IG) ou 10 videos (TikTok)\n" +
@@ -240,6 +316,26 @@ export function RunScrapeButton({
           `• Perfis coletados ha menos de ${SCRAPE_FRESHNESS_WINDOW_MINUTES} min sao pulados\n` +
           `• Tempo maximo da puxada completa: ${libraryEta.label}\n\n` +
           "Continuar?",
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    if (effectiveIsFolder) {
+      const batches = Math.ceil(folderIds.length / MAX_SCRAPE_PROFILE_IDS);
+      const estimatedCredits = folderIds.length * ESTIMATED_CREDITS_PER_PROFILE;
+      const confirmed = window.confirm(
+        `Atualizar os ${folderIds.length} perfil(is) da pasta "${folderLabel}"?\n\n` +
+          "• Mesma coleta do botão da biblioteca, mas SÓ desta pasta\n" +
+          "• Busca os ultimos 5 da Grade e 5 Reels (IG) ou 10 videos (TikTok)\n" +
+          "• Conteudo NOVO e salvo na biblioteca\n" +
+          "• Conteudo ja catalogado NAO duplica (so atualiza metricas se mudaram)\n" +
+          `• Perfis coletados ha menos de ${SCRAPE_FRESHNESS_WINDOW_MINUTES} min sao pulados\n` +
+          `• Custo estimado: ~${estimatedCredits} créditos (≈${ESTIMATED_CREDITS_PER_PROFILE}/perfil)\n` +
+          `• Tempo maximo da puxada: ${libraryEta.label}` +
+          (batches > 1 ? ` (${batches} lotes de até ${MAX_SCRAPE_PROFILE_IDS})` : "") +
+          "\n\nContinuar?",
       );
       if (!confirmed) {
         return;
@@ -260,6 +356,11 @@ export function RunScrapeButton({
         setProgressDetail(
           `O que acontece: Bright Data busca ${contentHint}. Conteudo novo entra na biblioteca; repetido nao duplica. Tempo maximo estimado: ${maxTimeOne}.`,
         );
+      } else if (effectiveIsFolder) {
+        setMessage(`Atualizando pasta "${folderLabel}" (${folderIds.length} perfil(is))...`);
+        setProgressDetail(
+          `Puxada da pasta: ate ${libraryEta.n || "?"} perfil(is) · ~${libraryEta.keys} chave(s) em paralelo · tempo maximo ${libraryEta.duration}. Ultimos 5 Grade + 5 Reels (ou 10 videos). Novo salva; repetido nao duplica.`,
+        );
       } else {
         setMessage("Atualizando biblioteca de todos os perfis ativos...");
         setProgressDetail(
@@ -267,25 +368,35 @@ export function RunScrapeButton({
         );
       }
 
-      const response = await fetch("/api/scrape/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scope: profileId ? "profiles" : "all",
-          stream: true,
-          ...(profileId ? { profileIds: [profileId] } : {}),
-        }),
-      });
-      if (!response.ok) {
-        const payload = (await response.json()) as { error?: string };
-        throw new Error(payload.error ?? "Falha ao atualizar.");
+      let result: ScrapeResult;
+      let folderBatchWarning: string | null = null;
+      if (isSingle && profileId) {
+        result = await runSingleRequest({ scope: "profiles", profileIds: [profileId] });
+      } else if (effectiveIsFolder) {
+        let acc: ScrapeResult | null = null;
+        const totalBatches = Math.ceil(folderIds.length / MAX_SCRAPE_PROFILE_IDS);
+        for (let i = 0; i < folderIds.length; i += MAX_SCRAPE_PROFILE_IDS) {
+          const chunk = folderIds.slice(i, i + MAX_SCRAPE_PROFILE_IDS);
+          const batchIndex = Math.floor(i / MAX_SCRAPE_PROFILE_IDS) + 1;
+          const batchLabel = totalBatches > 1 ? ` (lote ${batchIndex}/${totalBatches})` : "";
+          setProgressDetail(`Pasta "${folderLabel}": enviando ${chunk.length} perfil(is)${batchLabel}...`);
+          try {
+            const cur = await runSingleRequest({ scope: "profiles", profileIds: chunk });
+            acc = acc ? mergeResults(acc, cur) : cur;
+          } catch (chunkError) {
+            // Não joga fora o que os lotes anteriores já coletaram (crédito já gasto):
+            // encerra e relata o parcial + o erro do lote que parou.
+            const chunkMessage = chunkError instanceof Error ? chunkError.message : "Falha no lote.";
+            if (!acc) throw chunkError;
+            folderBatchWarning = `ATENÇÃO: parou no lote ${batchIndex}/${totalBatches} (${chunkMessage}) — mostrando parcial dos lotes anteriores`;
+            break;
+          }
+        }
+        if (!acc) throw new Error("Nenhum perfil para atualizar.");
+        result = acc;
+      } else {
+        result = await runSingleRequest({ scope: "all" });
       }
-
-      const result = await readProgressStream(
-        response,
-        setProgressDetail,
-        isSingle ? 1 : libraryEta.keys,
-      );
       const skipped = result.profilesSkipped ?? 0;
       const postsNew = result.postsNew ?? 0;
       const postsUpdated = result.postsUpdated ?? 0;
@@ -314,7 +425,9 @@ export function RunScrapeButton({
             `tempo ${elapsed} (teto ${maxTimeOne})`,
           ]
         : [
-            `${result.profilesOk}/${result.profilesTotal} perfis ok`,
+            effectiveIsFolder
+              ? `Pasta "${folderLabel}": ${result.profilesOk}/${result.profilesTotal} perfis ok`
+              : `${result.profilesOk}/${result.profilesTotal} perfis ok`,
             postsNew > 0 ? `${postsNew} post(s) novo(s)` : null,
             postsUpdated > 0 ? `${postsUpdated} ja catalogado(s)` : null,
             result.postsFound > 0 && postsNew === 0 && postsUpdated === 0
@@ -322,6 +435,7 @@ export function RunScrapeButton({
               : null,
             skipped > 0 ? `${skipped} recente(s) pulado(s)` : null,
             errCount > 0 ? `${errCount} erro(s)` : null,
+            folderBatchWarning,
             `tempo ${elapsed}`,
           ];
 
@@ -340,11 +454,21 @@ export function RunScrapeButton({
 
   const labelIdle = isSingle
     ? "Atualizar perfil"
-    : mode === "library" || !compact
-      ? "Atualizar biblioteca"
-      : "Atualizar todos";
+    : isFolderMode
+      ? folderIds.length > 0
+        ? `Atualizar pasta (${folderIds.length})`
+        : "Pasta vazia"
+      : effectiveIsFolder
+        ? `Atualizar pasta (${folderIds.length})`
+        : mode === "library" || !compact
+          ? "Atualizar biblioteca"
+          : "Atualizar todos";
 
-  const labelRunning = isSingle ? "Atualizando perfil..." : "Atualizando biblioteca...";
+  const labelRunning = isSingle
+    ? "Atualizando perfil..."
+    : isFolderMode || effectiveIsFolder
+      ? "Atualizando pasta..."
+      : "Atualizando biblioteca...";
 
   // No detalhe do perfil o botao vem com compact — mesmo assim mostramos transparencia.
   const showTransparency = isSingle || !compact;
@@ -392,17 +516,21 @@ export function RunScrapeButton({
         className={`button teal ${compact && !isSingle ? "secondary" : ""}`}
         type="button"
         onClick={() => void runScrape()}
-        disabled={isRunning || isPending}
+        disabled={isRunning || isPending || (isFolderMode && folderIds.length === 0)}
         title={
           isSingle
             ? `Puxa ${contentHint}; acumula na biblioteca sem duplicar. Teto ~${SCRAPE_MAX_MINUTES_PER_PROFILE} min.`
-            : `Atualiza a biblioteca inteira. Tempo maximo estimado: ${libraryEta.duration}.`
+            : effectiveIsFolder
+              ? `Atualiza só os ${folderIds.length} perfil(is) da pasta "${folderLabel}". Tempo maximo estimado: ${libraryEta.duration}.`
+              : `Atualiza a biblioteca inteira. Tempo maximo estimado: ${libraryEta.duration}.`
         }
       >
         {isRunning ? (
           <RefreshCw size={16} className="spin" />
         ) : isLibrary && !isSingle ? (
           <Library size={16} />
+        ) : isFolderMode || effectiveIsFolder ? (
+          <FolderSync size={16} />
         ) : (
           <RefreshCw size={16} />
         )}
@@ -412,12 +540,16 @@ export function RunScrapeButton({
       {!isSingle && !compact ? (
         <div className="library-eta-block">
           <p className="meta" style={{ margin: 0 }}>
-            Ultimos 5 Grade + 5 Reels (ou 10 videos). Novo salva; repetido nao duplica. Historico
-            fica na biblioteca.
+            {effectiveIsFolder
+              ? `Só os perfis desta pasta ("${folderLabel}"). Ultimos 5 Grade + 5 Reels (ou 10 videos). Novo salva; repetido nao duplica.`
+              : "Ultimos 5 Grade + 5 Reels (ou 10 videos). Novo salva; repetido nao duplica. Historico fica na biblioteca."}
           </p>
           <p className="meta library-eta-total" style={{ margin: "6px 0 0" }}>
             <Clock3 size={14} aria-hidden style={{ verticalAlign: "-2px", marginRight: 4 }} />
-            <strong>Tempo maximo da puxada completa:</strong> {libraryEta.duration}
+            <strong>
+              {effectiveIsFolder ? "Tempo maximo da pasta:" : "Tempo maximo da puxada completa:"}
+            </strong>{" "}
+            {libraryEta.duration}
             {libraryEta.n > 0
               ? ` · ${libraryEta.n} perfil(is) · ~${libraryEta.keys} chave(s) em paralelo`
               : null}

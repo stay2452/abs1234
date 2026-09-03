@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { FolderCompare } from "@/components/folder-compare";
+import { RunScrapeButton } from "@/components/run-scrape-button";
 import { PLATFORM_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/db";
 import { toNumber } from "@/lib/format";
@@ -46,6 +47,11 @@ export default async function FolderDetailPage({
   }
 
   const profiles = folder.profiles.map((row) => row.profile);
+  // Só perfis ativos são coletados (o backend filtra status="active").
+  // Passar só os ativos mantém rótulo/ETA/custo do botão fiéis ao que será puxado.
+  const activeProfileIds = profiles
+    .filter((profile) => profile.status === "active")
+    .map((profile) => profile.id);
   const growthMap = new Map(
     rankProfiles(profiles, "followers_absolute", "7d", "all").map((item) => [item.id, item]),
   );
@@ -109,6 +115,13 @@ export default async function FolderDetailPage({
           <p className="meta">{compareRows.length} perfil(is) · comparação local (sem Bright Data)</p>
         </div>
         <div className="toolbar">
+          <RunScrapeButton
+            compact
+            mode="folder"
+            folderName={folder.name}
+            profileIds={activeProfileIds}
+            profileCount={activeProfileIds.length}
+          />
           <Link className="button secondary" href="/folders">
             <ArrowLeft size={16} />
             Todas as pastas
