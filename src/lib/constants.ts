@@ -39,11 +39,11 @@ export const MAX_IMPORT_PROFILES = 500;
 export const MAX_IMPORT_TEXT_CHARS = 200_000;
 export const SCRAPE_FRESHNESS_WINDOW_MINUTES = 30;
 /**
- * Quantas chaves Bright Data processam perfis ao mesmo tempo.
+ * Quantas chaves Apify processam perfis ao mesmo tempo.
  * Cada chave ainda faz 1 perfil por vez; com N chaves boas, ~N× mais rápido (até o teto).
- * 1 = fila estrita (lenta). Padrão atual: pool multi-conta (ex.: 20 chaves).
+ * 1 = fila estrita (lenta). 100 = cobre suas 20 contas Apify ×5 concorrentes cada.
  */
-export const SCRAPE_MAX_PARALLEL_KEYS = 10;
+export const SCRAPE_MAX_PARALLEL_KEYS = 100;
 
 /**
  * Numero maximo de retentativas por perfil quando todas as chaves saudaveis falham
