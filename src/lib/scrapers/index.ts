@@ -12,13 +12,9 @@ import { estimateScrapeMaxSeconds } from "@/lib/scrape-eta";
 import { reconcileZombieRuns } from "@/lib/scrape-reconcile";
 import { canonicalizePostUrl } from "@/lib/post-url";
 import {
-  scrapeInstagramProfileWithBrightData,
-  scrapeInstagramRecentReelsWithBrightData,
-} from "@/lib/scrapers/brightdata-instagram";
-import {
-  scrapeTikTokProfileWithBrightData,
-  scrapeTikTokRecentVideosWithBrightData,
-} from "@/lib/scrapers/brightdata-tiktok";
+  scrapeInstagramProfileWithApify,
+  scrapeInstagramRecentReelsWithApify,
+} from "@/lib/scrapers/apify-instagram";
 import {
   createCollectorSession,
   deleteCollectorSession,
@@ -317,8 +313,7 @@ async function persistScrapeResult(profile: Profile, result: ScrapedProfileResul
 }
 
 /**
- * Chave e global: a plataforma vem do perfil, nao da sessao.
- * Qualquer API Bright Data ativa pode coletar IG ou TikTok.
+ * IG-only Apify: 3 actors especializados.
  */
 async function scrapeWithApiSession(
   session: ActiveCollectorSession,
@@ -326,12 +321,12 @@ async function scrapeWithApiSession(
   reportDataset?: DatasetProgressReporter,
   signal?: AbortSignal,
 ) {
-  if (session.provider !== "brightdata" || !session.apiKey?.trim()) {
-    throw new Error("Sessao API sem provedor Bright Data ou chave cadastrada.");
+  if ((session.provider !== "apify" && session.provider !== "brightdata") || !session.apiKey?.trim()) {
+    throw new Error("Sessão Apify sem token cadastrado.");
   }
 
   if (profile.platform === "instagram") {
-    return scrapeInstagramProfileWithBrightData(
+    return scrapeInstagramProfileWithApify(
       { id: profile.id, platform: "instagram", handle: profile.handle, url: profile.url },
       session.apiKey,
       reportDataset,
@@ -339,16 +334,7 @@ async function scrapeWithApiSession(
     );
   }
 
-  if (profile.platform === "tiktok") {
-    return scrapeTikTokProfileWithBrightData(
-      { id: profile.id, platform: "tiktok", handle: profile.handle, url: profile.url },
-      session.apiKey,
-      reportDataset,
-      signal,
-    );
-  }
-
-  throw new Error(`Plataforma de perfil nao suportada: ${profile.platform}`);
+  throw new Error(`Plataforma não suportada no modo Apify IG-only: ${profile.platform} (use apenas Instagram)`);
 }
 
 function usageTotals(datasets: ScrapeDatasetUsage[]) {

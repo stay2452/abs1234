@@ -1,11 +1,12 @@
 import type { CollectorSession } from "@prisma/client";
 import { prisma, withDbWriteRetry } from "@/lib/db";
-import {
-  fetchBrightDataBalance,
-  FREE_TIER_CREDITS,
-  isInsufficientCreditError,
-  type CreditStatus,
-} from "@/lib/scrapers/brightdata-balance";
+
+// Apify IG-only — sem Bright Data
+export const FREE_TIER_CREDITS = 1000;
+export type CreditStatus = "has_credit" | "no_credit" | "unknown" | "permission_denied";
+function isInsufficientCreditError(error: string) {
+  return /credit|balance|funds|suspended|inactive|permission|activate|payment required|over quota|limit exceeded/i.test(error);
+}
 
 /** Valor gravado em CollectorSession.platform: chave serve qualquer plataforma. */
 export const GLOBAL_SESSION_PLATFORM = "global";
@@ -24,7 +25,7 @@ type UpdateCollectorSessionInput = {
   status?: "active" | "paused";
 };
 
-export type ApiProvider = "brightdata";
+export type ApiProvider = "brightdata" | "apify";
 
 /** Classificacao principal: credito, nao "boa/ruim" por falha generica. */
 export type SessionHealth = "has_credit" | "no_credit" | "unknown" | "paused";
@@ -87,10 +88,11 @@ export type ActiveCollectorSession = CollectorSession;
 
 const API_PROVIDER_LABELS: Record<ApiProvider, string> = {
   brightdata: "Bright Data",
+  apify: "Apify",
 };
 
 function isApiProvider(value: string | null | undefined): value is ApiProvider {
-  return value === "brightdata";
+  return value === "brightdata" || value === "apify";
 }
 
 function normalizeProvider(provider?: string | null) {
@@ -100,7 +102,7 @@ function normalizeProvider(provider?: string | null) {
 
 function normalizeName(name: string) {
   const trimmed = name.trim();
-  return trimmed || "Bright Data";
+  return trimmed || "Apify";
 }
 
 function normalizeApiKey(apiKey?: string | null) {
@@ -114,12 +116,12 @@ function makeLegacyStorageKey(provider: ApiProvider) {
 
 function requireApiSession(session: CollectorSession) {
   if (session.kind !== "api") {
-    throw new Error("Sessoes de navegador foram desativadas. Cadastre uma API Bright Data.");
+    throw new Error("Sessoes de navegador foram desativadas. Cadastre uma API Apify.");
   }
 
   const provider = normalizeProvider(session.provider);
-  if (provider !== "brightdata" || !session.apiKey?.trim()) {
-    throw new Error("Sessao API sem provedor Bright Data ou chave cadastrada.");
+  if (!provider || !session.apiKey?.trim()) {
+    throw new Error("Sessão Apify sem token cadastrado.");
   }
 
   return { provider, apiKey: session.apiKey };
@@ -445,38 +447,51 @@ export async function refreshSessionBalances(sessionId?: string) {
       continue;
     }
 
-    const probe = await fetchBrightDataBalance(apiKey);
+    // Apify não usa balance Bright Data — considera com crédito se token existe
+    if (session.provider === "apify") {
+      const used = usage.get(session.id) ?? 0;
+      const now = new Date();
+      const remaining = Math.max(0, 1000 - used); // Apify free ~$5 = ~1k requests, simplificado
+      const updated = await prisma.collectorSession.update({
+        where: { id: session.id },
+        data: {
+          creditStatus: remaining > 0 ? "has_credit" : "no_credit",
+          balanceUsd: null,
+          pendingBalanceUsd: null,
+          creditsRemaining: remaining,
+          creditsSource: "estimated_local",
+          balanceCheckedAt: now,
+          balanceError: null,
+        },
+      });
+      results.push({
+        id: updated.id,
+        name: updated.name,
+        creditStatus: updated.creditStatus,
+        creditsLabel: formatCreditsLabel({
+          creditsRemaining: updated.creditsRemaining,
+          creditsSource: updated.creditsSource,
+          balanceUsd: updated.balanceUsd,
+          monthRecordsUsed: used,
+        }),
+      });
+      continue;
+    }
+
+    // Fallback para sessões legadas Bright Data ainda no DB — marca como sem crédito para forçar migração para Apify
     const used = usage.get(session.id) ?? 0;
     const now = new Date();
-
-    let creditStatus = probe.creditStatus;
-    let creditsRemaining = probe.creditsFromBalance;
-    let creditsSource: string | null = null;
-    let balanceError = probe.message;
-
-    if (probe.creditStatus === "has_credit" || probe.creditStatus === "no_credit") {
-      creditsSource = "official";
-      if (probe.creditStatus === "no_credit") {
-        creditsRemaining = 0;
-      }
-    } else if (probe.creditStatus === "permission_denied") {
-      const remaining = Math.max(0, FREE_TIER_CREDITS - used);
-      creditStatus = remaining > 0 ? "has_credit" : "no_credit";
-      creditsRemaining = remaining;
-      creditsSource = "estimated_local";
-    } else {
-      const remaining = Math.max(0, FREE_TIER_CREDITS - used);
-      creditStatus = remaining > 0 ? "has_credit" : "no_credit";
-      creditsRemaining = remaining;
-      creditsSource = "estimated_local";
-    }
+    const creditStatus = "no_credit";
+    const creditsRemaining = 0;
+    const creditsSource: string | null = "migrated_to_apify";
+    const balanceError = "Sessão Bright Data legada — migre para Apify (token Apify)";
 
     const updated = await prisma.collectorSession.update({
       where: { id: session.id },
       data: {
         creditStatus,
-        balanceUsd: probe.balanceUsd,
-        pendingBalanceUsd: probe.pendingBalanceUsd,
+        balanceUsd: null,
+        pendingBalanceUsd: null,
         creditsRemaining,
         creditsSource,
         balanceCheckedAt: now,
@@ -501,11 +516,11 @@ export async function refreshSessionBalances(sessionId?: string) {
 }
 
 export async function createCollectorSession(input: CreateCollectorSessionInput) {
-  const provider = normalizeProvider(input.provider) ?? "brightdata";
+  const provider = normalizeProvider(input.provider) ?? "apify";
   const apiKey = normalizeApiKey(input.apiKey);
 
-  if (provider !== "brightdata" || !apiKey) {
-    throw new Error("Informe uma chave Bright Data valida.");
+  if (!provider || !apiKey) {
+    throw new Error("Informe um token Apify válido.");
   }
 
   const session = await prisma.collectorSession.create({
@@ -537,12 +552,12 @@ export async function updateCollectorSession(input: UpdateCollectorSessionInput)
   const existing = await getSession(input.id);
   requireApiSession(existing);
 
-  if (input.provider !== undefined && input.provider !== "brightdata") {
-    throw new Error("Provedor API invalido.");
+  if (input.provider !== undefined && !isApiProvider(input.provider)) {
+    throw new Error("Provedor API inválido.");
   }
 
   if (input.apiKey !== undefined && !normalizeApiKey(input.apiKey)) {
-    throw new Error("A chave Bright Data nao pode ficar vazia.");
+    throw new Error("O token Apify não pode ficar vazio.");
   }
 
   const clearingFailures = input.status === "active" && existing.status !== "active";
@@ -592,7 +607,7 @@ export async function getActiveCollectorSessions(): Promise<ActiveCollectorSessi
   const sessions = await prisma.collectorSession.findMany({
     where: {
       kind: "api",
-      provider: "brightdata",
+      provider: { in: ["brightdata", "apify"] },
       status: "active",
       apiKey: { not: null },
     },

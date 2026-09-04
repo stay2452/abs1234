@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { isUnavailableTargetError } from "@/lib/scrapers/brightdata-client";
+import { isUnavailableTargetError } from "@/lib/scrapers/apify-client";
 
 export type ErrorProfileSummary = {
   profileId: string;

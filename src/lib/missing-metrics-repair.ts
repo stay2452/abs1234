@@ -2,8 +2,7 @@ import type { Profile } from "@prisma/client";
 import { SCRAPE_FRESHNESS_WINDOW_MINUTES, SCRAPE_MAX_PARALLEL_KEYS } from "@/lib/constants";
 import { prisma, withDbWriteRetry } from "@/lib/db";
 import { canonicalizePostUrl } from "@/lib/post-url";
-import { scrapeInstagramRecentReelsWithBrightData } from "@/lib/scrapers/brightdata-instagram";
-import { scrapeTikTokRecentVideosWithBrightData } from "@/lib/scrapers/brightdata-tiktok";
+import { scrapeInstagramRecentReelsWithApify } from "@/lib/scrapers/apify-instagram";
 import { getActiveCollectorSessions, recordCollectorSessionFailure, recordCollectorSessionSuccess } from "@/lib/scrapers/session";
 import type { ScrapedPost, ScrapeProfileInput } from "@/lib/scrapers/types";
 
@@ -55,19 +54,16 @@ async function repairProfile(
   metrics: RepairablePostMetric[],
   apiKey: string,
 ) {
-  if (profile.platform !== "instagram" && profile.platform !== "tiktok") {
-    throw new Error(`Plataforma nao suportada para reparo: ${profile.platform}`);
+  if (profile.platform !== "instagram") {
+    throw new Error(`Reparo só para Instagram no modo Apify IG-only (perfil ${profile.handle} é ${profile.platform})`);
   }
   const input: ScrapeProfileInput = {
     id: profile.id,
-    platform: profile.platform as ScrapeProfileInput["platform"],
+    platform: "instagram",
     handle: profile.handle,
     url: profile.url,
   };
-  const scraped =
-    profile.platform === "instagram"
-      ? await scrapeInstagramRecentReelsWithBrightData(input, apiKey)
-      : await scrapeTikTokRecentVideosWithBrightData(input, apiKey);
+  const scraped = await scrapeInstagramRecentReelsWithApify(input, apiKey);
 
   let repaired = 0;
   const byUrl = new Map(
@@ -130,10 +126,8 @@ export async function repairMissingPostMetrics(
 
   const posts = await prisma.post.findMany({
     where: {
-      OR: [
-        { platform: "instagram", sourceType: "reels" },
-        { platform: "tiktok", sourceType: "video" },
-      ],
+      platform: "instagram",
+      sourceType: "reels",
       profile: { status: "active" },
     },
     include: {
