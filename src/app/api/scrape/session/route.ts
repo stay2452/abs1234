@@ -16,7 +16,7 @@ const sessionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("create"),
     name: z.string().min(1).max(80),
-    provider: z.literal("brightdata").optional(),
+    provider: z.enum(["brightdata", "apify"]).optional(),
     apiKey: z.string().min(1).max(1000),
     platform: z.string().optional(),
   }),
@@ -32,7 +32,7 @@ const sessionSchema = z.discriminatedUnion("action", [
     action: z.literal("update"),
     id: z.string().min(1),
     name: z.string().min(1).max(80).optional(),
-    provider: z.literal("brightdata").optional(),
+    provider: z.enum(["brightdata", "apify"]).optional(),
     apiKey: z.string().min(1).max(1000).optional(),
     status: z.enum(["active", "paused"]).optional(),
   }),
