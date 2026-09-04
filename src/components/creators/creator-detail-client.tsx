@@ -190,9 +190,36 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
               </option>
             ))}
           </select>
-          <button className="button" onClick={addProfiles} disabled={actionLoading === "profiles" || selectedProfiles.length === 0} style={{ marginTop: 8 }}>
-            {actionLoading === "profiles" ? "Adicionando..." : "Adicionar selecionados"}
-          </button>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button className="button" onClick={addProfiles} disabled={actionLoading === "profiles" || selectedProfiles.length === 0}>
+              {actionLoading === "profiles" ? "Adicionando..." : "Adicionar selecionados"}
+            </button>
+            <button
+              className="button secondary"
+              onClick={async () => {
+                const allIds = allProfiles.map((p: any) => p.id).filter((id: string) => !tracked.some((t: any) => t.id === id));
+                if (allIds.length === 0) return;
+                setSelectedProfiles(allIds);
+                // adiciona direto todos que ainda não estão trackeados
+                setActionLoading("profiles");
+                setActionMessage(`Adicionando ${allIds.length} perfil(is)...`);
+                await fetch(`/api/creators/${creator.id}/profiles`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ profileIds: allIds }),
+                });
+                setSelectedProfiles([]);
+                await loadTracked();
+                setActionMessage(`✅ ${allIds.length} perfil(is) adicionado(s)`);
+                setActionLoading(null);
+                setTimeout(() => setActionMessage(null), 3000);
+              }}
+              disabled={actionLoading === "profiles" || allProfiles.length === 0}
+              title="Adiciona todos os perfis ainda não trackeados"
+            >
+              Adicionar todos ({allProfiles.length - tracked.length})
+            </button>
+          </div>
         </section>
 
         <section className="panel">
