@@ -92,7 +92,7 @@ function classifyApifyMessage(message: string, statusCode?: number) {
   const lower = message.toLowerCase();
   if (statusCode === 401 || statusCode === 403) return "authentication";
   if (statusCode === 402 || /credit|balance|funds|suspended|inactive|permission|activate|payment required|over quota|limit exceeded/i.test(lower)) return "account";
-  if (isUnavailableTargetError(message) || /perfil ou conteudo indisponivel|restricted profile/i.test(lower)) return "not_found";
+  if (lower.includes("not_found") || isUnavailableTargetError(message) || /perfil ou conteudo indisponivel|restricted profile/i.test(lower)) return "not_found";
   if (/timed-out|aborted|ainda nao concluiu|demorou demais|coleta cancelada/i.test(lower)) return "snapshot_pending";
   if (statusCode === 429 || (statusCode !== undefined && statusCode >= 500) || /timeout|temporar|fetch failed|econnreset|enotfound|network|socket/i.test(lower)) return "transient";
   return "provider";
