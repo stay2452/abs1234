@@ -219,7 +219,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
             if (potSort.key === "baseline") return v.baselineAvg ?? -1;
             if (potSort.key === "ratio") return v.outlierRatio ?? -1;
             if (potSort.key === "comments") return v.commentsRatio ?? -1;
-            if (potSort.key === "date") return new Date(v.createdAt).getTime();
+            if (potSort.key === "date") return new Date(v.publishedAt ?? v.createdAt).getTime();
             return 0;
           };
           return (get(a) - get(b)) * dir;
@@ -272,7 +272,7 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
                             <span className={`history-status ${v.isOutlier ? "success" : ""}`}>{v.outlierRatio?.toFixed(2)}x</span>
                           </td>
                           <td>{v.commentsRatio != null ? `${v.commentsRatio.toFixed(4)}%` : "—"}</td>
-                          <td suppressHydrationWarning>{formatShortDate(v.createdAt)}</td>
+                          <td suppressHydrationWarning>{formatShortDate(v.publishedAt ?? v.createdAt)}</td>
                           <td>
                             <a href={v.sourceUrl} target="_blank" rel="noreferrer" className="button secondary">
                               Abrir
