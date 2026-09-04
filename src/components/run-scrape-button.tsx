@@ -92,7 +92,7 @@ async function readProgressStream(
           );
         } else {
           onMessage(
-            `Preparando ${n} perfil(is), ${event.event.datasetsTotal} etapa(s) Bright Data. Tempo maximo da puxada: ${formatMaxDurationLabel(Math.max(n, 1), parallelKeys)}.`,
+            `Preparando ${n} perfil(is), ${event.event.datasetsTotal} etapa(s) Apify. Tempo maximo da puxada: ${formatMaxDurationLabel(Math.max(n, 1), parallelKeys)}.`,
           );
         }
       } else {
@@ -354,7 +354,7 @@ export function RunScrapeButton({
       if (isSingle) {
         setMessage(`Atualizando ${profileLabel}...`);
         setProgressDetail(
-          `O que acontece: Bright Data busca ${contentHint}. Conteudo novo entra na biblioteca; repetido nao duplica. Tempo maximo estimado: ${maxTimeOne}.`,
+          `O que acontece: Apify busca ${contentHint}. Conteudo novo entra na biblioteca; repetido nao duplica. Tempo maximo estimado: ${maxTimeOne}.`,
         );
       } else if (effectiveIsFolder) {
         setMessage(`Atualizando pasta "${folderLabel}" (${folderIds.length} perfil(is))...`);
@@ -483,7 +483,7 @@ export function RunScrapeButton({
           </div>
           <ol className="import-steps">
             <li>
-              Bright Data busca <strong>{contentHint}</strong> (nao o catalogo inteiro).
+              Apify busca <strong>{contentHint}</strong> (nao o catalogo inteiro).
             </li>
             <li>
               Conteudo <strong>novo</strong> entra na biblioteca; o que ja existe{" "}
@@ -574,7 +574,7 @@ export function RunScrapeButton({
               : ` · teto da puxada ~${libraryEta.duration}`}
           </p>
           {progressDetail ? <p className="message">{progressDetail}</p> : null}
-          <p className="meta">Nao feche a pagina ate terminar a coleta Bright Data.</p>
+          <p className="meta">Nao feche a pagina ate terminar a coleta Apify.</p>
         </div>
       ) : null}
 
