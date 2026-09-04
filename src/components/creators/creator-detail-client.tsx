@@ -128,16 +128,32 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
     if (selectedProfiles.length === 0) return;
     setActionLoading("profiles");
     setActionMessage(`Adicionando ${selectedProfiles.length} perfil(is)...`);
-    await fetch(`/api/creators/${creator.id}/profiles`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileIds: selectedProfiles }),
-    });
-    setSelectedProfiles([]);
-    await loadTracked();
-    setActionMessage(`✅ ${selectedProfiles.length} perfil(is) adicionado(s)`);
-    setActionLoading(null);
-    setTimeout(() => setActionMessage(null), 3000);
+    try {
+      const chunkSize = 100;
+      let added = 0;
+      for (let i = 0; i < selectedProfiles.length; i += chunkSize) {
+        const chunk = selectedProfiles.slice(i, i + chunkSize);
+        const res = await fetch(`/api/creators/${creator.id}/profiles`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ profileIds: chunk }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || `Falha no lote ${i / chunkSize + 1}`);
+        }
+        added += chunk.length;
+        if (selectedProfiles.length > chunkSize) setActionMessage(`Adicionando ${added}/${selectedProfiles.length}...`);
+      }
+      setSelectedProfiles([]);
+      await loadTracked();
+      setActionMessage(`✅ ${added} perfil(is) adicionado(s)`);
+    } catch (e: any) {
+      setActionMessage(`❌ ${e.message}`);
+    } finally {
+      setActionLoading(null);
+      setTimeout(() => setActionMessage(null), 4000);
+    }
   };
 
   const addFolders = async () => {
@@ -199,23 +215,37 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
               onClick={async () => {
                 const allIds = allProfiles.map((p: any) => p.id).filter((id: string) => !tracked.some((t: any) => t.id === id));
                 if (allIds.length === 0) return;
-                setSelectedProfiles(allIds);
-                // adiciona direto todos que ainda não estão trackeados
                 setActionLoading("profiles");
                 setActionMessage(`Adicionando ${allIds.length} perfil(is)...`);
-                await fetch(`/api/creators/${creator.id}/profiles`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ profileIds: allIds }),
-                });
-                setSelectedProfiles([]);
-                await loadTracked();
-                setActionMessage(`✅ ${allIds.length} perfil(is) adicionado(s)`);
-                setActionLoading(null);
-                setTimeout(() => setActionMessage(null), 3000);
+                try {
+                  const chunkSize = 100;
+                  let added = 0;
+                  for (let i = 0; i < allIds.length; i += chunkSize) {
+                    const chunk = allIds.slice(i, i + chunkSize);
+                    const res = await fetch(`/api/creators/${creator.id}/profiles`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ profileIds: chunk }),
+                    });
+                    if (!res.ok) {
+                      const j = await res.json().catch(() => ({}));
+                      throw new Error(j.error || `Falha no lote ${i / chunkSize + 1}`);
+                    }
+                    added += chunk.length;
+                    setActionMessage(`Adicionando ${added}/${allIds.length}...`);
+                  }
+                  setSelectedProfiles([]);
+                  await loadTracked();
+                  setActionMessage(`✅ ${added} perfil(is) adicionado(s)`);
+                } catch (e: any) {
+                  setActionMessage(`❌ ${e.message}`);
+                } finally {
+                  setActionLoading(null);
+                  setTimeout(() => setActionMessage(null), 4000);
+                }
               }}
               disabled={actionLoading === "profiles" || allProfiles.length === 0}
-              title="Adiciona todos os perfis ainda não trackeados"
+              title="Adiciona todos os perfis ainda não trackeados (em lotes de 100)"
             >
               Adicionar todos ({allProfiles.length - tracked.length})
             </button>
