@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { formatChartDateTime, formatNumber } from "@/lib/format";
 
 type ChartPoint = {
@@ -57,8 +57,10 @@ function ChartSvg({ points }: { points: ChartPoint[] }) {
     coords[0]?.x ?? pad.left
   } ${baselineY} Z`;
 
+  const [hovered, setHovered] = useState<{ x: number; y: number; point: { label: string; value: number } } | null>(null);
+
   return (
-    <div className="chart-wrap">
+    <div className="chart-wrap" style={{ position: "relative" }}>
       <svg
         className="chart"
         viewBox={`0 0 ${width} ${height}`}
@@ -93,9 +95,19 @@ function ChartSvg({ points }: { points: ChartPoint[] }) {
 
         {coords.map((coord) => (
           <g key={`${coord.point.label}-${coord.point.value}`}>
-            <circle className="chart-dot" cx={coord.x} cy={coord.y} r="4">
+            <circle
+              className="chart-dot"
+              cx={coord.x}
+              cy={coord.y}
+              r="10"
+              fill="transparent"
+              style={{ cursor: "pointer" }}
+              onMouseEnter={() => setHovered({ x: coord.x, y: coord.y, point: coord.point })}
+              onMouseLeave={() => setHovered(null)}
+            />
+            <circle className="chart-dot" cx={coord.x} cy={coord.y} r="4" style={{ pointerEvents: "none" }}>
               <title>
-                {formatChartDateTime(coord.point.label)} · {formatNumber(coord.point.value)}
+                {formatChartDateTime(coord.point.label)} · {formatNumber(coord.point.value)} seguidores
               </title>
             </circle>
           </g>
@@ -115,6 +127,29 @@ function ChartSvg({ points }: { points: ChartPoint[] }) {
           {formatChartDateTime(valid.at(-1)?.label)}
         </text>
       </svg>
+      {hovered ? (
+        <div
+          style={{
+            position: "absolute",
+            left: `${(hovered.x / width) * 100}%`,
+            top: `${(hovered.y / height) * 100}%`,
+            transform: "translate(-50%, -130%)",
+            background: "#0f1f1d",
+            border: "1px solid rgba(45,212,191,0.35)",
+            borderRadius: 8,
+            padding: "8px 10px",
+            fontSize: 12,
+            lineHeight: 1.3,
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+            boxShadow: "0 8px 20px rgba(0,0,0,0.45)",
+            zIndex: 5,
+          }}
+        >
+          <div style={{ fontWeight: 700, color: "#2dd4bf" }}>{formatNumber(hovered.point.value)} seguidores</div>
+          <div style={{ opacity: 0.8, fontSize: 11 }}>{formatChartDateTime(hovered.point.label)}</div>
+        </div>
+      ) : null}
     </div>
   );
 }
