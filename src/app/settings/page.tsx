@@ -10,8 +10,8 @@ export default function SettingsPage() {
           <p className="eyebrow">Coletores</p>
           <h1>Chaves globais</h1>
           <p className="lede">
-            Sem divisão Instagram/TikTok: cada chave Bright Data serve as duas plataformas.
-            Veja boas e ruins e deixe só as boas ativas nos workers.
+            IG-only Apify: cada token Apify roda os 3 actors (profile + 5 grade + 5 reels).
+            Pool por crédito — só entram nos workers as chaves com crédito.
           </p>
         </div>
       </div>

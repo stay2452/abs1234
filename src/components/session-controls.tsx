@@ -188,13 +188,13 @@ export function SessionControls() {
       await callSessionApi({
         action: "create",
         name,
-        provider: "brightdata",
+        provider: "apify",
         apiKey: apiKey.trim(),
       });
       setName("");
       setApiKey("");
       await load();
-      setMessage("Chave global cadastrada. Saldo consultado quando a API permitir.");
+      setMessage("Token Apify cadastrado. Pool por crédito atualizado.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao criar sessao.");
     } finally {
@@ -211,7 +211,7 @@ export function SessionControls() {
       const payload = (await callSessionApi({ action: "refresh_balances" })) as SessionsResponse;
       applyList(payload);
       setMessage(
-        `Saldos atualizados (${payload.refreshed ?? payload.sessions.length} chave(s)). Oficial quando a chave tem permissao de billing; senao estimativa local do mes (5k free).`,
+        `Saldos atualizados (${payload.refreshed ?? payload.sessions.length} chave(s)). Apify: estimado local (1k free) quando sem permissão oficial.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao atualizar saldos.");
@@ -296,17 +296,16 @@ export function SessionControls() {
     <div className="grid two">
       <section className="panel">
         <p className="eyebrow">Nova chave</p>
-        <h2>API Bright Data global</h2>
+        <h2>Token Apify</h2>
         <p className="lede" style={{ marginTop: 0 }}>
-          Workers escolhem contas <strong>com credito</strong>, nao so &quot;boas&quot; por falha.
-          O botao <strong>Atualizar saldos</strong> consulta a API oficial de balance (quando a
-          chave tem permissao) ou estima pelo uso local do free tier (5k/mes).
+          Pool IG-only Apify: workers escolhem tokens <strong>com credito</strong>.
+          <code>apify_api_...</code> roda profile (1) + post 5 + reel 5.
         </p>
         <form className="form-stack" onSubmit={createSession}>
           <label className="form-stack">
             <span className="meta">Provedor</span>
-            <select className="control" value="brightdata" disabled>
-              <option value="brightdata">Bright Data (global)</option>
+            <select className="control" value="apify" disabled>
+              <option value="apify">Apify (IG 3 actors)</option>
             </select>
           </label>
           <label className="form-stack">
@@ -315,24 +314,24 @@ export function SessionControls() {
               className="input"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Ex.: conta free 1"
+              placeholder="Ex.: apify free 1"
               required
             />
           </label>
           <label className="form-stack">
-            <span className="meta">Chave da API</span>
+            <span className="meta">Token Apify</span>
             <input
               className="input"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder="Cole a chave Bright Data"
+              placeholder="Cole o apify_api_..."
               required
               type="password"
             />
           </label>
           <button className="button teal" type="submit" disabled={creating}>
             {creating ? <RefreshCw size={16} className="spin" /> : <Plus size={16} />}
-            Cadastrar chave global
+            Cadastrar token Apify
           </button>
         </form>
       </section>
@@ -389,22 +388,16 @@ export function SessionControls() {
         <div className="import-callout" style={{ marginBottom: 16 }}>
           <div className="import-callout-title">
             <ListOrdered size={16} aria-hidden />
-            <strong>Como o credito e lido</strong>
+            <strong>Como o crédito Apify é lido</strong>
           </div>
           <ol className="import-steps">
             <li>
-              <strong>Oficial:</strong> GET /customer/balance (precisa permissao de billing na
-              chave).
+              <strong>Estimativa local:</strong> 1.000 − resultados no mês por este token (free $5).
             </li>
             <li>
-              <strong>Estimativa local:</strong> 5.000 − registros recebidos no mes por esta chave
-              (quando a API de saldo retorna 403).
+              Tokens <strong>sem crédito</strong> não entram nos workers. Falha de saldo marca como sem crédito.
             </li>
-            <li>
-              Contas <strong>sem credito</strong> nao entram nos workers. Erros de saldo na coleta
-              marcam a chave como sem credito.
-            </li>
-            <li>Prioridade: mais credito remanescente primeiro.</li>
+            <li>Prioridade: mais crédito restante primeiro. Pool já está ativo — seu token atual está em <strong>COM CRÉDITO (1)</strong>.</li>
           </ol>
         </div>
 
