@@ -1,6 +1,6 @@
 /**
- * Protecao OPT-IN para endpoints que gastam credito Bright Data
- * (scrape/run, metrics/repair).
+ * Protecao OPT-IN para endpoints que gastam credito Apify
+ * (scrape/run, scrape/estimate, metrics/repair).
  *
  * Se a variavel de ambiente `API_ACCESS_TOKEN` estiver definida, exige
  * `Authorization: Bearer <token>` ou `?token=<token>`. Sem a variavel,

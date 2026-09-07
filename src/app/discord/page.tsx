@@ -14,7 +14,7 @@ export default async function DiscordPage() {
           <h1>Discord</h1>
           <p className="lede">
             Vários webhooks, vários servidores e canais. Cada um com nome, critérios e dedupe
-            próprios — sem gastar crédito Bright Data.
+            próprios — sem gastar crédito Apify.
           </p>
         </div>
       </div>

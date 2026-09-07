@@ -61,3 +61,19 @@ export async function withDbRetry<T>(fn: () => Promise<T>, attempts = 6): Promis
 export function withDbWriteRetry<T>(fn: () => Promise<T>, attempts = 6): Promise<T> {
   return withDbWrite(() => withDbRetry(fn, attempts));
 }
+
+/**
+ * Supabase-only rígido (regra 2026-08-30, sem exceção desde 2026-09-07):
+ * nada roda em SQLite/`file:`/banco local. Falha alto com mensagem clara
+ * em vez de cair em fallback silencioso.
+ */
+export function assertSupabaseDatabaseUrl(): string {
+  const url = process.env.DATABASE_URL?.trim() ?? "";
+  if (!url.startsWith("postgresql://")) {
+    throw new Error(
+      "Supabase-only: DATABASE_URL deve ser postgresql:// do Supabase (pooler 6543). " +
+        "Banco local (file:/dev.db/SQLite) foi removido em 2026-09-07.",
+    );
+  }
+  return url;
+}

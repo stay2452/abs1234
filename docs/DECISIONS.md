@@ -166,3 +166,44 @@ Bug #31 (validacao `Folder.color`): falsa positiva — validacao `z.enum(FOLDER_
 **Outras correcoes da auditoria:** Fase0 — caminho nao-stream do `analyze-ai` nao reprova por erro de provedor e pausa chave em auth; UI da IA tem teto de 10 lotes/rodada + confirmacao com estimativa de custo (~20 creditos/post); `.env.example` aponta `DIRECT_URL` para pooler :5432; docs de credito/comentarios atualizadas. Fase4 — rota `scrape/run` ja tinha lock (memoria + `hasActiveRunningRun` 409); confirmado e documentado.
 
 **Decisao de custo:** comentarios limitados a `limit_per_input=20` (≈20 creditos/post). Timeout (90s) NAO cancela cobranca no lado BD — documentado. "Cancelar" no UI agora cancela de verdade o run.
+
+## 2026-09-04
+
+### Migração IG para Apify (corte total Bright Data)
+
+- `7001c72`: deleta `brightdata-*.ts`, cria `apify-client.ts` (poll run → dataset, 40×3s) + `apify-instagram.ts` (3 actors: profile/post/reel, 1+5+5). TikTok pausado.
+- `696cdbc` + `57f4ed6`: UI de sessões e botões migrados para Apify.
+- `faf1e68`: paralelismo 10 → 100 chaves. `c3fc5cb`: Zod aceita `provider: apify`.
+- Free de referência: Apify ~1k (`FREE_TIER_CREDITS`), não mais BD 5k.
+
+## 2026-09-07
+
+### Resíduos pós-migração + docs sincronizados
+
+- **Lint zerado:** `line-chart.tsx` (`useState` antes do early return), `creator-detail-client`/`error-profiles-panel` (`useCallback` + effect com dependência + disable intencional de carga inicial).
+- **Fila Apify:** `queuePosition` valia só `brightdata` — agora qualquer provider válido (`session.ts`).
+- **Orçamento honesto:** `scope-cap.test.ts` usa `FREE_TIER_CREDITS=1000`; `200×11 > 1 free` documentado (cap `all` exige multi-conta).
+- **Auth:** `GET /api/scrape/estimate` protegido por token como o run.
+- **TikTok fantasma resolvido:** perfis TT pulados com `unsupported_platform` (aviso em `errors[]`, `success` se só skips) em vez de `failed` com throw.
+- **Segredo:** token Apify via header `Authorization: Bearer` (antes `?token=` na URL).
+- **`testCollectorSession`:** sem `api.brightdata.com/customer/balance`; checagem local Apify.
+- **UI:** todos os textos "Bright Data" → "Apify"; reparo documentado como IG-only (5 Reels).
+- **Docs:** `SESSION_POOL`/`SCRAPING_RULES`/`CREDIT_USAGE` reescritos p/ Apify; `README`/`ARCHITECTURE`/`CRITICAL_RULES`/`EXTENSION` atualizados.
+- **`snapshot_pending` mantido sem retry** (decisão de custo: re-disparar run Apify paga 2x).
+
+## 2026-09-07 (cont.)
+
+### Remoção total do provedor legado
+
+- `ApiProvider` = só `"apify"`: tipo, Zod (`session/route.ts`), `getActiveCollectorSessions`, `scrapeWithApiSession` e tipo da UI não conhecem outro provedor. Registros antigos com outro valor caem em `no_credit` genérico ("Provedor legado").
+- Docs: `BRIGHT_DATA_API.md` + `BRIGHT_DATA_CAPACITY.md` deletados; nova referência `docs/APIFY_API.md` (actors, poll 40×3s, free ~1k, classificação de erros). Planos/auditorias da época da migração movidos para `docs/archive/` (histórico preservado, fora da superfície ativa).
+- `DECISIONS.md` mantém os registros factuais da era anterior (re-escrever o passado falsificaria o changelog) — o que some é do código e dos docs ativos.
+
+## 2026-09-07 (cont. 2)
+
+### Supabase-only rígido — zero local
+
+- **Deletado `prisma/dev.db` (4.8MB).** Removidos os 3 fallbacks SQLite/`file:` (`reconcileZombieRunsSqliteFallback`, `hasActiveRunningRunSqliteFallback`, `listScrapeRunsSqliteFallback`) e os branches que os chamavam (`scrape-reconcile.ts`, `history/page.tsx`, `api/history/route.ts`).
+- **Removido `ZOMBIE_HEARTBEAT_MS`** (constante definida, nunca lida).
+- **Trava explícita:** `assertSupabaseDatabaseUrl()` (`src/lib/db.ts`) chamado em todo acesso de reconciliação; `requireDatabaseEnvironment()` (`scripts/start.mjs`) agora exige protocolo `postgresql://` (antes só checava presença).
+- O código que roda no PC (`next dev`, extensão com default `127.0.0.1:3000`) não persiste **nada** local: todo estado vai para Supabase/Render. `.env` local guarda só credenciais (nunca dados).

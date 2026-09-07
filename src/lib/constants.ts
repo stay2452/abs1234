@@ -29,7 +29,7 @@ export const MAX_SCRAPE_ALL_PROFILES = 200;
 /** Custo máximo estimado por perfil (IG 3 datasets 1+5+5=11, TT 1+10=11). */
 export const ESTIMATED_CREDITS_PER_PROFILE = 11;
 /**
- * Lotes menores na importacao em massa: conexao stream + free tier 5k.
+ * Lotes menores na importacao em massa: conexao stream + free tier Apify (~1k).
  * Continua respeitando MAX_SCRAPE_PROFILE_IDS na API.
  */
 export const MASS_IMPORT_SCRAPE_CHUNK = 20;

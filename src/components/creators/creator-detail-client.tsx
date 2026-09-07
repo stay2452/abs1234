@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatShortDate, formatExactNumber } from "@/lib/format";
 
@@ -16,11 +16,11 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [potSort, setPotSort] = useState<{ key: "views" | "baseline" | "ratio" | "comments" | "date"; dir: "asc" | "desc" }>({ key: "ratio", dir: "desc" });
 
-  const loadTracked = async () => {
+  const loadTracked = useCallback(async () => {
     const res = await fetch(`/api/creators/${creator.id}/tracked-profiles`);
     const data = await res.json();
     setTracked(data.profiles ?? []);
-  };
+  }, [creator.id]);
 
   const refreshVault = async () => {
     const res = await fetch(`/api/vault?creatorId=${creator.id}`);
@@ -121,8 +121,9 @@ export function CreatorDetailClient({ creator, allProfiles, allFolders, initialV
   };
 
   useEffect(() => {
-    loadTracked();
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial intencional (fetch -> setTracked)
+    void loadTracked();
+  }, [loadTracked]);
 
   const addProfiles = async () => {
     if (selectedProfiles.length === 0) return;

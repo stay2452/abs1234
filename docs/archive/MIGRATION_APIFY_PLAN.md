@@ -1,4 +1,7 @@
-# Plano de Migração — Bright Data → Apify (IG-only, 3 actors especializados)
+# [CONCLUÍDO 2026-09-04] Plano de Migração — Bright Data → Apify (IG-only, 3 actors especializados)
+
+> ✅ Migração executada como corte seco em `7001c72` (+ `696cdbc`, `faf1e68`, `c3fc5cb`).
+> Este documento é histórico. Estado atual em `docs/SCRAPING_RULES.md` e `docs/SESSION_POOL.md`.
 
 > **Projeto oficial:** `D:\blioteca de perfis zcode 10 07 2026\Nova pasta` (biblioteca-perfis-viral, repo `stay2452/abs1234`)
 > **Beta validado:** `D:\Nova pasta (123)` e `D:\tracker apify` (backup) — 3 actors ok: `apify/instagram-profile-scraper`, `apify/instagram-post-scraper`, `apify/instagram-reel-scraper`

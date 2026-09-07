@@ -112,7 +112,7 @@ export default async function FolderDetailPage({
             {folder.description?.trim() ||
               "Compare os perfis desta pasta: seguidores, crescimento em 7 dias e melhor post."}
           </p>
-          <p className="meta">{compareRows.length} perfil(is) · comparação local (sem Bright Data)</p>
+          <p className="meta">{compareRows.length} perfil(is) · comparação local (sem Apify)</p>
         </div>
         <div className="toolbar">
           <RunScrapeButton

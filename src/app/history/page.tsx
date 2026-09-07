@@ -17,24 +17,11 @@ export default async function HistoryPage() {
     const { reconcileZombieRuns } = await import("@/lib/scrape-reconcile");
     await reconcileZombieRuns();
   } catch {}
-  let runs: any[] = [];
-  try {
-    runs = await prisma.scrapeRun.findMany({
-      orderBy: { startedAt: "desc" },
-      take: 100,
-    });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    // Fallback dev: DATABASE_URL=file:... com provider postgresql não compatível
-    if (msg.includes("must start with the protocol `postgresql") || msg.includes("DATABASE_URL")) {
-      try {
-        const { listScrapeRunsSqliteFallback } = await import("@/lib/scrape-reconcile");
-        runs = (await listScrapeRunsSqliteFallback(100)) as typeof runs;
-      } catch {}
-    } else {
-      throw error;
-    }
-  }
+  // Supabase-only: sem fallback local — falha alto se o banco remoto cair.
+  const runs = await prisma.scrapeRun.findMany({
+    orderBy: { startedAt: "desc" },
+    take: 100,
+  });
 
   return (
     <main className="page history-page">

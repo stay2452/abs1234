@@ -41,7 +41,7 @@ export function RepairMissingMetricsButton() {
       return;
     }
     const labels = metrics.filter((metric) => selected.includes(metric.key)).map((metric) => metric.label);
-    if (!window.confirm(`Reparar ${labels.join(", ")} apenas em Reels e vídeos TikTok com valor ausente?\n\nA operação consulta os últimos 5 Reels ou 10 vídeos de cada perfil afetado. Grade não entra. Ela pode consumir créditos Bright Data.`)) {
+    if (!window.confirm(`Reparar ${labels.join(", ")} apenas em Reels do Instagram com valor ausente?\n\nA operação consulta os últimos 5 Reels de cada perfil afetado (IG-only). Grade não entra. Ela pode consumir créditos Apify.`)) {
       return;
     }
 
@@ -96,7 +96,7 @@ export function RepairMissingMetricsButton() {
       <div>
         <p className="eyebrow">Reparo seletivo</p>
         <h2>Corrigir métricas ausentes</h2>
-        <p className="meta">Busca somente Reels e vídeos TikTok já catalogados com valor nulo. Grade não entra.</p>
+        <p className="meta">Busca somente Reels do Instagram já catalogados com valor nulo (IG-only). Grade não entra.</p>
       </div>
       <div className="repair-metrics-options" role="group" aria-label="Métricas para reparar">
         {metrics.map((metric) => (

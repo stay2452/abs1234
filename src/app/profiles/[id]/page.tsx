@@ -268,7 +268,7 @@ export default async function ProfileDetailPage({
           <p style={{ margin: "0 0 8px" }}>{latestRunError ?? "Erro do provedor."}</p>
           {/page isn.?t available|indisponivel|not_found/i.test(latestRunError ?? "") ? (
             <p style={{ margin: "0 0 8px" }}>
-              A Bright Data/Instagram respondeu que a pagina do perfil nao esta disponivel
+              A Apify/Instagram respondeu que a pagina do perfil nao esta disponivel
               (conta apagada, renomeada, privada ou bloqueio temporario do provedor). Confira no
               Instagram:{" "}
               <a href={profile.url} target="_blank" rel="noreferrer">

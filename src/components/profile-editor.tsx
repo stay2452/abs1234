@@ -149,7 +149,7 @@ export function ProfileEditor({
           Zona de exclusao
         </p>
         <p className="message" style={{ marginBottom: 10 }}>
-          Remove o cadastro local, historico e posts. Nao chama Bright Data.
+          Remove o cadastro local, historico e posts. Nao chama Apify.
         </p>
         <DeleteProfileButton id={id} handle={handle} redirectTo="/profiles" />
       </div>

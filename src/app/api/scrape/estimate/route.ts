@@ -3,11 +3,16 @@ import { prisma } from "@/lib/db";
 import { getActiveCollectorSessions } from "@/lib/scrapers/session";
 import { shouldScrapeProfile } from "@/lib/scrapers";
 import { ESTIMATED_CREDITS_PER_PROFILE, MAX_SCRAPE_ALL_PROFILES } from "@/lib/constants";
+import { isAuthorizedByToken } from "@/lib/access-token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  if (!isAuthorizedByToken(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const url = new URL(request.url);
   const scope = url.searchParams.get("scope") ?? "all";
   const force = url.searchParams.get("force") === "1";

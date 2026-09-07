@@ -321,7 +321,7 @@ async function scrapeWithApiSession(
   reportDataset?: DatasetProgressReporter,
   signal?: AbortSignal,
 ) {
-  if ((session.provider !== "apify" && session.provider !== "brightdata") || !session.apiKey?.trim()) {
+  if (session.provider !== "apify" || !session.apiKey?.trim()) {
     throw new Error("Sessão Apify sem token cadastrado.");
   }
 
@@ -456,7 +456,7 @@ async function recordRunFinalFailure(runId: string, job: ScrapeJob, activity: st
 
 export function getScrapeRunStatus(errors: Array<Pick<ScrapeError, "errorCode">>, profilesOk: number) {
   const realErrors = errors.filter(
-    (error) => error.errorCode !== "not_found" && error.errorCode !== "partial_empty",
+    (error) => error.errorCode !== "not_found" && error.errorCode !== "partial_empty" && error.errorCode !== "unsupported_platform",
   );
   return realErrors.length === 0 ? "success" : profilesOk > 0 ? "partial_failed" : "failed";
 }
@@ -549,7 +549,7 @@ async function executeAttempt(
   reportDataset?: DatasetProgressReporter,
   signal?: AbortSignal,
 ): Promise<AttemptOutcome> {
-  // Fase 1 — COLETA (Bright Data). Se falhar aqui, classificacao normal + retry decide.
+  // Fase 1 — COLETA (Apify). Se falhar aqui, classificacao normal + retry decide.
   let result: ScrapedProfileResult;
   try {
     await setRunActivity(
@@ -906,6 +906,11 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
     shouldScrapeProfile(profile, now, Boolean(options.force)),
   );
   const profilesSkipped = requestedProfiles.length - profiles.length;
+  // IG-only Apify: perfis não-Instagram são pulados com aviso (sem worker/retry/custo).
+  const unsupportedProfiles = profiles.filter((profile) => profile.platform !== "instagram");
+  if (unsupportedProfiles.length > 0) {
+    profiles = profiles.filter((profile) => profile.platform === "instagram");
+  }
   // Cap scope:all para evitar 1 clique queimar biblioteca inteira (400×11 ≈ 4400 créd)
   let cappedByAllLimit = false;
   if (scope.kind === "all" && profiles.length > MAX_SCRAPE_ALL_PROFILES) {
@@ -930,6 +935,20 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
   try {
     const disabledSessionIds = new Set<string>();
     const errors: ScrapeError[] = [];
+    for (const profile of unsupportedProfiles) {
+      errors.push({
+        profileId: profile.id,
+        handle: profile.handle,
+        platform: profile.platform,
+        error: `Coleta ${profile.platform} pausada: modo atual é Apify IG-only. Perfil mantido no tracker sem custo.`,
+        errorCode: "unsupported_platform",
+      });
+      await recordRunFinalFailure(
+        run.id,
+        { profile, attemptedSessionIds: new Set<string>() },
+        `@${profile.handle}: plataforma ${profile.platform} fora do modo IG-only (pulado sem custo).`,
+      );
+    }
     let profilesOk = 0;
     let postsFound = 0;
     let postsNew = 0;
@@ -970,7 +989,7 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
       });
     };
 
-    // Pool global de chaves: IG e TikTok compartilham os mesmos workers.
+    // Pool global de chaves Apify (IG-only): workers processam 1 perfil por chave.
     let sessions: ActiveCollectorSession[] = [];
     let sessionsError: string | null = null;
     try {

@@ -2,36 +2,37 @@
 
 Invariantes de custo, dados e operacao. Qualquer mudanca que as toque deve atualizar este documento na mesma entrega.
 
-## Coleta e credito
+## Coleta e credito (Apify IG-only desde 2026-09-04)
 
-- Referencia oficial da API e free tier (5k/conta): `docs/BRIGHT_DATA_API.md`.
-- Cada chave = token de **uma conta** Bright Data; free tier = **5.000 creditos/mes** por conta distinta.
+- Referencia oficial da API e free tier (~1k/conta): `docs/APIFY_API.md`. Regras ativas: `docs/SCRAPING_RULES.md` + `docs/SESSION_POOL.md` + `docs/CREDIT_USAGE.md`.
+- Cada token = **uma conta** Apify; free ≈ **1.000 requests/mes** (estimativa local `1000 − uso`), por conta distinta. Cap `all` 200 × 11 exige multi-conta.
 - `POST /api/scrape/run`: so `scope: "all"` (capado em `MAX_SCRAPE_ALL_PROFILES=200` perfis elegíveis por rodada) ou `scope: "profiles"` com 1–100 IDs. Invalido → **400** (nunca vira `all`). `force:true` exige `X-Confirm-Force: 1`.
 - Importacao: ate **500** perfis validos e 200k caracteres; coleta pos-import em lotes de **20**.
 - Falha de um lote de coleta **nao** desfaz o cadastro local nem impede os lotes seguintes.
 - Import aceita URLs IG/TT e `@handles`; `@` sem URL usa o seletor do formulario.
 - Limites no servidor: IG 5 Grade + 5 Reels; TT 10 videos. Sem `limit` generico na API de coleta.
 - Janela anti-recoleta **30 min** por `max(ProfileSnapshot.capturedAt, Profile.lastPostsScrapeAt)` (salvo `force: true`). O `lastPostsScrapeAt` cobre perfil so-com-posts (sem `profileSnapshot`); sem ele a janela nao atualizava e o perfil podia ser re-coletado em seguida.
-- Paginas, rankings, detalhes e testes **nao** disparam coleta. "Atualizar saldos" / balance e account management, nao dataset scrape.
-- Nao tratar "11 creditos/perfil" como garantia; usar telemetria + painel BD.
+- Paginas, rankings, detalhes e testes **nao** disparam coleta. "Atualizar saldos" é estimativa local, nao run de actor.
+- Nao tratar "11 creditos/perfil" como garantia; usar telemetria + painel Apify.
+- TikTok é pulado com `unsupported_platform` (aviso, sem custo); run com só TT-skips termina `success`.
 - Coleta termina em sucesso, falha, parcial ou timeout controlado; UI nao fica presa em "Atualizando".
 - `partial_failed` so quando **dataset essencial** falha (perfil IG/TT). Grade/Reels/Videos vazios viram `errorCode: "partial_empty"` — warning em `errors[]` (telemetria/auditoria), nao falha estrutural. Adaptadores classificam via `ScrapePartialError.essential`.
 - Retentativas por perfil limitadas a `SCRAPE_MAX_RETRIES_PER_PROFILE` (**3**) com backoff exponencial entre rounds (`min(30s, 1s × 2^(round-1))`); evita 20 tentativas sem pausa em cenario de rate-limit prolongado.
 - Falha de um dataset nao descarta dados validos dos outros.
 
-## Workers Bright Data (chaves globais + credito)
+## Workers Apify (tokens globais + credito)
 
-- Chaves **nao** tem plataforma: `platform=global`; IG/TT vem do `Profile`.
-- Entram no worker: ativas + **com credito** (oficial ou estimado). **Sem credito** fica fora da fila. `getActiveCollectorSessions()` retorna `[]` (nao throw) quando vazia — orquestrador marca perfis como `no_session`.
-- Prioridade: mais `creditsRemaining` primeiro. Ate `SCRAPE_MAX_PARALLEL_KEYS` (10) em paralelo; 1 perfil por chave por vez.
-- `no_data` consome 1 credito (estimativa local decrementa `creditsRemaining`); saldo oficial e revalidado no proximo refresh.
-- Pre-flight `ESTIMATED_CREDITS_PER_PROFILE=11`: se `profiles×11 > Σ creditsRemaining` o run falha com `insufficient_credits` (evita começar e parar no meio). `GET /api/scrape/estimate` expõe `required/available/deficit`.
-- Chave `unknown` recém-criada sem `balanceCheckedAt` não entra no pool até `Atualizar saldos` (evita `has_credit` fantasma 5000).
-- Heuristica de saldo: `/customer/balance` doc oficial retorna USD; valor `>=100` assume creditos diretos sem multiplicar por `CREDITS_PER_USD`.
-- Erro `provider`/`transient` da Bright Data **nao** esgota a chave no run (so aquele perfil retry). So `authentication`/`account` matam a chave no worker.
-- Auth/conta: esgotam + **pausam** a chave. `provider`/`transient`: **nao** esgotam no run — trocam de chave so para o perfil. `not_found`: nao troca chave (perfil indisponivel). Erros transitorios de Prisma/PostgreSQL (timeout, deadlock ou falha de conexao): perfil retenta com outra chave em vez de falhar `unknown` sem retry. Fonte de verdade: `src/lib/scrapers/index.ts` (`isSessionUnrecoverable`) e `src/lib/scrapers/types.ts`.
-- UI de `/settings`: com credito / sem credito / pausadas + label de creditos remanescentes.
-- Nunca logar, retornar ou versionar API keys ou payloads brutos.
+- Tokens **nao** tem plataforma: `platform=global`; modo atual é **IG-only** (TT pulado).
+- Entram no worker: ativos + **com credito** (estimativa local). **Sem credito** fica fora da fila. `getActiveCollectorSessions()` retorna `[]` (nao throw) quando vazia — orquestrador marca perfis como `no_session`.
+- Prioridade: mais `creditsRemaining` primeiro. Ate `SCRAPE_MAX_PARALLEL_KEYS` (100) em paralelo; 1 perfil por chave por vez.
+- Estimativa local Apify (`1000 − uso no mês`); sem balance oficial (`balanceUsd = null`).
+- Pre-flight `ESTIMATED_CREDITS_PER_PROFILE=11`: se `profiles×11 > Σ creditsRemaining` o run falha com `insufficient_credits` (evita começar e parar no meio). `GET /api/scrape/estimate` expõe `required/available/deficit` (protegido por token como o run).
+- Token `unknown` recém-criado sem `balanceCheckedAt` não entra no pool até `Atualizar saldos`.
+- Provedor único: `apify`. Registros com provedor legado/desconhecido no DB ficam `no_credit` até migrar para token Apify.
+- Erro `provider`/`transient` da Apify **nao** esgota a chave no run (so aquele perfil retry). So `authentication`/`account` matam a chave no worker.
+- Auth/conta: esgotam + **pausam** a chave. `provider`/`transient`: **nao** esgotam no run — trocam de chave so para o perfil. `not_found`/`snapshot_pending`/`unsupported_platform`: nao trocam chave (perfil indisponível / run pago em andamento / plataforma pausada). Erros transitorios de Prisma/PostgreSQL (timeout, deadlock ou falha de conexao): perfil retenta com outra chave em vez de falhar `unknown` sem retry. Fonte de verdade: `src/lib/scrapers/index.ts` (`isSessionUnrecoverable`) e `src/lib/scrapers/types.ts`.
+- UI de `/settings`: com credito / sem credito / pausadas + label de creditos remanescentes + fila #N (qualquer provider válido).
+- Nunca logar, retornar ou versionar API keys/tokens ou payloads brutos. Token Apify via header `Authorization: Bearer` (nunca `?token=` na URL).
 - Nao reintroduzir navegador, proxy, cookies, Playwright ou login manual.
 
 ## Dados (biblioteca acumulativa)
@@ -61,7 +62,7 @@ Invariantes de custo, dados e operacao. Qualquer mudanca que as toque deve atual
 ## Operacao
 
 - **Regra de persistência absoluta (2026-08-30): tudo roda em Supabase (PostgreSQL) + Render. Nunca SQLite local.**
-  - `prisma/schema.prisma:5` `provider = "postgresql"` + `prisma/migrations/*` são a única fonte de verdade. `prisma/dev.db` e `prisma/backups/*.db` são legado git-ignorado e **não são usados** — `DATABASE_URL` e `DIRECT_URL` devem ser sempre `postgresql://...pooler.supabase.com` (app) e `postgresql://...supabase.co` / `pooler ...:5432` (migrations), tanto em `Render` quanto em `next dev` local. Desvio para `file:./dev.db` viola a regra e quebra `prisma validate` (`must start with postgresql://`).
+  - `prisma/schema.prisma:5` `provider = "postgresql"` + `prisma/migrations/*` são a única fonte de verdade. `prisma/dev.db` foi **deletado em 2026-09-07**; `prisma/backups/` é git-ignorado e nunca é lido pelo app — `DATABASE_URL` e `DIRECT_URL` devem ser sempre `postgresql://...pooler.supabase.com` (app) e `postgresql://...supabase.co` / `pooler ...:5432` (migrations), tanto em `Render` quanto em `next dev` local. `assertSupabaseDatabaseUrl()` (`src/lib/db.ts`) e `requireDatabaseEnvironment()` (`scripts/start.mjs`) travam `file:`/SQLite com erro explícito.
   - `npm run dev` local e `node scripts/start.mjs` em prod usam as mesmas credenciais Supabase. Não existe “modo offline” ou “banco local”.
   - Backups, retenção e PITR são responsabilidade do Supabase. `tmp/` e `dwadaw/` são temporários git-ignorados e não são banco.
 - Sem push/commit no GitHub sem pedido explicito do usuario.

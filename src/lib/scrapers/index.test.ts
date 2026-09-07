@@ -87,7 +87,7 @@ describe("markDatasetsNoData", () => {
           recordsReceived: 0,
           recordsKept: 0,
           errorCode: "transient",
-          errorMessage: "Bright Data HTTP 429.",
+          errorMessage: "Apify HTTP 429.",
         },
       ]),
     ).toEqual([
@@ -105,7 +105,7 @@ describe("markDatasetsNoData", () => {
         recordsReceived: 0,
         recordsKept: 0,
         errorCode: "transient",
-        errorMessage: "Bright Data HTTP 429.",
+        errorMessage: "Apify HTTP 429.",
       },
     ]);
   });
@@ -144,6 +144,12 @@ describe("getScrapeRunStatus", () => {
   it("treats partial_empty and not_found as warnings", () => {
     expect(
       getScrapeRunStatus([{ errorCode: "partial_empty" }, { errorCode: "not_found" }], 0),
+    ).toBe("success");
+  });
+
+  it("treats unsupported_platform (TikTok fora do modo IG-only) as warning", () => {
+    expect(
+      getScrapeRunStatus([{ errorCode: "unsupported_platform" }], 0),
     ).toBe("success");
   });
 

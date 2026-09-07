@@ -153,8 +153,8 @@ async function apifyFetch(
   if (externalSignal?.aborted) controller.abort();
   else externalSignal?.addEventListener("abort", forwardAbort, { once: true });
   try {
-    const url = `${APIFY_BASE}${path}${path.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
-    const res = await fetch(url, { ...init, signal: controller.signal, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) } });
+    const url = `${APIFY_BASE}${path}`;
+    const res = await fetch(url, { ...init, signal: controller.signal, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) } });
     const text = await res.text();
     if (!res.ok) {
       const detail = safeProviderDetail(text);

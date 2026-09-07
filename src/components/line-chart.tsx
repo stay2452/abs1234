@@ -17,6 +17,7 @@ function buildPath(points: Array<{ x: number; y: number }>) {
 }
 
 function ChartSvg({ points }: { points: ChartPoint[] }) {
+  const [hovered, setHovered] = useState<{ x: number; y: number; point: { label: string; value: number } } | null>(null);
   const valid = points
     .map((point) => ({ ...point, timestamp: new Date(point.label).getTime() }))
     .filter(
@@ -56,8 +57,6 @@ function ChartSvg({ points }: { points: ChartPoint[] }) {
   const areaPath = `${linePath} L ${coords.at(-1)?.x ?? pad.left} ${baselineY} L ${
     coords[0]?.x ?? pad.left
   } ${baselineY} Z`;
-
-  const [hovered, setHovered] = useState<{ x: number; y: number; point: { label: string; value: number } } | null>(null);
 
   return (
     <div className="chart-wrap" style={{ position: "relative" }}>

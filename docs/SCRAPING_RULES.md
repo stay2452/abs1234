@@ -1,18 +1,19 @@
-# Contrato Bright Data (scraping)
+# Contrato Apify IG-only (scraping)
 
-Fronteira app ↔ Bright Data. Mudanca de dataset ou limite deve atualizar este arquivo.
+> Atualizado em 2026-09-07: provedor único Apify (IG-only). Fronteira app ↔ Apify.
+> Mudanca de actor ou limite deve atualizar este arquivo.
 
 ## Escopo e limites
 
 | Acao | Comportamento |
 |------|----------------|
-| Import | Cadastro local ate 500; coleta so dos IDs importados, lotes de 20 |
-| Atualizar biblioteca | `scope: "all"`, perfis ativos, anti-recoleta 30 min (salvo `force`) |
-| Atualizar um perfil | `scope: "profiles"` com 1 ID |
-| Scrape API | Max 100 IDs; corpo invalido → 400 |
+| Import | Cadastro local ate 500 (IG + TT aceitos no tracker); coleta so dos IDs importados, lotes de 20 |
+| Atualizar biblioteca | `scope: "all"`, perfis ativos, anti-recoleta 30 min (salvo `force`), cap 200 |
+| Atualizar um perfil | `scope: "profiles"` com 1–100 IDs |
+| Scrape API | Max 100 IDs; corpo invalido → 400 (nunca vira `all`) |
 
-- Instagram: 3 datasets/perfil — perfil + Grade (`num_of_posts: 5`) + Reels (`num_of_posts: 5`).
-- TikTok: perfil + videos (`num_of_posts: 10`).
+- Instagram: 3 actors/perfil — profile + post 5 (`INSTAGRAM_GRID_LIMIT`) + reel 5 (`INSTAGRAM_REELS_LIMIT`).
+- TikTok: **pausado** — perfis TT são pulados com `unsupported_platform` (aviso, sem custo). Tracker continua aceitando TT para uso futuro.
 
 ## Vault — winners diretos (sem IA desde 2026-09-01)
 
@@ -20,11 +21,11 @@ Vault não usa mais dataset de comentários. `POST /api/vault/scan` cria winners
 
 - Limite no **request** ao provedor; proibido baixar catalogo inteiro e filtrar no app.
 
-## Retentativa e cobranca (auditoria 2026-08-31)
+## Retentativa e cobranca (auditoria 2026-08-31, portada p/ Apify em 2026-09-04)
 
-- **`snapshot_pending`**: timeout de snapshot/POST (`ainda nao concluiu o snapshot`, `demorou demais`) NAO e retry-imediato com outra chave — o trigger pode ja estar rodando/cobrando no lado Bright Data; re-disparar paga de novo. Classificado em `brightdata-client.ts` (`classifyBrightDataMessage`) como `snapshot_pending`, fora de `shouldRetryWithAnotherSession` em `index.ts`.
-- **Timeout global do run `withRunTimeout`** agora aborta os workers via `AbortController` compartilhado (checado por worker/perfil e nos fetches). Cancelar no UI/stream (`request.signal`) tambem cancela para de agendar novos perfis. Antes: o run falhava mas as coletas seguiam em background pagando.
-- **Persistencia separada da coleta** (`executeAttempt`): falha de banco apos coleta **paga** nao re-dispara a coleta com outra chave (`retryable: false`, `errorCode: persist_error`) — evita custo duplicado. A coleta inteira so e refeita se a propria coleta (Bright Data) falhar.
+- **`snapshot_pending`**: timeout de run/poll Apify (`ainda não concluiu o run`, `TIMED-OUT/ABORTED`, `demorou demais`) NÃO é retry com outra chave — o run pode já estar rodando/cobrando no lado Apify; re-disparar paga de novo. Classificado em `apify-client.ts` (`classifyApifyMessage`) como `snapshot_pending`, fora de `shouldRetryWithAnotherSession` em `index.ts`.
+- **Timeout global do run `withRunTimeout`** aborta os workers via `AbortController` compartilhado (checado por worker/perfil e nos fetches). Cancelar no UI/stream (`request.signal`) também cancela para de agendar novos perfis. Antes: o run falhava mas as coletas seguiam em background pagando.
+- **Persistencia separada da coleta** (`executeAttempt`): falha de banco após coleta **paga** não re-dispara a coleta com outra chave (`retryable: false`, `errorCode: persist_error`) — evita custo duplicado. A coleta inteira só é refeita se a própria coleta (Apify) falhar.
 
 ## Biblioteca acumulativa
 
@@ -42,38 +43,37 @@ Vault não usa mais dataset de comentários. `POST /api/vault/scan` cria winners
 - Legendas auto do IG ("Photo by…") nao sao legenda do criador.
 - TikTok: URL publica `@handle/video/id`; nao usar URL de midia CDN como identidade.
 
-## Contrato Instagram atual
+## Contrato Instagram atual (Apify, 3 actors)
 
-- Perfil: `gd_l1vikfch901nx3by4`, `{ input: [{ url }] }`.
-- Grade: `gd_lk5ns7kz21pck8jpis`, `type=discover_new`, `discover_by=url`, `num_of_posts: 5` (**sem** `post_type: "post"`).
-- Reels: `gd_lyclm20il4r5helnj`, `discover_by=url_all_reels`, `num_of_posts: 5`.
-- Corpo `{ input: [...] }`. Grade pode aninhar itens em `posts` (achatar no adaptador).
+- Profile: `apify/instagram-profile-scraper` — 1 perfil por input.
+- Grid: `apify/instagram-post-scraper` — `resultsLimit = INSTAGRAM_GRID_LIMIT` (5).
+- Reels: `apify/instagram-reel-scraper` — `resultsLimit = INSTAGRAM_REELS_LIMIT` (5).
+- Fluxo: `POST /acts/{actor}/runs` → poll `GET /acts/.../runs/{id}` (`POLL_TRIES=40 × POLL_MS=3000`, ~120s) → `GET /datasets/{id}/items`. Status `SUCCEEDED/FAILED/TIMED-OUT/ABORTED`. Fonte de verdade: `src/lib/scrapers/apify-client.ts`.
+- Auth via header `Authorization: Bearer <token>` (nunca `?token=` na URL).
 
 ## Contrato TikTok
 
-- Perfil: `gd_l1villgoiiidt09ci`.
-- Videos: `gd_m7n5v2gq296pex2f5m`, `num_of_posts: 10`.
-- URL publica via `post_id` + username.
+- **Pausado (modo IG-only).** Tracker/import/rankings ainda aceitam TT, mas `scrapeWithApiSession` pula com `unsupported_platform`. Reativar = novo adapter + atualizar este doc.
 
 ## Reparo seletivo de metricas ausentes
 
 - Dashboard: **Corrigir metricas ausentes** permite selecionar `views`, curtidas, comentarios, compartilhamentos e favoritos.
-- So considera conteudo de video ja catalogado: IG `sourceType = reels` e TT `sourceType = video`; **Grade nunca entra**.
-- Agrupa por perfil e consulta somente o dataset de conteudo: ate 5 Reels IG ou 10 videos TT. Nao cria posts, nao coleta perfil e nao altera Grade.
-- Atualiza somente posts cujo ultimo snapshot tem a metrica escolhida em `null`; cria novo `PostSnapshot` apenas quando a Bright Data devolve valor preenchido.
+- So considera conteudo de video ja catalogado: IG `sourceType = reels` (**IG-only**); **Grade nunca entra**.
+- Agrupa por perfil e consulta somente o actor de conteudo: ate 5 Reels IG. Nao cria posts, nao coleta perfil e nao altera Grade.
+- Atualiza somente posts cujo ultimo snapshot tem a metrica escolhida em `null`; cria novo `PostSnapshot` apenas quando a Apify devolve valor preenchido.
 - Conteudo antigo fora da janela recente do provedor pode continuar sem metrica; o resumo informa quantos ficaram indisponiveis.
-- Compartilhamentos/favoritos dependem dos campos que a Bright Data expor para a plataforma. Instagram pode continuar sem esses valores.
-- A reparacao consome creditos Bright Data por perfil afetado; confirmacao explicita na UI antes de iniciar.
+- Compartilhamentos/favoritos dependem dos campos que a Apify expor. Instagram pode continuar sem esses valores.
+- A reparacao consome creditos Apify por perfil afetado; confirmacao explicita na UI antes de iniciar.
 
 ## Falhas e telemetria
 
-- Telemetria por dataset sem chave/payload bruto.
-- `estimatedCredits` = `recordsReceived` (registros entregues; proxy operacional, nao e a fatura Bright Data).
+- Telemetria por actor sem chave/payload bruto.
+- `estimatedCredits` = `recordsReceived` (registros entregues; proxy operacional, nao e a fatura Apify).
 - Resposta final de run pode incluir `postsNew` / `postsUpdated`.
-- Auth/conta pausam chave; provider nao esgota a chave neste run; transient re-tenta perfil; not_found nao troca chave; `snapshot_pending` nao re-dispara trigger pago (ver "Retentativa e cobranca").
+- Auth/conta pausam chave + esgotam neste run; transient/provider re-tentam perfil com outra chave; not_found/`snapshot_pending`/`unsupported_platform` nao trocam chave (`snapshot_pending` nao re-dispara run pago; `unsupported_platform` vira aviso, nao falha — ver `getScrapeRunStatus`).
 - "no public posts" / empty content → dataset vazio, nao falha de chave.
-- Timeout HTTP request ~90s; poll de snapshot ate **45×2s (~90s)**. Status async: collecting / digesting / ready / failed. Fonte de verdade: `src/lib/scrapers/brightdata-client.ts`.
-- Coleta parcial: salva o valido; run pode ser `partial_failed`.
+- Timeout HTTP request ~90s; poll de run ate **40×3s (~120s)**. Status: `SUCCEEDED/FAILED/TIMED-OUT/ABORTED`. Fonte de verdade: `src/lib/scrapers/apify-client.ts`.
+- Coleta parcial: salva o valido; run pode ser `partial_failed` (só em dataset essencial).
 - Reparo de metricas respeita a janela anti-recoleta de 30 min (pula perfil coletado recentemente).
 
 ## Teste controlado de dataset
@@ -81,6 +81,6 @@ Vault não usa mais dataset de comentários. `POST /api/vault/scan` cria winners
 Nao rodar automaticamente. Com autorizacao explicita:
 
 1. Uma chave + um perfil de teste.
-2. Saldo no painel BD antes/depois.
-3. Um dataset por vez se necessario.
+2. Uso no painel Apify antes/depois.
+3. Um actor por vez se necessario.
 4. Atualizar `CREDIT_USAGE.md` com a medicao.

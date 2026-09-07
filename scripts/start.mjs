@@ -34,6 +34,15 @@ function requireDatabaseEnvironment() {
   if (missing.length > 0) {
     throw new Error(`Missing required database environment variable(s): ${missing.join(", ")}`);
   }
+  // Supabase-only rígido (2026-09-07): file:/SQLite removido, sem exceção.
+  for (const key of ["DATABASE_URL", "DIRECT_URL"]) {
+    const value = String(process.env[key] ?? "").trim();
+    if (!value.startsWith("postgresql://")) {
+      throw new Error(
+        `Supabase-only: ${key} deve ser postgresql:// do Supabase. Banco local (file:/SQLite) foi removido.`,
+      );
+    }
+  }
 }
 
 function runPrisma(args) {

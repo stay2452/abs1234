@@ -99,7 +99,7 @@ async function readProgressStream(
     } else if (event.type === "progress") {
       if (event.event.type === "started") {
         onMessage(
-          `Coleta preparada: ${event.event.profilesAttempted} perfil(is), ${event.event.datasetsTotal} etapa(s). A Bright Data esta processando...`,
+          `Coleta preparada: ${event.event.profilesAttempted} perfil(is), ${event.event.datasetsTotal} etapa(s). A Apify esta processando...`,
         );
       } else {
         const label = datasetLabel(event.event.datasetId, event.event.platform);
@@ -316,7 +316,7 @@ export function ImportProfilesForm() {
       const confirmed = window.confirm(
         `Importar COM API — ${validCount} perfil(is).\n\n` +
           `• Cadastro local dos @ (sem credito)\n` +
-          `• Depois coleta Bright Data em ${batchCount} lote(s) de ate ${MASS_IMPORT_SCRAPE_CHUNK}\n` +
+          `• Depois coleta Apify em ${batchCount} lote(s) de ate ${MASS_IMPORT_SCRAPE_CHUNK}\n` +
           `• Tempo maximo ~${formatMaxDurationLabel(validCount)}\n` +
           `• Ate ~${estCredits} registros se todos os datasets responderem\n` +
           `• Free tier: 5k creditos/conta/mes\n\n` +
@@ -329,7 +329,7 @@ export function ImportProfilesForm() {
 
     if (mode === "register" && validCount >= 100) {
       const confirmed = window.confirm(
-        `So cadastrar ${validCount} @ no tracker (SEM API / SEM credito Bright Data).\n\n` +
+        `So cadastrar ${validCount} @ no tracker (SEM API / SEM credito Apify).\n\n` +
           `Os perfis entram so com handle/URL. Voce pode coletar dados depois na biblioteca.\n\n` +
           `Continuar?`,
       );
@@ -375,7 +375,7 @@ export function ImportProfilesForm() {
 
       const elapsedRegister = formatElapsed(Date.now() - runStartedAt);
 
-      // Só @ — sem Bright Data
+      // Só @ — sem Apify
       if (mode === "register") {
         setMessage(
           `${payload.created} criados, ${payload.updated} reativados/atualizados ` +
@@ -508,10 +508,10 @@ export function ImportProfilesForm() {
           <li>
             <strong>So cadastrar @</strong> — grava ate{" "}
             <strong>{MAX_IMPORT_PROFILES}</strong> handles no tracker.{" "}
-            <em>Sem Bright Data, sem credito.</em> Ideal para montar a lista rapido.
+            <em>Sem Apify, sem credito.</em> Ideal para montar a lista rapido.
           </li>
           <li>
-            <strong>Importar com API</strong> — cadastra os @ e ja roda a coleta Bright Data
+            <strong>Importar com API</strong> — cadastra os @ e ja roda a coleta Apify
             (posts, followers, etc.) em lotes de ate{" "}
             <strong>{MASS_IMPORT_SCRAPE_CHUNK}</strong>.
           </li>
@@ -667,7 +667,7 @@ Ou envie um .csv com handle / url / platform`}
           type="button"
           disabled={!text.trim() || isPending || isSubmitting || overLimit}
           onClick={() => void runImport("register")}
-          title="Grava so os @ no tracker. Nao gasta credito Bright Data."
+          title="Grava so os @ no tracker. Nao gasta credito Apify."
         >
           <Database size={16} />
           {isSubmitting && activeMode === "register"
@@ -681,7 +681,7 @@ Ou envie um .csv com handle / url / platform`}
           type="button"
           disabled={!text.trim() || isPending || isSubmitting || overLimit}
           onClick={() => void runImport("api")}
-          title="Cadastra os @ e roda a coleta Bright Data (gasta credito)."
+          title="Cadastra os @ e roda a coleta Apify (gasta credito)."
         >
           {isSubmitting && activeMode === "api" ? (
             <Upload size={16} />
@@ -712,7 +712,7 @@ Ou envie um .csv com handle / url / platform`}
           {progressDetail ? <p className="message">{progressDetail}</p> : null}
           <p className="meta">
             {activeMode === "register"
-              ? "So grava handle/URL no Supabase. Sem chamada Bright Data."
+              ? "So grava handle/URL no Supabase. Sem chamada Apify."
               : "Nao feche a pagina. Cadastro local ja fica salvo antes da coleta; se um lote falhar, os outros seguem."}
           </p>
         </div>

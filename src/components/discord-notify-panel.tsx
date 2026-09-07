@@ -378,7 +378,7 @@ export function DiscordNotifyPanel({ folders }: { folders: FolderRecord[] }) {
             <h2>Webhooks por canal / servidor</h2>
             <p className="meta ranking-hint">
               Cadastre quantos webhooks quiser (vários servidores e canais). Cada um tem critérios
-              próprios e dedupe separado. Não gasta crédito Bright Data.
+              próprios e dedupe separado. Não gasta crédito Apify.
             </p>
           </div>
           <div className="discord-actions">

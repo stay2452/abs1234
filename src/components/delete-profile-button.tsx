@@ -23,7 +23,7 @@ export function DeleteProfileButton({
 
   async function removeProfile() {
     const confirmed = window.confirm(
-      `Excluir @${handle}?\n\nIsso remove o perfil, o historico de crescimento, posts e metricas salvos localmente. Nao gasta credito Bright Data.`,
+      `Excluir @${handle}?\n\nIsso remove o perfil, o historico de crescimento, posts e metricas salvos localmente. Nao gasta credito Apify.`,
     );
     if (!confirmed) {
       return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckSquare, ExternalLink, Square, Trash2 } from "lucide-react";
 
@@ -24,7 +24,7 @@ export function ErrorProfilesPanel() {
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const fetchErrors = async () => {
+  const fetchErrors = useCallback(async () => {
     setLoading(true);
     setMessage(null);
     try {
@@ -36,11 +36,12 @@ export function ErrorProfilesPanel() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchErrors();
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial intencional (fetch -> setProfiles)
+    void fetchErrors();
+  }, [fetchErrors]);
 
   const toggle = (id: string) => {
     setSelected((prev) => {

@@ -1,7 +1,7 @@
 import type { CollectorSession } from "@prisma/client";
 import { prisma, withDbWriteRetry } from "@/lib/db";
 
-// Apify IG-only — sem Bright Data
+// Apify IG-only — provedor único
 export const FREE_TIER_CREDITS = 1000;
 export type CreditStatus = "has_credit" | "no_credit" | "unknown" | "permission_denied";
 function isInsufficientCreditError(error: string) {
@@ -25,7 +25,7 @@ type UpdateCollectorSessionInput = {
   status?: "active" | "paused";
 };
 
-export type ApiProvider = "brightdata" | "apify";
+export type ApiProvider = "apify";
 
 /** Classificacao principal: credito, nao "boa/ruim" por falha generica. */
 export type SessionHealth = "has_credit" | "no_credit" | "unknown" | "paused";
@@ -87,12 +87,11 @@ export type CollectorSessionTestResult = {
 export type ActiveCollectorSession = CollectorSession;
 
 const API_PROVIDER_LABELS: Record<ApiProvider, string> = {
-  brightdata: "Bright Data",
   apify: "Apify",
 };
 
 function isApiProvider(value: string | null | undefined): value is ApiProvider {
-  return value === "brightdata" || value === "apify";
+  return value === "apify";
 }
 
 function normalizeProvider(provider?: string | null) {
@@ -188,7 +187,7 @@ function formatCreditsLabel(input: {
   }
 
   if (input.monthRecordsUsed > 0) {
-    return `uso local no mes: ${input.monthRecordsUsed.toLocaleString("pt-BR")} registros (saldo BD indisponivel)`;
+    return `uso local no mes: ${input.monthRecordsUsed.toLocaleString("pt-BR")} registros (saldo Apify indisponivel)`;
   }
 
   return "saldo nao consultado";
@@ -403,7 +402,7 @@ export async function listCollectorSessions(): Promise<CollectorSessionsList> {
       const eligible =
         session.status === "active" &&
         Boolean(session.apiKey?.trim()) &&
-        normalizeProvider(session.provider) === "brightdata" &&
+        normalizeProvider(session.provider) !== null &&
         session.creditStatus !== "no_credit";
 
       let queuePosition: number | null = null;
@@ -447,8 +446,8 @@ export async function refreshSessionBalances(sessionId?: string) {
       continue;
     }
 
-    // Apify não usa balance Bright Data — considera com crédito se token existe
-    if (session.provider === "apify") {
+    // Estimativa local Apify — considera com crédito se token existe
+    if (normalizeProvider(session.provider) === "apify") {
       const used = usage.get(session.id) ?? 0;
       const now = new Date();
       const remaining = Math.max(0, 1000 - used); // Apify free ~$5 = ~1k requests, simplificado
@@ -478,13 +477,13 @@ export async function refreshSessionBalances(sessionId?: string) {
       continue;
     }
 
-    // Fallback para sessões legadas Bright Data ainda no DB — marca como sem crédito para forçar migração para Apify
+    // Provedor legado/desconhecido ainda no DB — sem crédito até migrar para token Apify
     const used = usage.get(session.id) ?? 0;
     const now = new Date();
     const creditStatus = "no_credit";
     const creditsRemaining = 0;
     const creditsSource: string | null = "migrated_to_apify";
-    const balanceError = "Sessão Bright Data legada — migre para Apify (token Apify)";
+    const balanceError = "Provedor legado — cadastre um token Apify";
 
     const updated = await prisma.collectorSession.update({
       where: { id: session.id },
@@ -607,7 +606,7 @@ export async function getActiveCollectorSessions(): Promise<ActiveCollectorSessi
   const sessions = await prisma.collectorSession.findMany({
     where: {
       kind: "api",
-      provider: { in: ["brightdata", "apify"] },
+      provider: "apify",
       status: "active",
       apiKey: { not: null },
     },
@@ -761,11 +760,11 @@ export async function testCollectorSession(sessionId: string): Promise<Collector
         url: "local",
         ok: true,
         status: null,
-        detail: "Chave global salva localmente (IG + TikTok).",
+        detail: "Token Apify global salvo localmente (IG-only).",
       },
       {
         label: "Saldo / credito",
-        url: "https://api.brightdata.com/customer/balance",
+        url: "apify-estimate-local",
         ok: result?.creditStatus !== "no_credit",
         status: null,
         detail: result

@@ -18,7 +18,7 @@ type CollectorSessionView = {
   id: string;
   scope: "global";
   name: string;
-  provider: "brightdata" | null;
+  provider: "apify" | null;
   providerLabel: string | null;
   hasApiKey: boolean;
   credentialLabel: string;

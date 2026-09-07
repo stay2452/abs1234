@@ -14,7 +14,7 @@ Importar um perfil Instagram/TikTok para o tracker local **sem copiar URL**, via
 
 - **Não** usa cookies, login nem scrape de métricas na página.
 - Só extrai handle/URL pública e chama o app local.
-- Coleta Bright Data **só** se o usuário marcar “Já coletar dados” no popup (default off).
+- Coleta Apify **só** se o usuário marcar “Já coletar dados” no popup (default off).
 - App pode estar local em `http://127.0.0.1:3000` ou publicado no Render. A URL é configurada no campo **URL do app** do popup e fica salva no `chrome.storage.sync`.
 
 ## Código

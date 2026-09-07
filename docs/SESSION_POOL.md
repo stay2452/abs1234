@@ -1,49 +1,53 @@
-# Pool global de chaves Bright Data
+# Pool global de chaves Apify (IG-only)
 
-Cada sessao e uma **chave API global**. Nao existe mais chave "so Instagram" ou "so TikTok".
-A plataforma e a do **perfil**; a chave autentica a conta Bright Data.
+> Atualizado em 2026-09-07: provedor único Apify. Referência da API em `docs/APIFY_API.md`.
+
+Cada sessão é um **token Apify global**. Não existe chave "só Instagram" ou "só TikTok".
+A plataforma é a do **perfil**; o token autentica a conta Apify. **Modo atual: IG-only** —
+perfis TikTok são pulados com aviso `unsupported_platform` (sem worker, sem retry, sem custo).
 
 ## Estado operacional
 
-- `active`: candidata a worker (se tiver credito).
+- `active`: candidata a worker (se tiver crédito).
 - `paused`: fora dos workers (manual ou auth/conta).
 - Prisma: `platform` fixo em `global` (legado IG/TT migrado automaticamente).
 - Tabela legada: `BrowserSession` (map do model `CollectorSession`).
+- `provider`: `apify` (único). Registros com outro valor ficam `no_credit` em runtime
+  (`creditsSource = migrated_to_apify`) até migrar para token Apify.
 
-## Credito (criterio principal da fila)
+## Crédito (critério principal da fila)
 
-| Estado | Criterio | Worker? |
+| Estado | Critério | Worker? |
 |--------|----------|---------|
-| **com credito** | saldo oficial > 0 **ou** estimativa local > 0 | sim |
-| **sem credito** | saldo 0 / erro de fundos / free 5k do mes esgotado (estimado) | **nao** |
-| **desconhecido** | ainda nao consultado (tratado com estimativa ao listar) | sim se estimado > 0 |
-| **pausada** | `status = paused` | nao |
+| **com crédito** | estimativa local > 0 (`1000 − uso no mês`) | sim |
+| **sem crédito** | estimativa 0 / erro de fundos / conta suspensa | **não** |
+| **desconhecido** | `unknown` sem `balanceCheckedAt` — **não entra** até `Atualizar saldos` | não |
+| **pausada** | `status = paused` | não |
 
-### Como lemos o saldo
+### Como lemos o saldo (Apify)
 
-1. **Oficial:** `GET https://api.brightdata.com/customer/balance`  
-   - Campos: `balance`, `pending_balance` (US$).  
-   - Precisa de **permissao de billing** na API key; chaves so de scraper costumam retornar **403**.  
-   - Conversao de referencia free tier: ~5000 creditos ≈ US$ 7,50.
+1. **Estimativa local** (única fonte):  
+   `creditsRemaining ≈ 1000 − sum(recordsReceived no mês por sessionId)`.  
+   Free Apify ≈ $5 ≈ ~1k requests (simplificado em `FREE_TIER_CREDITS`, `session.ts`).
+2. **Sem balance oficial:** Apify não tem `GET /customer/balance` — `balanceUsd` fica `null`.
+3. **Erro de coleta** com mensagem de crédito/saldo/402/quota: marca `creditStatus = no_credit`.
+4. Sessões com provedor legado ainda no DB são neutralizadas (`no_credit`, sem `deleteMany`).
 
-2. **Estimativa local** (quando 403 ou falha):  
-   `creditsRemaining ≈ 5000 − sum(recordsReceived no mes por sessionId)`.
-
-3. **Erro de coleta** com mensagem de credito/saldo/402: marca `creditStatus = no_credit`.
-
-Botao **Atualizar saldos** em `/settings`. Workers ordenam por **mais credito remanescente**.
+Botão **Atualizar saldos** em `/settings`. Workers ordenam por **mais crédito remanescente**.
 
 ## Workers
 
-- Ate `SCRAPE_MAX_PARALLEL_KEYS` (**20**) chaves **com credito** em paralelo.
-- Cada chave: 1 perfil por vez; adaptador IG ou TT pelo `Profile.platform`.
-- Auth/conta → pausa persistente. Provider → esgota neste run. Transient → so o perfil re-tenta. not_found → nao troca chave.
+- Até `SCRAPE_MAX_PARALLEL_KEYS` (**100**) chaves **com crédito** em paralelo.
+- Cada chave: 1 perfil por vez; só Instagram (`scrapeWithApiSession` — resto vira `unsupported_platform`).
+- Auth/conta → pausa persistente + esgota neste run. Transient/provider → retry do perfil com outra chave. `not_found`/`snapshot_pending` → não troca chave (`snapshot_pending` não re-dispara run pago).
+- Fila UI (`queuePosition`) vale para todo token `apify` com crédito.
 
-## Free tier 5k
+## Free tier Apify (~1k)
 
-- 1 **conta** BD = 5k/mes. Varias chaves da mesma conta = **mesmo** saldo.
-- N contas distintas ≈ N × 5k (e N vezes o gasto se paralelizar).
+- 1 **conta** Apify free ≈ 1k requests/mês (estimativa local, sem API oficial de saldo).
+- N contas distintas ≈ N × 1k (e N vezes o gasto se paralelizar).
+- Cap `all` 200 perfis × 11 ≈ 2200 > 1 conta free — `all` cheio exige **multi-conta** ou `scope profiles` paginado.
 
 ## Cadastro
 
-`/settings`: nome + API key (sem seletor de plataforma). Exibe com/sem credito, label de remanescente, fila #N.
+`/settings`: nome + token Apify (sem seletor de plataforma). Exibe com/sem crédito, label de remanescente, fila #N.

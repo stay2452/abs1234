@@ -1,4 +1,7 @@
-# Pipeline Completa — Migração Bright Data → Apify (IG 3 actors) — Zero Quebra — CORTE TOTAL BD
+# [CONCLUÍDO 2026-09-04] Pipeline Completa — Migração Bright Data → Apify (IG 3 actors) — CORTE TOTAL BD
+
+> ✅ Executado em `7001c72` (corte seco, `tsc 0`, testes ok). Resíduos tratados em 2026-09-07
+> (fila Apify, textos UI, `?token=` → header, docs). Histórico preservado para auditoria.
 
 > **Decisão final:** Bright Data sai 100%. Nenhuma chave BD permanecerá no projeto. **Princípio mantido:** nenhuma linha vai para `main` sem passar por 4 portões (lint → teste → build → review).
 

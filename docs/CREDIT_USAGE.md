@@ -1,63 +1,66 @@
-# Uso de creditos Bright Data
+# Uso de créditos Apify (IG-only)
 
-Referencia de API e free tier: [BRIGHT_DATA_API.md](./BRIGHT_DATA_API.md).  
-Pool e saldo por chave: [SESSION_POOL.md](./SESSION_POOL.md).
+> Atualizado em 2026-09-07: provedor único Apify (free ~1k/conta).
+> Pool e saldo por chave: [SESSION_POOL.md](./SESSION_POOL.md).
 
-## Modelo oficial (conta free)
+## Modelo atual (conta Apify free)
 
-- **5.000 free credits/mes** por conta (Web Scraper API incluso).
-- Cada chave em `/settings` = token de **uma conta**.
-- N chaves so somam `N × 5k` se forem **contas distintas**.
-- Doc free tier: 1 credito por request **ou** record — confirme no painel.
+- **~1k requests/mês** por conta free (estimativa local — Apify não expõe balance oficial).
+- Cada token em `/settings` = **uma conta** Apify.
+- N tokens só somam `N × 1k` se forem **contas distintas**.
+- Medir sempre no painel Apify da conta (console → usage).
 
-## Quando gasta credito (dataset scrape)
+## Quando gasta crédito (actor run)
 
-| Acao | Gasta? |
+| Ação | Gasta? |
 |------|--------|
-| Importar + coleta dos IDs novos | sim (apos cadastro local) |
-| **Atualizar biblioteca** / atualizar perfil | sim |
-| Abrir paginas, rankings, detalhe | nao |
-| Atualizar saldos (`/customer/balance`) | nao e coleta de dataset; account management |
-| Testes automatizados | nao (sem rede real) |
+| Importar + coleta dos IDs novos | sim (após cadastro local) |
+| **Atualizar biblioteca** / atualizar perfil | sim (3 actors IG por perfil) |
+| Abrir páginas, rankings, detalhe | não |
+| Atualizar saldos (estimativa local) | não é run de actor |
+| Testes automatizados | não (sem rede real) |
+| Perfis TikTok no run | **não** — pulados com `unsupported_platform` |
 
 ## Guardas de custo
 
-- Escopo explicito; import ate 500; lotes de coleta 20.
-- Anti-recoleta 30 min.
-- IG: 3 requests com teto 5+5 no body. TT: 2 requests, 10 videos.
-- Workers so usam chaves **com credito**; sem credito sai da fila.
-- Auth/conta pausam; `not_found` nao gasta as outras chaves em loop.
-- Paralelismo (ate 20 chaves) acelera e **multiplica gasto** entre contas.
+- Escopo explícito; import até 500; lotes de coleta 20; cap `all` 200.
+- Anti-recoleta 30 min (`max(snapshotAt, lastPostsScrapeAt)`).
+- IG: 3 actors com teto 5+5 no input. Pre-flight `perfis × 11 > saldo` aborta antes de começar.
+- Workers só usam chaves **com crédito**; sem crédito sai da fila.
+- Auth/conta pausam; `not_found`/`snapshot_pending`/`unsupported_platform` não gastam as outras chaves em loop.
+- Paralelismo (até 100 chaves) acelera e **multiplica gasto** entre contas.
 
 ## Teto de records (planejamento)
 
 | Plataforma | Pior caso "cheio" por perfil |
 |------------|------------------------------|
 | Instagram | 1 + 5 + 5 ≈ **11** |
-| TikTok | 1 + 10 ≈ **11** |
+| TikTok | pausado (0 — pulado sem custo) |
 
-`estimatedCredits` no app = `recordsReceived` (registros entregues — a BD cobra por registro; antes usava `requestsMade`, que subestimava ~3.6x). **Nao** e a fatura BD.
+`estimatedCredits` no app = `recordsReceived` (proxy operacional). **Não** é a fatura Apify.
 
 ## Vault (sem IA desde 2026-09-01)
 
-Vault não gasta crédito desde 2026-09-01 — IA e dataset de comentários (`gd_ltppn085pokosxh13`) foram removidos. `POST /api/vault/scan` é local (outlier 6x6) e `PatternVaultEntry` já é winner direto. Ver histórico em `DECISIONS.md`.
+Vault não gasta crédito desde 2026-09-01 — IA e dataset de comentários foram removidos.
+`POST /api/vault/scan` é local (outlier 6x6) e `PatternVaultEntry` já é winner direto.
+Ver histórico em `DECISIONS.md`.
 
 ## Estimativa de saldo na UI
 
 | Fonte | Como |
 |-------|------|
-| Oficial | `GET /customer/balance` → US$ e ~creditos (se a chave tiver permissao) |
-| Local | `5000 − registros recebidos no mes por sessionId` |
-| Coleta | Erro de fundos/402 → marca sem credito |
+| Local (única) | `1000 − registros recebidos no mês por sessionId` |
+| Coleta | Erro de fundos/quota/402 → marca sem crédito |
+| Legado BD | `migrated_to_apify` → `no_credit` forçado |
 
 ## Capacidade free (ordem de grandeza)
 
-Com C ≈ 11 e 25% reserva: ~**340 perfis/mes** por conta free em 1 atualizacao/mes.  
-Ver tabela em [BRIGHT_DATA_CAPACITY.md](./BRIGHT_DATA_CAPACITY.md).
+Com C ≈ 11 e 25% reserva: ~**68 perfis/mês** por conta free Apify em 1 atualização/mês
+(`1000 × 0,75 / 11`). Na prática: pool multi-conta (ex. 73 tokens → ~5k perfis/mês).
 
 ## Checklist
 
-1. **Atualizar saldos** em `/settings`; priorizar contas com credito.
-2. Nao forcar recoleta sem necessidade.
-3. Preferir "Atualizar biblioteca" (respeita 30 min).
-4. Comparar `recordsReceived` com o painel BD da conta.
+1. **Atualizar saldos** em `/settings`; priorizar contas com crédito.
+2. Não forçar recoleta sem necessidade (`force` exige `X-Confirm-Force: 1`).
+3. Preferir "Atualizar biblioteca" (respeita 30 min + cap 200).
+4. Comparar `recordsReceived` com o painel Apify da conta.

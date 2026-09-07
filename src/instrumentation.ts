@@ -1,7 +1,7 @@
 /**
  * Roda automaticamente quando o servidor Next.js inicia (dev e prod).
  * Garante que runs zumbis sejam limpos sem ação manual do usuário.
- * Ver docs/PLAN_FIX_AUDITORIA.md — P0
+ * Ver docs/archive/PLAN_FIX_AUDITORIA.md — P0 (histórico)
  */
 export async function register() {
   // Só no servidor Node.js, não no Edge

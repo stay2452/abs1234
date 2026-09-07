@@ -110,7 +110,7 @@ async function repairProfile(
 /**
  * Repara somente Reels IG e videos TikTok com metricas nulas. Grade fica fora:
  * fotos/carrosseis nao possuem view count publico e nao devem gerar custo.
- * A Bright Data devolve apenas os 5/10 conteudos recentes, portanto videos antigos
+ * A Apify devolve apenas os 5/10 conteudos recentes, portanto videos antigos
  * fora dessa janela permanecem indisponiveis ate terem metrica em coleta futura.
  */
 export async function repairMissingPostMetrics(
