@@ -20,8 +20,9 @@ export async function OPTIONS(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
 
-  // So admin logado ou token da extensao/operador. Fecha o legado "aberto sem token".
-  if (!(await isApiAllowed(request, "admin"))) {
+  // Biblioteca pessoal: logado coleta so os proprios perfis (admin/token = todos).
+  // O filtro por dono esta em runScrape({ ownerId }).
+  if (!(await isApiAllowed(request))) {
     return withCors(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), origin);
   }
 

@@ -1565,13 +1565,13 @@ tr:last-child td {
 }
 
 .import-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .import-actions .button {
-  width: 100%;
+  flex: 1 1 220px;
   justify-content: center;
 }
 
@@ -1598,12 +1598,6 @@ tr:last-child td {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-@media (max-width: 640px) {
-  .import-actions {
-    grid-template-columns: 1fr;
-  }
 }
 
 .import-progress {
