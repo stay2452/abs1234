@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { analyzeOutlier } from "@/lib/research/outlier";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,11 @@ const createSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
+  // Leitura do vault: qualquer logado.
+  const guard = await apiGuard(request);
+  if (guard) {
+    return guard;
+  }
   const url = new URL(request.url);
   const creatorId = url.searchParams.get("creatorId");
   const isOutlier = url.searchParams.get("isOutlier");
@@ -36,6 +42,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Escrita no vault: so admin.
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const body = await request.json().catch(() => null);
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Dados inválidos", details: parsed.error.flatten() }, { status: 400 });

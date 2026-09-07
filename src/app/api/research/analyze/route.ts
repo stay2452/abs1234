@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { analyzeOutlier } from "@/lib/research/outlier";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,11 @@ export const dynamic = "force-dynamic";
 const schema = z.object({ postId: z.string().min(1) });
 
 export async function POST(request: NextRequest) {
+  // Analise local: qualquer logado.
+  const guard = await apiGuard(request);
+  if (guard) {
+    return guard;
+  }
   const body = await request.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "postId obrigatório" }, { status: 400 });

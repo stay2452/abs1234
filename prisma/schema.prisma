@@ -33,6 +33,23 @@ model Profile {
   @@index([platform, status])
 }
 
+/// Usuarios do app (parte 1 do modo prod, 2026-09-08): cadastro + login proprios.
+/// `role`: "admin" (tudo, inclui coleta Apify) ou "user" (leitura + organizacao).
+/// A primeira conta criada vira admin automaticamente. Senha sempre em hash
+/// (scrypt) via src/lib/auth.ts — nunca texto aberto no banco.
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("user")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([role])
+}
+
 /// Pastas do usuario para agrupar perfis e comparar.
 model Folder {
   id          String          @id @default(cuid())

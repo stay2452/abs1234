@@ -3,14 +3,16 @@ import { prisma } from "@/lib/db";
 import { getActiveCollectorSessions } from "@/lib/scrapers/session";
 import { shouldScrapeProfile } from "@/lib/scrapers";
 import { ESTIMATED_CREDITS_PER_PROFILE, MAX_SCRAPE_ALL_PROFILES } from "@/lib/constants";
-import { isAuthorizedByToken } from "@/lib/access-token";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorizedByToken(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Qualquer logado ou token da extensao/operador.
+  const guard = await apiGuard(request);
+  if (guard) {
+    return guard;
   }
 
   const url = new URL(request.url);

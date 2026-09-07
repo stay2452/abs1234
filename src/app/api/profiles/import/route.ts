@@ -6,6 +6,7 @@ import {
   PLATFORMS,
 } from "@/lib/constants";
 import { prisma } from "@/lib/db";
+import { apiGuard } from "@/lib/auth";
 import { optionsCors, withCors } from "@/lib/extension-cors";
 import { parseProfileImport } from "@/lib/profile-url";
 
@@ -23,6 +24,11 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
+  // Cadastro em lote: so admin ou token da extensao (que so importa handle/URL).
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return withCors(guard, origin);
+  }
   const parsedBody = importSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsedBody.success) {

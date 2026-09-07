@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  // Detalhe de run (telemetria): so admin.
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const { id } = await context.params;
   const run = await prisma.scrapeRun.findUnique({
     where: { id },

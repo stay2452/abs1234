@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FileSearch } from "lucide-react";
+import { AdminGate } from "@/components/admin-gate";
 import { prisma } from "@/lib/db";
 import { formatDate, formatNumber } from "@/lib/format";
 import { formatDurationSeconds } from "@/lib/scrape-eta";
@@ -24,7 +25,8 @@ export default async function HistoryPage() {
   });
 
   return (
-    <main className="page history-page">
+    <AdminGate>
+      <main className="page history-page">
       <div className="page-header">
         <div>
           <p className="eyebrow">Auditoria</p>
@@ -79,6 +81,7 @@ export default async function HistoryPage() {
           {runs.length === 0 ? <div className="empty-state">Nenhuma coleta registrada.</div> : null}
         </div>
       </section>
-    </main>
+      </main>
+    </AdminGate>
   );
 }

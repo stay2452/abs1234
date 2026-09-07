@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { testDiscordWebhookById } from "@/lib/discord-notify";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,11 @@ export async function POST(
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
+  // Teste de webhook: so admin.
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ error: "Dados invalidos." }, { status: 400 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { analyzeOutlier } from "@/lib/research/outlier";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +10,11 @@ export const dynamic = "force-dynamic";
 const schema = z.object({ creatorId: z.string().min(1) });
 
 export async function POST(request: NextRequest) {
+  // Scan grava winners: so admin.
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const url = new URL(request.url);
   const wantStream = url.searchParams.get("stream") === "1";
   const body = await request.json().catch(() => null);

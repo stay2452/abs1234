@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { apiGuard } from "@/lib/auth";
 import {
   deleteFolder,
   FOLDER_COLORS,
@@ -24,9 +25,14 @@ const membershipSchema = z.object({
 });
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  // Pastas (organizacao): qualquer logado.
+  const guard = await apiGuard(request);
+  if (guard) {
+    return guard;
+  }
   const { id } = await context.params;
   const folder = await prisma.folder.findUnique({
     where: { id },
@@ -67,6 +73,11 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
+  // Pastas (organizacao): qualquer logado.
+  const guard = await apiGuard(request);
+  if (guard) {
+    return guard;
+  }
   const body = await request.json().catch(() => null);
 
   // Membership: { profileId, present }
@@ -124,9 +135,14 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  // Pastas (organizacao): qualquer logado.
+  const guard = await apiGuard(request);
+  if (guard) {
+    return guard;
+  }
   const { id } = await context.params;
   try {
     await deleteFolder(id);

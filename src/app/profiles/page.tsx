@@ -3,6 +3,7 @@ import { ImportProfilesForm } from "@/components/import-profiles-form";
 import { ProfilesTable, type ProfileTableItem } from "@/components/profiles-table";
 import { RunScrapeButton } from "@/components/run-scrape-button";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { listFolders } from "@/lib/folders";
 import { toNumber } from "@/lib/format";
 import { rankProfiles } from "@/lib/rankings";
@@ -55,6 +56,9 @@ async function getProfiles() {
 
 export default async function ProfilesPage() {
   const [profiles, folders] = await Promise.all([getProfiles(), listFolders()]);
+  // Cadastro e coleta: so admin (API tambem tranca).
+  const user = await getCurrentUser();
+  const isAdmin = user?.role === "admin";
 
   return (
     <main className="page">
@@ -68,21 +72,23 @@ export default async function ProfilesPage() {
           </p>
         </div>
         <div className="page-header-actions">
-          <RunScrapeButton mode="library" profileCount={profiles.length} />
+          {isAdmin ? <RunScrapeButton mode="library" profileCount={profiles.length} /> : null}
         </div>
       </div>
 
       <div className="profiles-layout">
         <ProfilesTable profiles={profiles} folders={folders} />
         <div className="profiles-sidebar">
-          <aside className="panel">
-            <p className="eyebrow">Cadastro</p>
-            <h2>Importar perfis</h2>
-            <p className="lede" style={{ marginTop: 0 }}>
-              Cadastro local + coleta limitada. Depois, abra o perfil e coloque-o nas pastas.
-            </p>
-            <ImportProfilesForm />
-          </aside>
+          {isAdmin ? (
+            <aside className="panel">
+              <p className="eyebrow">Cadastro</p>
+              <h2>Importar perfis</h2>
+              <p className="lede" style={{ marginTop: 0 }}>
+                Cadastro local + coleta limitada. Depois, abra o perfil e coloque-o nas pastas.
+              </p>
+              <ImportProfilesForm />
+            </aside>
+          ) : null}
           <FoldersManager initialFolders={folders} />
         </div>
       </div>

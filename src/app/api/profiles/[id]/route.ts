@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { PROFILE_STATUS } from "@/lib/constants";
 import { prisma } from "@/lib/db";
+import { apiGuard } from "@/lib/auth";
 import { setProfileFolders } from "@/lib/folders";
 
 export const runtime = "nodejs";
@@ -19,6 +20,11 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
+  // Organizacao (pastas/notas): qualquer logado.
+  const guard = await apiGuard(request);
+  if (guard) {
+    return guard;
+  }
   const parsedBody = updateProfileSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsedBody.success) {
@@ -88,9 +94,14 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  // Apaga perfil + biblioteca: so admin.
+  const deleteGuard = await apiGuard(request, "admin");
+  if (deleteGuard) {
+    return deleteGuard;
+  }
   const { id } = await context.params;
 
   try {

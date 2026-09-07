@@ -1,10 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Auditoria (inclui creditos): so admin.
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   try {
     const { reconcileZombieRuns } = await import("@/lib/scrape-reconcile");
     await reconcileZombieRuns();

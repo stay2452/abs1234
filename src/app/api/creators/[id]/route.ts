@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +11,12 @@ const patchSchema = z.object({
   notes: z.string().max(500).optional().nullable(),
 });
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  // Leitura: qualquer logado.
+  const guard = await apiGuard(req);
+  if (guard) {
+    return guard;
+  }
   const { id } = await ctx.params;
   const creator = await prisma.creator.findUnique({
     where: { id },
@@ -25,6 +31,11 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 }
 
 export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  // Escrita: so admin.
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const { id } = await ctx.params;
   const body = await request.json().catch(() => null);
   const parsed = patchSchema.safeParse(body);
@@ -39,7 +50,12 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   return NextResponse.json({ creator: updated });
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  // Escrita: so admin.
+  const guard = await apiGuard(req, "admin");
+  if (guard) {
+    return guard;
+  }
   const { id } = await ctx.params;
   await prisma.creator.delete({ where: { id } });
   return NextResponse.json({ deleted: true });

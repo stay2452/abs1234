@@ -2529,3 +2529,61 @@ tr:last-child td {
     display: none;
   }
 }
+
+/* —— Auth (login/cadastro) + usuario no menu —— */
+.auth-page {
+  display: flex;
+  justify-content: center;
+  padding-top: 8vh;
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-card h1 {
+  margin: 0;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.auth-error {
+  color: #f87171;
+  font-size: 14px;
+  margin: 0;
+}
+
+.user-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.user-box .user-name {
+  font-size: 14px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.user-box .nav-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}

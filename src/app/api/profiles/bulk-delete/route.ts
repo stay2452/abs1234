@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +11,11 @@ const bulkDeleteSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // Apaga biblioteca: so admin.
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const body = await request.json().catch(() => null);
   const parsed = bulkDeleteSchema.safeParse(body);
 

@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  // Leitura: qualquer logado.
+  const guard = await apiGuard(req);
+  if (guard) {
+    return guard;
+  }
   const { id } = await ctx.params;
 
   const [direct, viaFolders] = await Promise.all([

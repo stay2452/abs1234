@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { runScrape } from "@/lib/scrapers";
 import { parseScrapeRunRequest } from "@/lib/scrapers/scope";
 import { hasActiveRunningRun, reconcileZombieRuns } from "@/lib/scrape-reconcile";
-import { isAuthorizedByToken } from "@/lib/access-token";
+import { isApiAllowed } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +20,8 @@ export async function OPTIONS(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
 
-  if (!isAuthorizedByToken(request)) {
+  // So admin logado ou token da extensao/operador. Fecha o legado "aberto sem token".
+  if (!(await isApiAllowed(request, "admin"))) {
     return withCors(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), origin);
   }
 

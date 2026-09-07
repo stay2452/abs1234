@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { apiGuard } from "@/lib/auth";
 import {
   createCollectorSession,
   deleteCollectorSession,
@@ -42,11 +43,20 @@ const sessionSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Chaves Apify: so admin.
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   return NextResponse.json(await listCollectorSessions());
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const parsedBody = sessionSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsedBody.success) {

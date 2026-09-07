@@ -1,13 +1,8 @@
 /**
- * Protecao OPT-IN para endpoints que gastam credito Apify
- * (scrape/run, scrape/estimate, metrics/repair).
- *
- * Se a variavel de ambiente `API_ACCESS_TOKEN` estiver definida, exige
- * `Authorization: Bearer <token>` ou `?token=<token>`. Sem a variavel,
- * o endpoint permanece aberto — compatibilidade com a extensao e uso local.
- *
- * Para ativar em producao: defina API_ACCESS_TOKEN no Render e cadastre o
- * mesmo token na extensao (chrome.storage.sync.apiToken).
+ * LEGADO (2026-09-08): supersedido por `hasValidApiToken`/`apiGuard` em
+ * `src/lib/auth.ts`. Nenhuma rota usa mais `isAuthorizedByToken` — com contas
+ * de usuario ativas, "sem variavel = aberto" acabou (ver CRITICAL_RULES.md).
+ * Mantido para referencia da extensao; remover quando a extensao migrar.
  */
 export function isAuthorizedByToken(request: Request) {
   const token = process.env.API_ACCESS_TOKEN?.trim();

@@ -12,6 +12,7 @@ import {
 } from "@/lib/constants";
 import { prisma } from "@/lib/db";
 import { getPeriodCutoff, rankPosts, rankProfiles } from "@/lib/rankings";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -228,6 +229,11 @@ async function getPostsForRanking(
 }
 
 export async function GET(request: NextRequest) {
+  // Rankings: qualquer logado.
+  const guard = await apiGuard(request);
+  if (guard) {
+    return guard;
+  }
   const searchParams = request.nextUrl.searchParams;
   const type = searchParams.get("type") === "profiles" ? "profiles" : "posts";
   const platformParam = searchParams.get("platform");

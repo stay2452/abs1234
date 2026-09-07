@@ -4,6 +4,7 @@ import { RankingPanel } from "@/components/ranking-panel";
 import { RepairMissingMetricsButton } from "@/components/repair-missing-metrics-button";
 import { RunScrapeButton } from "@/components/run-scrape-button";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { formatDate, formatNumber, formatSigned } from "@/lib/format";
 import { rankProfiles } from "@/lib/rankings";
 
@@ -38,6 +39,9 @@ async function getDashboardData() {
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
+  // Botoes que gastam Apify so aparecem para admin (API tambem tranca).
+  const user = await getCurrentUser();
+  const isAdmin = user?.role === "admin";
 
   return (
     <main className="page">
@@ -51,7 +55,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="page-header-actions">
-          <RunScrapeButton mode="library" profileCount={data.profileCount} />
+          {isAdmin ? <RunScrapeButton mode="library" profileCount={data.profileCount} /> : null}
         </div>
       </div>
 
@@ -97,7 +101,7 @@ export default async function DashboardPage() {
       <div className="dashboard-main">
         <RankingPanel />
         <aside className="dashboard-aside-stack">
-          <RepairMissingMetricsButton />
+          {isAdmin ? <RepairMissingMetricsButton /> : null}
           <div className="panel dashboard-aside">
           <p className="eyebrow">Última atualização</p>
           <h2 className="dashboard-aside-title">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createFolder, FOLDER_COLORS, listFolders } from "@/lib/folders";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,12 +12,21 @@ const createSchema = z.object({
   description: z.string().max(240).nullable().optional(),
 });
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Pastas (organizacao): qualquer logado.
+  const guard = await apiGuard(request);
+  if (guard) {
+    return guard;
+  }
   const folders = await listFolders();
   return NextResponse.json({ folders });
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await apiGuard(request);
+  if (guard) {
+    return guard;
+  }
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Dados invalidos para criar pasta." }, { status: 400 });

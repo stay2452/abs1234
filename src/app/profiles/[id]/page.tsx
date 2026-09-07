@@ -7,6 +7,7 @@ import { ProfileEditor } from "@/components/profile-editor";
 import { RunScrapeButton } from "@/components/run-scrape-button";
 import { PLATFORM_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { formatDate, formatNumber, toNumber } from "@/lib/format";
 import { cleanInstagramCaption } from "@/lib/instagram-caption";
 import { listFolders } from "@/lib/folders";
@@ -19,6 +20,9 @@ export default async function ProfileDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  // Coleta e delete: so admin (API tambem tranca). Edicao/organizacao: qualquer logado.
+  const user = await getCurrentUser();
+  const isAdmin = user?.role === "admin";
   const [profile, catalog] = await Promise.all([
     prisma.profile.findUnique({
       where: { id },
@@ -181,24 +185,28 @@ export default async function ProfileDetailPage({
             <ExternalLink size={16} />
             Abrir perfil
           </a>
-          <DeleteProfileButton
-            id={profile.id}
-            handle={profile.handle}
-            compact
-            redirectTo="/profiles"
-          />
+          {isAdmin ? (
+            <DeleteProfileButton
+              id={profile.id}
+              handle={profile.handle}
+              compact
+              redirectTo="/profiles"
+            />
+          ) : null}
         </div>
       </div>
 
-      <section className="panel" style={{ marginBottom: 16 }}>
-        <p className="eyebrow">Coleta individual</p>
-        <h2>Atualizar @{profile.handle}</h2>
-        <RunScrapeButton
-          profileId={profile.id}
-          handle={profile.handle}
-          platform={profile.platform as "instagram" | "tiktok"}
-        />
-      </section>
+      {isAdmin ? (
+        <section className="panel" style={{ marginBottom: 16 }}>
+          <p className="eyebrow">Coleta individual</p>
+          <h2>Atualizar @{profile.handle}</h2>
+          <RunScrapeButton
+            profileId={profile.id}
+            handle={profile.handle}
+            platform={profile.platform as "instagram" | "tiktok"}
+          />
+        </section>
+      ) : null}
 
       <section className={`grid ${isTikTok ? "four" : "three"}`}>
         {isTikTok ? (

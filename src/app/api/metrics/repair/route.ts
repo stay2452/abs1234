@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { optionsCors, withCors } from "@/lib/extension-cors";
-import { isAuthorizedByToken } from "@/lib/access-token";
+import { isApiAllowed } from "@/lib/auth";
 import {
   REPAIRABLE_POST_METRICS,
   repairMissingPostMetrics,
@@ -30,7 +30,8 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
-  if (!isAuthorizedByToken(request)) {
+  // Reparo gasta Apify: so admin logado ou token da extensao/operador.
+  if (!(await isApiAllowed(request, "admin"))) {
     return withCors(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), origin);
   }
   if (globalForRepair.activeMetricsRepair) {

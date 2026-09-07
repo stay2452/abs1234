@@ -9,6 +9,7 @@ import {
   createDiscordWebhook,
   listDiscordWebhooks,
 } from "@/lib/discord-notify";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,12 +30,21 @@ const createSchema = z.object({
   skipAlreadySent: z.boolean().optional(),
 });
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Webhooks (URLs sensiveis): so admin.
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const webhooks = await listDiscordWebhooks();
   return NextResponse.json({ webhooks });
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const parsed = createSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ error: "Dados invalidos." }, { status: 400 });

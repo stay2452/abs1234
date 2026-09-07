@@ -1,6 +1,6 @@
 # Arquitetura
 
-App Next.js hospedado no Render com PostgreSQL gerenciado pelo Supabase para catalogar perfis de Instagram e TikTok, acumular biblioteca de conteudos (Grade/Reels/Videos) sem duplicar, acompanhar crescimento e rankings. Sem autenticacao propria e sem navegador automatizado: coleta externa so via **Apify Actors API (IG-only)**. Extensao Chrome/Edge opcional em `extension/` so importa handle/URL (ver `docs/EXTENSION.md`).
+App Next.js hospedado no Render com PostgreSQL gerenciado pelo Supabase para catalogar perfis de Instagram e TikTok, acumular biblioteca de conteudos (Grade/Reels/Videos) sem duplicar, acompanhar crescimento e rankings. Com autenticacao propria desde 2026-09-08 (cadastro + login, papeis `admin`/`user`, primeira conta vira admin) e sem navegador automatizado: coleta externa so via **Apify Actors API (IG-only)**. Extensao Chrome/Edge opcional em `extension/` so importa handle/URL (ver `docs/EXTENSION.md`).
 
 ## Stack
 

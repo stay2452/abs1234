@@ -10,6 +10,7 @@ import {
   getDiscordWebhook,
   updateDiscordWebhook,
 } from "@/lib/discord-notify";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,9 +32,14 @@ const updateSchema = z.object({
 });
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  // Webhooks (URLs sensiveis): so admin.
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const { id } = await context.params;
   const webhook = await getDiscordWebhook(id);
   if (!webhook) {
@@ -46,6 +52,10 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const { id } = await context.params;
   const parsed = updateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -64,9 +74,13 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const { id } = await context.params;
   try {
     const result = await deleteDiscordWebhook(id);

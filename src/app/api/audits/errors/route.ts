@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { getErrorProfilesFromLastRuns } from "@/lib/audit-errors";
+import { apiGuard } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  // Auditoria de erros: so admin.
+  const guard = await apiGuard(request, "admin");
+  if (guard) {
+    return guard;
+  }
   const url = new URL(request.url);
   const lastRuns = Math.max(1, Math.min(10, parseInt(url.searchParams.get("lastRuns") ?? "5", 10) || 5));
   const platform = url.searchParams.get("platform") ?? "all";
