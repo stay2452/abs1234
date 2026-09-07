@@ -10,6 +10,7 @@ import {
 function profileWithSnapshot(capturedAt?: Date, lastPostsScrapeAt?: Date | null) {
   return {
     id: "profile-1",
+    ownerId: "user-1",
     platform: "instagram",
     handle: "perfil",
     url: "https://www.instagram.com/perfil/",

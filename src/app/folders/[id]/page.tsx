@@ -6,6 +6,7 @@ import { RunScrapeButton } from "@/components/run-scrape-button";
 import { PLATFORM_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { canAccessOwner } from "@/lib/ownership";
 import { toNumber } from "@/lib/format";
 import { rankProfiles } from "@/lib/rankings";
 
@@ -17,9 +18,8 @@ export default async function FolderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // Coleta da pasta gasta Apify: so admin (API tambem tranca).
+  // Coleta da pasta gasta Apify: API tranca por dono (admin = todos).
   const user = await getCurrentUser();
-  const isAdmin = user?.role === "admin";
 
   const folder = await prisma.folder.findUnique({
     where: { id },
@@ -47,6 +47,10 @@ export default async function FolderDetailPage({
   });
 
   if (!folder) {
+    notFound();
+  }
+  // Pasta alheia: 404 igual a inexistente.
+  if (!canAccessOwner(user, folder.ownerId)) {
     notFound();
   }
 
@@ -119,15 +123,13 @@ export default async function FolderDetailPage({
           <p className="meta">{compareRows.length} perfil(is) · comparação local (sem Apify)</p>
         </div>
         <div className="toolbar">
-          {isAdmin ? (
-            <RunScrapeButton
-              compact
-              mode="folder"
-              folderName={folder.name}
-              profileIds={activeProfileIds}
-              profileCount={activeProfileIds.length}
-            />
-          ) : null}
+          <RunScrapeButton
+            compact
+            mode="folder"
+            folderName={folder.name}
+            profileIds={activeProfileIds}
+            profileCount={activeProfileIds.length}
+          />
           <Link className="button secondary" href="/folders">
             <ArrowLeft size={16} />
             Todas as pastas

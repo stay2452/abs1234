@@ -12,7 +12,8 @@ import {
 } from "@/lib/constants";
 import { prisma } from "@/lib/db";
 import { getPeriodCutoff, rankPosts, rankProfiles } from "@/lib/rankings";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, getRequestUser } from "@/lib/auth";
+import { canAccessOwner } from "@/lib/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,8 +58,13 @@ async function getProfilesForRanking(
   platform: Platform | "all",
   cutoff: Date | null,
   folderId: string | null,
+  ownerId?: string,
 ) {
   const conditions = [Prisma.sql`p."status" = 'active'`, Prisma.sql`ps."followers" IS NOT NULL`];
+  // Biblioteca pessoal: ranking so dos proprios perfis (admin = todos).
+  if (ownerId) {
+    conditions.push(Prisma.sql`p."ownerId" = ${ownerId}`);
+  }
   if (platform !== "all") {
     conditions.push(Prisma.sql`p."platform" = ${platform}`);
   }
@@ -156,11 +162,16 @@ async function getPostsForRanking(
   platform: Platform | "all",
   cutoff: Date | null,
   folderId: string | null,
+  ownerId?: string,
 ) {
   // Periodo do ranking de posts = data REAL de publicacao (publishedAt),
   // nao a data em que o scrape salvou o snapshot (capturedAt).
   // Metricas usam o snapshot mais recente do post.
   const conditions = [Prisma.sql`p."status" = 'active'`];
+  // Biblioteca pessoal: ranking so dos proprios posts (admin = todos).
+  if (ownerId) {
+    conditions.push(Prisma.sql`p."ownerId" = ${ownerId}`);
+  }
   if (platform !== "all") {
     conditions.push(Prisma.sql`post."platform" = ${platform}`);
   }
@@ -229,11 +240,13 @@ async function getPostsForRanking(
 }
 
 export async function GET(request: NextRequest) {
-  // Rankings: qualquer logado.
+  // Rankings: qualquer logado, mas so da propria biblioteca (admin = todas).
   const guard = await apiGuard(request);
   if (guard) {
     return guard;
   }
+  const viewer = await getRequestUser(request);
+  const ownerId = viewer && viewer.role !== "admin" ? viewer.id : undefined;
   const searchParams = request.nextUrl.searchParams;
   const type = searchParams.get("type") === "profiles" ? "profiles" : "posts";
   const platformParam = searchParams.get("platform");
@@ -245,6 +258,15 @@ export async function GET(request: NextRequest) {
   const limit = pickLimit(searchParams.get("limit"));
   const folderIdRaw = searchParams.get("folderId")?.trim() || null;
   const folderId = folderIdRaw && folderIdRaw !== "all" ? folderIdRaw : null;
+  // Pasta alheia nao entra no ranking (responde 404 igual).
+  if (folderId && ownerId) {
+    const folder = await prisma.folder
+      .findUnique({ where: { id: folderId }, select: { ownerId: true } })
+      .catch(() => null);
+    if (!folder || !canAccessOwner(viewer, folder.ownerId)) {
+      return NextResponse.json({ error: "Pasta nao encontrada." }, { status: 404 });
+    }
+  }
   const now = new Date();
   const cutoff = getPeriodCutoff(period, now);
 
@@ -254,7 +276,7 @@ export async function GET(request: NextRequest) {
       PROFILE_METRICS,
       "followers_absolute",
     ) as ProfileMetric;
-    const profiles = await getProfilesForRanking(platform, cutoff, folderId);
+    const profiles = await getProfilesForRanking(platform, cutoff, folderId, ownerId);
     const folderMap = await getFoldersByProfileIds(profiles.map((profile) => profile.id));
     const profilesWithFolders = profiles.map((profile) => ({
       ...profile,
@@ -272,7 +294,7 @@ export async function GET(request: NextRequest) {
   }
 
   const metric = pickValue(searchParams.get("metric"), POST_METRICS, "views") as PostMetric;
-  const posts = await getPostsForRanking(platform, cutoff, folderId);
+  const posts = await getPostsForRanking(platform, cutoff, folderId, ownerId);
   const folderMap = await getFoldersByProfileIds(
     [...new Set(posts.map((post) => post.profile.id))],
   );

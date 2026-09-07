@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { PROFILE_STATUS } from "@/lib/constants";
 import { prisma } from "@/lib/db";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, getRequestUser } from "@/lib/auth";
+import { canAccessOwner } from "@/lib/ownership";
 import { setProfileFolders } from "@/lib/folders";
 
 export const runtime = "nodejs";
@@ -20,11 +21,12 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
-  // Organizacao (pastas/notas): qualquer logado.
+  // Organizacao (pastas/notas): qualquer logado, mas so no proprio perfil.
   const guard = await apiGuard(request);
   if (guard) {
     return guard;
   }
+  const user = await getRequestUser(request);
   const parsedBody = updateProfileSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsedBody.success) {
@@ -34,9 +36,10 @@ export async function PATCH(
   try {
     const exists = await prisma.profile.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, ownerId: true },
     });
-    if (!exists) {
+    // Dono ou admin; inexistente ou alheio responde 404 igual (nao vaza).
+    if (!exists || !canAccessOwner(user, exists.ownerId)) {
       return NextResponse.json({ error: "Perfil nao encontrado." }, { status: 404 });
     }
 
@@ -48,7 +51,7 @@ export async function PATCH(
     }> | null = null;
 
     if (parsedBody.data.folderIds) {
-      folderList = await setProfileFolders(id, parsedBody.data.folderIds);
+      folderList = await setProfileFolders(id, parsedBody.data.folderIds, user);
     }
 
     const updated = await prisma.profile.update({
@@ -97,14 +100,22 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  // Apaga perfil + biblioteca: so admin.
-  const deleteGuard = await apiGuard(request, "admin");
+  // Apaga perfil + biblioteca: dono ou admin.
+  const deleteGuard = await apiGuard(request);
   if (deleteGuard) {
     return deleteGuard;
   }
   const { id } = await context.params;
+  const deleter = await getRequestUser(request);
 
   try {
+    const target = await prisma.profile.findUnique({
+      where: { id },
+      select: { id: true, ownerId: true },
+    });
+    if (!target || !canAccessOwner(deleter, target.ownerId)) {
+      return NextResponse.json({ error: "Perfil nao encontrado." }, { status: 404 });
+    }
     const deleted = await prisma.profile.delete({
       where: { id },
       select: {

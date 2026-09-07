@@ -25,7 +25,7 @@ App Next.js hospedado no Render com PostgreSQL gerenciado pelo Supabase para cat
 
 | Model | Papel |
 |-------|--------|
-| `Profile` | Unico por `[platform, handle]`; `lastPostsScrapeAt` referencia ultima coleta com posts (anti-recoleta) |
+| `Profile` | Biblioteca **pessoal** (`ownerId` → `User`); unico por `[ownerId, platform, handle]`; `lastPostsScrapeAt` referencia ultima coleta com posts (anti-recoleta) |
 | `CollectorSession` | Token Apify **global** (`platform=global`); tabela legada `BrowserSession`. Campos de credito: `creditStatus`, `creditsRemaining` (estimativa local), etc. |
 | `ProfileSnapshot` | Seguidores/seguindo/posts no tempo |
 | `Post` | Conteudo; identidade por perfil e URL/externalId, com fonte preservada; `platform` denormalizado de `Profile` |

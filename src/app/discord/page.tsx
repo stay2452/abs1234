@@ -1,11 +1,12 @@
 import { AdminGate } from "@/components/admin-gate";
 import { DiscordNotifyPanel } from "@/components/discord-notify-panel";
 import { listFolders } from "@/lib/folders";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function DiscordPage() {
-  const folders = await listFolders();
+  const folders = await listFolders(await getCurrentUser());
 
   return (
     <AdminGate>

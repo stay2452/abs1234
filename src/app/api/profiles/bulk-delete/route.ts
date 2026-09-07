@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, getRequestUser } from "@/lib/auth";
+import { ownerWhere } from "@/lib/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,11 +12,13 @@ const bulkDeleteSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  // Apaga biblioteca: so admin.
-  const guard = await apiGuard(request, "admin");
+  // Apaga biblioteca: so os proprios perfis (admin apaga qualquer).
+  const guard = await apiGuard(request);
   if (guard) {
     return guard;
   }
+  const user = await getRequestUser(request);
+  const scope = ownerWhere(user);
   const body = await request.json().catch(() => null);
   const parsed = bulkDeleteSchema.safeParse(body);
 
@@ -25,9 +28,9 @@ export async function POST(request: NextRequest) {
 
   const profileIds = [...new Set(parsed.data.profileIds)];
 
-  // Verifica quais existem para retorno preciso
+  // Verifica quais existem PARA ESSE DONO (id alheio conta como nao encontrado).
   const existing = await prisma.profile.findMany({
-    where: { id: { in: profileIds } },
+    where: { id: { in: profileIds }, ...scope },
     select: { id: true },
   });
   const existingIds = new Set(existing.map((p) => p.id));
@@ -38,7 +41,7 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await prisma.profile.deleteMany({
-    where: { id: { in: Array.from(existingIds) } },
+    where: { id: { in: Array.from(existingIds) }, ...scope },
   });
 
   // deleteMany cascade: Post/PostSnapshot/ProfileFolder removidos; ScrapeAttempt.profileId vira SetNull (preserva auditoria)

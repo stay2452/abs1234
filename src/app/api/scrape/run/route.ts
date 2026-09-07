@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { runScrape } from "@/lib/scrapers";
 import { parseScrapeRunRequest } from "@/lib/scrapers/scope";
 import { hasActiveRunningRun, reconcileZombieRuns } from "@/lib/scrape-reconcile";
-import { isApiAllowed } from "@/lib/auth";
+import { isApiAllowed, getRequestUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,9 +82,20 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Biblioteca pessoal: usuario comum so coleta os proprios perfis;
+  // admin (ou token do operador) coleta todos. Quem disparou vai p/ auditoria.
+  const runner = await getRequestUser(request);
+  const ownerId = runner && runner.role !== "admin" ? runner.id : undefined;
+  const triggeredById = runner?.id ?? null;
+
   if (!parsedBody.stream) {
     try {
-      const promise = runScrape(parsedBody.scope, { force: parsedBody.force, signal: request.signal });
+      const promise = runScrape(parsedBody.scope, {
+        force: parsedBody.force,
+        signal: request.signal,
+        ownerId,
+        triggeredById,
+      });
       globalForScrape.activeScrape = promise;
       const result = await promise;
       return withCors(NextResponse.json(result), origin);
@@ -116,6 +127,8 @@ export async function POST(request: NextRequest) {
         const result = await runScrape(parsedBody.scope, {
           force: parsedBody.force,
           signal: request.signal,
+          ownerId,
+          triggeredById,
           onRunCreated: (runId) => {
             void safeWrite({ type: "run", runId });
           },

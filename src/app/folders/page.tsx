@@ -2,11 +2,13 @@ import Link from "next/link";
 import { FolderOpen } from "lucide-react";
 import { FoldersManager } from "@/components/folders-manager";
 import { listFolders } from "@/lib/folders";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function FoldersPage() {
-  const folders = await listFolders();
+  // Pastas pessoais: cada um ve as proprias (admin ve todas).
+  const folders = await listFolders(await getCurrentUser());
 
   return (
     <main className="page">

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { analyzeOutlier } from "@/lib/research/outlier";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, getRequestUser } from "@/lib/auth";
+import { isCreatorVisible } from "@/lib/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,8 +11,8 @@ export const dynamic = "force-dynamic";
 const schema = z.object({ creatorId: z.string().min(1) });
 
 export async function POST(request: NextRequest) {
-  // Scan grava winners: so admin.
-  const guard = await apiGuard(request, "admin");
+  // Scan grava winners no proprio vault: dono ou admin.
+  const guard = await apiGuard(request);
   if (guard) {
     return guard;
   }
@@ -22,6 +23,9 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "creatorId obrigatório" }, { status: 400 });
 
   const { creatorId } = parsed.data;
+  if (!(await isCreatorVisible(await getRequestUser(request), creatorId))) {
+    return NextResponse.json({ error: "Creator não encontrada" }, { status: 404 });
+  }
 
   if (wantStream) {
     const encoder = new TextEncoder();

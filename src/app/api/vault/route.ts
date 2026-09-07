@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { analyzeOutlier } from "@/lib/research/outlier";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, getRequestUser } from "@/lib/auth";
+import { isCreatorVisible } from "@/lib/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,18 +17,31 @@ const createSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  // Leitura do vault: qualquer logado.
+  // Leitura do vault: qualquer logado, mas so dos proprios creators.
   const guard = await apiGuard(request);
   if (guard) {
     return guard;
   }
+  const viewer = await getRequestUser(request);
   const url = new URL(request.url);
   const creatorId = url.searchParams.get("creatorId");
   const isOutlier = url.searchParams.get("isOutlier");
   const take = Math.min(500, parseInt(url.searchParams.get("take") ?? "500", 10) || 500);
 
   const where: any = {};
-  if (creatorId) where.creatorId = creatorId;
+  if (creatorId) {
+    // Creator alheio responde 404 igual.
+    if (!(await isCreatorVisible(viewer, creatorId))) {
+      return NextResponse.json({ error: "Creator não encontrada" }, { status: 404 });
+    }
+    where.creatorId = creatorId;
+  } else if (viewer && viewer.role !== "admin") {
+    const mine = await prisma.creator.findMany({
+      where: { ownerId: viewer.id },
+      select: { id: true },
+    });
+    where.creatorId = { in: mine.map((creator) => creator.id) };
+  }
   if (isOutlier === "true") where.isOutlier = true;
   if (isOutlier === "false") where.isOutlier = false;
 
@@ -42,8 +56,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // Escrita no vault: so admin.
-  const guard = await apiGuard(request, "admin");
+  // Escrita no proprio vault: dono ou admin.
+  const guard = await apiGuard(request);
   if (guard) {
     return guard;
   }
@@ -55,13 +69,18 @@ export async function POST(request: NextRequest) {
 
   const creator = await prisma.creator.findUnique({ where: { id: creatorId } });
   if (!creator) return NextResponse.json({ error: "Creator não encontrada" }, { status: 404 });
+  if (!(await isCreatorVisible(await getRequestUser(request), creatorId))) {
+    return NextResponse.json({ error: "Creator não encontrada" }, { status: 404 });
+  }
 
   const exists = await prisma.patternVaultEntry.findUnique({
     where: { sourcePostId_creatorId: { sourcePostId, creatorId } },
   });
   if (exists) return NextResponse.json({ error: "Post já está no Vault desta Creator" }, { status: 409 });
 
-  const analysis = await analyzeOutlier(sourcePostId);
+  const writer = await getRequestUser(request);
+  const writerOwnerId = writer && writer.role !== "admin" ? writer.id : undefined;
+  const analysis = await analyzeOutlier(sourcePostId, { ownerId: writerOwnerId });
   if (!analysis.isOutlier) {
     return NextResponse.json(
       { error: `Não é outlier (ratio ${analysis.outlierRatio ?? "n/a"} < 2.0) — só winners entram no Vault`, analysis },

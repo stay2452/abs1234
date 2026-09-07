@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 import { getActiveCollectorSessions } from "@/lib/scrapers/session";
 import { shouldScrapeProfile } from "@/lib/scrapers";
 import { ESTIMATED_CREDITS_PER_PROFILE, MAX_SCRAPE_ALL_PROFILES } from "@/lib/constants";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, getRequestUser } from "@/lib/auth";
+import { ownerWhere } from "@/lib/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +26,11 @@ export async function GET(request: NextRequest) {
     profileIds = profileIdsParam.split(",").map((s) => s.trim()).filter(Boolean);
   }
 
+  // Estimativa na biblioteca de quem chamou (admin/token ve todos).
+  const estimator = await getRequestUser(request);
+  const ownership = ownerWhere(estimator);
   const requestedProfiles = await prisma.profile.findMany({
-    where: { status: "active", id: profileIds ? { in: profileIds } : undefined },
+    where: { status: "active", ...ownership, id: profileIds ? { in: profileIds } : undefined },
     select: { lastPostsScrapeAt: true, snapshots: { orderBy: { capturedAt: "desc" }, take: 1, select: { capturedAt: true } } },
   });
 

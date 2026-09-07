@@ -69,6 +69,10 @@ export type ScrapeScope =
 type RunScrapeOptions = {
   force?: boolean;
   now?: Date;
+  /** Biblioteca pessoal: so coleta perfis desse dono. Admin passa undefined (= todos). */
+  ownerId?: string;
+  /** Auditoria de gasto: quem disparou (vai para ScrapeRun.triggeredById). */
+  triggeredById?: string | null;
   /** Cancela o run (workers param de agendar e fetches são aborted). */
   signal?: AbortSignal;
   onRunCreated?: (runId: string) => void | Promise<void>;
@@ -881,10 +885,13 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
   const requestedProfiles = await prisma.profile.findMany({
     where: {
       status: "active",
+      // Biblioteca pessoal: usuario comum so coleta os proprios perfis.
+      ownerId: options.ownerId ?? undefined,
       id: profileIds === undefined ? undefined : { in: profileIds },
     },
     select: {
       id: true,
+      ownerId: true,
       platform: true,
       handle: true,
       url: true,
@@ -922,6 +929,7 @@ export async function runScrape(scope: ScrapeScope, options: RunScrapeOptions = 
       status: "running",
       profilesTotal: requestedProfiles.length,
       profilesAttempted: profiles.length,
+      triggeredById: options.triggeredById ?? null,
     },
   });
   await options.onRunCreated?.(run.id);

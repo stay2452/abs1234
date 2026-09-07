@@ -20,7 +20,10 @@ function avg(values: number[]): number | null {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
-export async function analyzeOutlier(postId: string): Promise<OutlierResult & { post: any; profile: any }> {
+export async function analyzeOutlier(
+  postId: string,
+  options?: { ownerId?: string },
+): Promise<OutlierResult & { post: any; profile: any }> {
   const post = await prisma.post.findUnique({
     where: { id: postId },
     include: {
@@ -30,6 +33,10 @@ export async function analyzeOutlier(postId: string): Promise<OutlierResult & { 
   });
 
   if (!post) throw new Error("Post não encontrado");
+  // Biblioteca pessoal: post de outro dono responde igual a inexistente.
+  if (options?.ownerId && post.profile.ownerId !== options.ownerId) {
+    throw new Error("Post não encontrado");
+  }
   if (!post.publishedAt) {
     return {
       candidateViews: null,

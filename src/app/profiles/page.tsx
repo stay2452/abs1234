@@ -3,15 +3,17 @@ import { ImportProfilesForm } from "@/components/import-profiles-form";
 import { ProfilesTable, type ProfileTableItem } from "@/components/profiles-table";
 import { RunScrapeButton } from "@/components/run-scrape-button";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, type SessionUser } from "@/lib/auth";
+import { ownerWhere } from "@/lib/ownership";
 import { listFolders } from "@/lib/folders";
 import { toNumber } from "@/lib/format";
 import { rankProfiles } from "@/lib/rankings";
 
 export const dynamic = "force-dynamic";
 
-async function getProfiles() {
+async function getProfiles(user: SessionUser | null) {
   const profiles = await prisma.profile.findMany({
+    where: { ...ownerWhere(user) },
     orderBy: [{ createdAt: "desc" }],
     include: {
       snapshots: {
@@ -55,10 +57,10 @@ async function getProfiles() {
 }
 
 export default async function ProfilesPage() {
-  const [profiles, folders] = await Promise.all([getProfiles(), listFolders()]);
-  // Cadastro e coleta: so admin (API tambem tranca).
+  // Biblioteca pessoal: cada um ve so os proprios (admin ve todos).
+  // Cadastro e coleta valem para todo logado, na propria biblioteca.
   const user = await getCurrentUser();
-  const isAdmin = user?.role === "admin";
+  const [profiles, folders] = await Promise.all([getProfiles(user), listFolders(user)]);
 
   return (
     <main className="page">
@@ -72,23 +74,21 @@ export default async function ProfilesPage() {
           </p>
         </div>
         <div className="page-header-actions">
-          {isAdmin ? <RunScrapeButton mode="library" profileCount={profiles.length} /> : null}
+          <RunScrapeButton mode="library" profileCount={profiles.length} />
         </div>
       </div>
 
       <div className="profiles-layout">
         <ProfilesTable profiles={profiles} folders={folders} />
         <div className="profiles-sidebar">
-          {isAdmin ? (
-            <aside className="panel">
-              <p className="eyebrow">Cadastro</p>
-              <h2>Importar perfis</h2>
-              <p className="lede" style={{ marginTop: 0 }}>
-                Cadastro local + coleta limitada. Depois, abra o perfil e coloque-o nas pastas.
-              </p>
-              <ImportProfilesForm />
-            </aside>
-          ) : null}
+          <aside className="panel">
+            <p className="eyebrow">Cadastro</p>
+            <h2>Importar perfis</h2>
+            <p className="lede" style={{ marginTop: 0 }}>
+              Cadastro local + coleta limitada. Depois, abra o perfil e coloque-o nas pastas.
+            </p>
+            <ImportProfilesForm />
+          </aside>
           <FoldersManager initialFolders={folders} />
         </div>
       </div>

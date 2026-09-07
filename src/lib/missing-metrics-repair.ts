@@ -116,6 +116,7 @@ async function repairProfile(
 export async function repairMissingPostMetrics(
   metrics: RepairablePostMetric[],
   onProgress?: RepairProgress,
+  options?: { ownerId?: string },
 ) {
   const selected = [...new Set(metrics)].filter((metric): metric is RepairablePostMetric =>
     REPAIRABLE_POST_METRICS.includes(metric),
@@ -128,7 +129,8 @@ export async function repairMissingPostMetrics(
     where: {
       platform: "instagram",
       sourceType: "reels",
-      profile: { status: "active" },
+      // Biblioteca pessoal: repara so os proprios (admin = todos).
+      profile: { status: "active", ownerId: options?.ownerId ?? undefined },
     },
     include: {
       profile: true,

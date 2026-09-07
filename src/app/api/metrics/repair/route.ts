@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { optionsCors, withCors } from "@/lib/extension-cors";
-import { isApiAllowed } from "@/lib/auth";
+import { isApiAllowed, getRequestUser } from "@/lib/auth";
 import {
   REPAIRABLE_POST_METRICS,
   repairMissingPostMetrics,
@@ -30,10 +30,13 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
-  // Reparo gasta Apify: so admin logado ou token da extensao/operador.
-  if (!(await isApiAllowed(request, "admin"))) {
+  // Reparo gasta Apify: logado (so os proprios) ou token da extensao/operador.
+  if (!(await isApiAllowed(request))) {
     return withCors(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), origin);
   }
+  const repairer = await getRequestUser(request);
+  // Biblioteca pessoal: usuario comum repara so os proprios (admin/token = todos).
+  const ownerId = repairer && repairer.role !== "admin" ? repairer.id : undefined;
   if (globalForRepair.activeMetricsRepair) {
     return withCors(
       NextResponse.json({ error: "Ja existe uma reparacao de metricas em andamento." }, { status: 409 }),
@@ -64,8 +67,7 @@ export async function POST(request: NextRequest) {
   const promise = (async () => {
     try {
       await send({ type: "status", message: "Analisando videos com metricas ausentes..." });
-      const result = await repairMissingPostMetrics(metrics, async (progress) => {
-        if (progress.type === "started") {
+      const result = await repairMissingPostMetrics(metrics, async (progress) => {        if (progress.type === "started") {
           await send({
             type: "status",
             message: `Encontrados ${progress.profilesTotal} perfil(is) com videos irregulares.`,
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
           return;
         }
         await send({ type: "progress", progress });
-      });
+      }, { ownerId });
       await send({ type: "complete", result });
     } catch (error) {
       await send({

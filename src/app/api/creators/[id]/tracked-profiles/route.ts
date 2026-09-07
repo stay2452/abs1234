@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, getRequestUser } from "@/lib/auth";
+import { isCreatorVisible } from "@/lib/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  // Leitura: qualquer logado.
+  // Leitura: qualquer logado, mas so o proprio vault.
   const guard = await apiGuard(req);
   if (guard) {
     return guard;
   }
   const { id } = await ctx.params;
+  if (!(await isCreatorVisible(await getRequestUser(req), id))) {
+    return NextResponse.json({ error: "Creator não encontrada" }, { status: 404 });
+  }
 
   const [direct, viaFolders] = await Promise.all([
     prisma.creatorProfile.findMany({

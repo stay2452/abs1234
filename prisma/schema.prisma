@@ -10,6 +10,10 @@ datasource db {
 
 model Profile {
   id                String            @id @default(cuid())
+  /// Dono da biblioteca pessoal: cada usuario cadastra e atualiza so os seus.
+  /// Admin enxerga todos (moderacao). Chaves Apify continuam em pool global.
+  ownerId           String
+  owner             User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   platform          String
   handle            String
   url               String
@@ -29,8 +33,9 @@ model Profile {
   creatorProfiles   CreatorProfile[]
   vaultEntries      PatternVaultEntry[]
 
-  @@unique([platform, handle])
+  @@unique([ownerId, platform, handle])
   @@index([platform, status])
+  @@index([ownerId])
 }
 
 /// Usuarios do app (parte 1 do modo prod, 2026-09-08): cadastro + login proprios.
@@ -46,6 +51,11 @@ model User {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  /// Biblioteca pessoal: cada perfil/pasta/creator tem um dono.
+  profiles     Profile[]
+  folders      Folder[]
+  creators     Creator[]
+  scrapeRuns   ScrapeRun[]
 
   @@index([role])
 }
@@ -53,6 +63,9 @@ model User {
 /// Pastas do usuario para agrupar perfis e comparar.
 model Folder {
   id          String          @id @default(cuid())
+  /// Dono: pastas sao pessoais, como os perfis.
+  ownerId     String
+  owner       User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name        String
   color       String          @default("teal")
   description String?
@@ -62,6 +75,7 @@ model Folder {
   creatorFolders CreatorFolder[]
 
   @@index([name])
+  @@index([ownerId])
 }
 
 model ProfileFolder {
@@ -162,6 +176,9 @@ model PostSnapshot {
 model ScrapeRun {
   id                String          @id @default(cuid())
   status            String          @default("running")
+  /// Quem disparou (auditoria de gasto com multi-usuarios). Null = legado.
+  triggeredById     String?
+  triggeredBy       User?           @relation(fields: [triggeredById], references: [id], onDelete: SetNull)
   startedAt         DateTime        @default(now())
   finishedAt        DateTime?
   updatedAt         DateTime        @updatedAt
@@ -255,6 +272,9 @@ model DiscordDelivery {
 // Vault por Creator — Pattern Vault (OFM Research Machine Ch.5)
 model Creator {
   id        String   @id @default(cuid())
+  /// Dono: vaults sao pessoais, como perfis e pastas.
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name      String
   notes     String?
   createdAt DateTime @default(now())
@@ -265,6 +285,7 @@ model Creator {
   vaultEntries PatternVaultEntry[]
 
   @@index([name])
+  @@index([ownerId])
 }
 
 model CreatorProfile {

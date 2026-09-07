@@ -2,7 +2,8 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, getRequestUser } from "@/lib/auth";
+import { canAccessOwner } from "@/lib/ownership";
 import {
   deleteFolder,
   FOLDER_COLORS,
@@ -78,24 +79,29 @@ export async function PATCH(
   if (guard) {
     return guard;
   }
+  const user = await getRequestUser(request);
   const body = await request.json().catch(() => null);
 
   // Membership: { profileId, present }
   const membership = membershipSchema.safeParse(body);
   if (membership.success) {
     try {
-      const folder = await prisma.folder.findUnique({ where: { id } });
-      if (!folder) {
-        return NextResponse.json({ error: "Pasta nao encontrada." }, { status: 404 });
-      }
+      const folder = await prisma.folder.findUnique({
+        where: { id },
+        select: { id: true, ownerId: true },
+      });
       const profile = await prisma.profile.findUnique({
         where: { id: membership.data.profileId },
-        select: { id: true },
+        select: { id: true, ownerId: true },
       });
-      if (!profile) {
+      // So vincula pasta e perfil do proprio dono (admin passa).
+      if (!folder || !canAccessOwner(user, folder.ownerId)) {
+        return NextResponse.json({ error: "Pasta nao encontrada." }, { status: 404 });
+      }
+      if (!profile || !canAccessOwner(user, profile.ownerId)) {
         return NextResponse.json({ error: "Perfil nao encontrado." }, { status: 404 });
       }
-      await setProfileInFolder(id, membership.data.profileId, membership.data.present);
+      await setProfileInFolder(id, membership.data.profileId, membership.data.present, user);
       return NextResponse.json({
         ok: true,
         folderId: id,
@@ -116,7 +122,7 @@ export async function PATCH(
   }
 
   try {
-    const folder = await updateFolder(id, parsed.data);
+    const folder = await updateFolder(id, parsed.data, user);
     return NextResponse.json({
       id: folder.id,
       name: folder.name,
@@ -145,7 +151,7 @@ export async function DELETE(
   }
   const { id } = await context.params;
   try {
-    await deleteFolder(id);
+    await deleteFolder(id, await getRequestUser(request));
     return NextResponse.json({ deleted: true, id });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {

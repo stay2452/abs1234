@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createFolder, FOLDER_COLORS, listFolders } from "@/lib/folders";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, getRequestUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   if (guard) {
     return guard;
   }
-  const folders = await listFolders();
+  const folders = await listFolders(await getRequestUser(request));
   return NextResponse.json({ folders });
 }
 
@@ -27,13 +27,17 @@ export async function POST(request: NextRequest) {
   if (guard) {
     return guard;
   }
+  const user = await getRequestUser(request);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Dados invalidos para criar pasta." }, { status: 400 });
   }
 
   try {
-    const folder = await createFolder(parsed.data);
+    const folder = await createFolder(parsed.data, user.id);
     return NextResponse.json({
       id: folder.id,
       name: folder.name,

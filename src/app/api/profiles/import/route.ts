@@ -6,7 +6,7 @@ import {
   PLATFORMS,
 } from "@/lib/constants";
 import { prisma } from "@/lib/db";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, getRequestUser } from "@/lib/auth";
 import { optionsCors, withCors } from "@/lib/extension-cors";
 import { parseProfileImport } from "@/lib/profile-url";
 
@@ -24,10 +24,22 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
-  // Cadastro em lote: so admin ou token da extensao (que so importa handle/URL).
-  const guard = await apiGuard(request, "admin");
+  // Cadastro em lote na biblioteca de QUEM CHAMOU (usuario) ou do operador
+  // (token da extensao, que cai na conta admin mais antiga).
+  const guard = await apiGuard(request);
   if (guard) {
     return withCors(guard, origin);
+  }
+  const caller = await getRequestUser(request);
+  let ownerId = caller?.id ?? null;
+  if (!ownerId) {
+    const fallbackAdmin = await prisma.user
+      .findFirst({ where: { role: "admin", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } })
+      .catch(() => null);
+    ownerId = fallbackAdmin?.id ?? null;
+  }
+  if (!ownerId) {
+    return withCors(NextResponse.json({ error: "Sem conta para vincular o cadastro." }, { status: 401 }), origin);
   }
   const parsedBody = importSchema.safeParse(await request.json().catch(() => null));
 
@@ -74,8 +86,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Deduplicacao e POR DONO: mesmo @handle pode existir em contas diferentes.
   const existing = await prisma.profile.findMany({
     where: {
+      ownerId,
       OR: parsed.valid.map((profile) => ({
         platform: profile.platform,
         handle: profile.handle,
@@ -101,6 +115,7 @@ export async function POST(request: NextRequest) {
   if (toCreate.length > 0) {
     await prisma.profile.createMany({
       data: toCreate.map((profile) => ({
+        ownerId,
         platform: profile.platform,
         handle: profile.handle,
         url: profile.url,
@@ -131,6 +146,7 @@ export async function POST(request: NextRequest) {
 
   const saved = await prisma.profile.findMany({
     where: {
+      ownerId,
       OR: parsed.valid.map((profile) => ({
         platform: profile.platform,
         handle: profile.handle,

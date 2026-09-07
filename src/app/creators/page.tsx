@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { ownerWhere } from "@/lib/ownership";
 import { CreateCreatorForm } from "@/components/creators/create-creator-form";
 import { formatShortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function CreatorsPage() {
+  // Vaults pessoais: cada um ve os proprios (admin ve todos).
+  const user = await getCurrentUser();
   const creators = await prisma.creator.findMany({
+    where: { ...ownerWhere(user) },
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { vaultEntries: true, profileLinks: true, folderLinks: true } } },
   });

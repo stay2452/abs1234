@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import type { SessionUser } from "@/lib/auth";
+import { canAccessOwner, isAdmin, ownerWhere } from "@/lib/ownership";
 
 export type FolderColor =
   | "teal"
@@ -35,8 +37,9 @@ export function normalizeFolderName(name: string) {
   return name.trim().replace(/\s+/g, " ").slice(0, 60);
 }
 
-export async function listFolders(): Promise<FolderRecord[]> {
+export async function listFolders(user?: SessionUser | null): Promise<FolderRecord[]> {
   const folders = await prisma.folder.findMany({
+    where: { ...ownerWhere(user ?? null) },
     orderBy: { name: "asc" },
     include: {
       _count: { select: { profiles: true } },
@@ -52,11 +55,14 @@ export async function listFolders(): Promise<FolderRecord[]> {
   }));
 }
 
-export async function createFolder(input: {
-  name: string;
-  color?: string;
-  description?: string | null;
-}) {
+export async function createFolder(
+  input: {
+    name: string;
+    color?: string;
+    description?: string | null;
+  },
+  ownerId: string,
+) {
   const name = normalizeFolderName(input.name);
   if (!name) {
     throw new Error("Nome da pasta e obrigatorio.");
@@ -67,13 +73,14 @@ export async function createFolder(input: {
   const description = input.description?.trim() || null;
 
   return prisma.folder.create({
-    data: { name, color, description },
+    data: { name, color, description, ownerId },
   });
 }
 
 export async function updateFolder(
   id: string,
   input: { name?: string; color?: string; description?: string | null },
+  user?: SessionUser | null,
 ) {
   const data: { name?: string; color?: string; description?: string | null } = {};
   if (input.name !== undefined) {
@@ -93,21 +100,38 @@ export async function updateFolder(
     data.description = input.description?.trim() || null;
   }
 
+  await assertFolderOwner(id, user);
   return prisma.folder.update({ where: { id }, data });
 }
 
-export async function deleteFolder(id: string) {
+export async function deleteFolder(id: string, user?: SessionUser | null) {
+  await assertFolderOwner(id, user);
   return prisma.folder.delete({ where: { id } });
 }
 
-/** Substitui o conjunto de pastas de um perfil. */
-export async function setProfileFolders(profileId: string, folderIds: string[]) {
+/** Pasta inexistente ou de outro dono: erro igual a "nao encontrada" (nao vaza). */
+async function assertFolderOwner(id: string, user?: SessionUser | null) {
+  if (isAdmin(user)) {
+    return;
+  }
+  const folder = await prisma.folder.findUnique({ where: { id }, select: { ownerId: true } });
+  if (!folder || !canAccessOwner(user, folder.ownerId)) {
+    throw new Error("Pasta nao encontrada.");
+  }
+}
+
+/** Substitui o conjunto de pastas de um perfil. So vincula pastas do proprio dono. */
+export async function setProfileFolders(
+  profileId: string,
+  folderIds: string[],
+  user?: SessionUser | null,
+) {
   const uniqueIds = Array.from(new Set(folderIds.filter(Boolean)));
 
   const folders =
     uniqueIds.length > 0
       ? await prisma.folder.findMany({
-          where: { id: { in: uniqueIds } },
+          where: { id: { in: uniqueIds }, ...ownerWhere(user ?? null) },
           orderBy: { name: "asc" },
         })
       : [];
@@ -131,12 +155,25 @@ export async function setProfileFolders(profileId: string, folderIds: string[]) 
   }));
 }
 
-/** Adiciona/remove um perfil de uma pasta. */
+/** Adiciona/remove um perfil de uma pasta. So entre itens do proprio dono. */
 export async function setProfileInFolder(
   folderId: string,
   profileId: string,
   present: boolean,
+  user?: SessionUser | null,
 ) {
+  if (!isAdmin(user)) {
+    const [folder, profile] = await Promise.all([
+      prisma.folder.findUnique({ where: { id: folderId }, select: { ownerId: true } }),
+      prisma.profile.findUnique({ where: { id: profileId }, select: { ownerId: true } }),
+    ]);
+    if (!folder || !canAccessOwner(user, folder.ownerId)) {
+      throw new Error("Pasta nao encontrada.");
+    }
+    if (!profile || !canAccessOwner(user, profile.ownerId)) {
+      throw new Error("Perfil nao encontrado.");
+    }
+  }
   if (present) {
     await prisma.profileFolder.upsert({
       where: {

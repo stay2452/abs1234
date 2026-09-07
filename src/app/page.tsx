@@ -4,19 +4,23 @@ import { RankingPanel } from "@/components/ranking-panel";
 import { RepairMissingMetricsButton } from "@/components/repair-missing-metrics-button";
 import { RunScrapeButton } from "@/components/run-scrape-button";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, type SessionUser } from "@/lib/auth";
+import { ownerWhere, ownedVia } from "@/lib/ownership";
 import { formatDate, formatNumber, formatSigned } from "@/lib/format";
 import { rankProfiles } from "@/lib/rankings";
 
 export const dynamic = "force-dynamic";
 
-async function getDashboardData() {
+async function getDashboardData(user: SessionUser | null) {
+  // Biblioteca pessoal: numeros e ranking so dos proprios (admin = todos).
+  const scope = ownerWhere(user);
+  const postScope = ownedVia("profile", user);
   const [profileCount, postCount, lastRun, profiles] = await Promise.all([
-    prisma.profile.count(),
-    prisma.post.count(),
+    prisma.profile.count({ where: { ...scope } }),
+    prisma.post.count({ where: { ...postScope } }),
     prisma.scrapeRun.findFirst({ orderBy: { startedAt: "desc" } }),
     prisma.profile.findMany({
-      where: { status: "active" },
+      where: { status: "active", ...scope },
       include: {
         snapshots: {
           orderBy: { capturedAt: "asc" },
@@ -38,10 +42,8 @@ async function getDashboardData() {
 }
 
 export default async function DashboardPage() {
-  const data = await getDashboardData();
-  // Botoes que gastam Apify so aparecem para admin (API tambem tranca).
   const user = await getCurrentUser();
-  const isAdmin = user?.role === "admin";
+  const data = await getDashboardData(user);
 
   return (
     <main className="page">
@@ -55,7 +57,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="page-header-actions">
-          {isAdmin ? <RunScrapeButton mode="library" profileCount={data.profileCount} /> : null}
+          <RunScrapeButton mode="library" profileCount={data.profileCount} />
         </div>
       </div>
 
@@ -101,7 +103,7 @@ export default async function DashboardPage() {
       <div className="dashboard-main">
         <RankingPanel />
         <aside className="dashboard-aside-stack">
-          {isAdmin ? <RepairMissingMetricsButton /> : null}
+          <RepairMissingMetricsButton />
           <div className="panel dashboard-aside">
           <p className="eyebrow">Última atualização</p>
           <h2 className="dashboard-aside-title">

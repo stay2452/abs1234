@@ -8,6 +8,7 @@ import { RunScrapeButton } from "@/components/run-scrape-button";
 import { PLATFORM_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { canAccessOwner } from "@/lib/ownership";
 import { formatDate, formatNumber, toNumber } from "@/lib/format";
 import { cleanInstagramCaption } from "@/lib/instagram-caption";
 import { listFolders } from "@/lib/folders";
@@ -20,9 +21,8 @@ export default async function ProfileDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // Coleta e delete: so admin (API tambem tranca). Edicao/organizacao: qualquer logado.
+  // Biblioteca pessoal: so o dono ve (admin ve todos). API tambem tranca.
   const user = await getCurrentUser();
-  const isAdmin = user?.role === "admin";
   const [profile, catalog] = await Promise.all([
     prisma.profile.findUnique({
       where: { id },
@@ -44,10 +44,14 @@ export default async function ProfileDetailPage({
         },
       },
     }),
-    listFolders(),
+    listFolders(user),
   ]);
 
   if (!profile) {
+    notFound();
+  }
+  // Perfil alheio: 404 igual a inexistente (nao vaza).
+  if (!canAccessOwner(user, profile.ownerId)) {
     notFound();
   }
 
@@ -185,28 +189,24 @@ export default async function ProfileDetailPage({
             <ExternalLink size={16} />
             Abrir perfil
           </a>
-          {isAdmin ? (
-            <DeleteProfileButton
-              id={profile.id}
-              handle={profile.handle}
-              compact
-              redirectTo="/profiles"
-            />
-          ) : null}
+          <DeleteProfileButton
+            id={profile.id}
+            handle={profile.handle}
+            compact
+            redirectTo="/profiles"
+          />
         </div>
       </div>
 
-      {isAdmin ? (
-        <section className="panel" style={{ marginBottom: 16 }}>
-          <p className="eyebrow">Coleta individual</p>
-          <h2>Atualizar @{profile.handle}</h2>
-          <RunScrapeButton
-            profileId={profile.id}
-            handle={profile.handle}
-            platform={profile.platform as "instagram" | "tiktok"}
-          />
-        </section>
-      ) : null}
+      <section className="panel" style={{ marginBottom: 16 }}>
+        <p className="eyebrow">Coleta individual</p>
+        <h2>Atualizar @{profile.handle}</h2>
+        <RunScrapeButton
+          profileId={profile.id}
+          handle={profile.handle}
+          platform={profile.platform as "instagram" | "tiktok"}
+        />
+      </section>
 
       <section className={`grid ${isTikTok ? "four" : "three"}`}>
         {isTikTok ? (
