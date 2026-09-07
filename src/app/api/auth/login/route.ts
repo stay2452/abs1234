@@ -59,7 +59,14 @@ export async function POST(request: Request) {
 
   const email = normalizeEmail(parsed.data.email);
   const user = await prisma.user.findUnique({ where: { email } }).catch(() => null);
-  const ok = user && user.isActive && verifyPassword(parsed.data.password, user.passwordHash);
+  // Conta pendente: senha certa ou errada, avisa que aguarda aprovacao.
+  if (user && !user.isActive) {
+    return NextResponse.json(
+      { error: "Conta aguardando aprovacao do administrador." },
+      { status: 403 },
+    );
+  }
+  const ok = user && verifyPassword(parsed.data.password, user.passwordHash);
   if (!ok) {
     registerFailure(key);
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 401 });

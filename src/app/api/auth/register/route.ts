@@ -11,7 +11,8 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Cadastro: primeira conta vira admin, resto user. Ativa na hora. */
+/** Cadastro: primeira conta vira admin ativa; resto entra pendente (isActive=false)
+ * e so loga depois que um admin aprovar em /users. */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = registerSchema.safeParse(body);
@@ -35,7 +36,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Banco indisponivel. Tente de novo." }, { status: 500 });
   }
 
-  const role = total === 0 ? "admin" : "user";
+  const isFirst = total === 0;
+  const role = isFirst ? "admin" : "user";
   const user = await prisma.user
     .create({
       data: {
@@ -43,11 +45,25 @@ export async function POST(request: Request) {
         email,
         passwordHash: hashPassword(parsed.data.password),
         role,
+        isActive: isFirst,
       },
     })
     .catch(() => null);
   if (!user) {
     return NextResponse.json({ error: "Nao foi possivel criar a conta." }, { status: 500 });
+  }
+
+  // Conta pendente: sem login automatico, admin aprova em /users.
+  if (!user.isActive) {
+    return NextResponse.json(
+      {
+        id: user.id,
+        email: user.email,
+        pending: true,
+        message: "Conta criada. Aguarde a aprovacao do administrador para entrar.",
+      },
+      { status: 201 },
+    );
   }
 
   let token: string;

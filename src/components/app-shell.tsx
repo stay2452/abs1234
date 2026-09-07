@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BarChart3, ClipboardList, FolderOpen, Library, LogOut, MessageCircle, Settings, Sparkles } from "lucide-react";
+import { BarChart3, ClipboardList, FolderOpen, Library, LogOut, MessageCircle, Settings, Sparkles, Users } from "lucide-react";
 
 type NavItem = {
   href: string;
@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { href: "/folders", label: "Pastas", icon: FolderOpen },
   { href: "/creators", label: "Vaults", icon: Sparkles },
   { href: "/settings", label: "Sessões", icon: Settings, admin: true },
+  { href: "/users", label: "Usuários", icon: Users, admin: true },
   { href: "/history", label: "Auditoria", icon: ClipboardList, admin: true },
   { href: "/discord", label: "Discord", icon: MessageCircle, admin: true },
 ];

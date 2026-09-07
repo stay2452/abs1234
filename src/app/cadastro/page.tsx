@@ -10,11 +10,13 @@ export default function CadastroPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    setDone(null);
     setBusy(true);
     try {
       const response = await fetch("/api/auth/register", {
@@ -25,6 +27,11 @@ export default function CadastroPage() {
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
         setError(payload?.error ?? "Nao foi possivel criar a conta.");
+        return;
+      }
+      // Conta pendente: mostra aviso em vez de entrar.
+      if (payload?.pending) {
+        setDone(payload?.message ?? "Conta criada. Aguarde a aprovacao.");
         return;
       }
       router.push("/");
@@ -41,7 +48,7 @@ export default function CadastroPage() {
       <div className="panel auth-card">
         <p className="eyebrow">Biblioteca de Perfis</p>
         <h1>Criar conta</h1>
-        <p className="hint">A primeira conta criada vira admin automaticamente.</p>
+        <p className="hint">A primeira conta vira admin. As demais aguardam aprovação.</p>
         <form onSubmit={onSubmit} className="auth-form">
           <label>
             Nome
@@ -79,6 +86,7 @@ export default function CadastroPage() {
             />
           </label>
           {error ? <p className="auth-error">{error}</p> : null}
+          {done ? <p className="hint">{done}</p> : null}
           <button type="submit" className="button" disabled={busy}>
             {busy ? "Criando..." : "Criar conta"}
           </button>
