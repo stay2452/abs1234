@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · Proposta 1 — Radar (sistema)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--panel:#0a0f1e;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--pink:#ec4899;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+/* SIDEBAR */
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:20px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+.nav-item:hover{color:#fff}
+.userbox{margin-top:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:13px}
+.userbox small{color:var(--muted);display:block}
+/* MAIN */
+main{padding:26px 30px;max-width:1180px}
+.topbar{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.topbar h1{font-family:'Space Grotesk';font-size:26px;letter-spacing:-1px}
+.topbar .sub{color:var(--muted);font-size:13px}
+.search{margin-left:auto;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:100px;padding:9px 18px;color:var(--muted);font-size:13px;min-width:230px}
+.btn{padding:10px 20px;border-radius:100px;font-weight:600;font-size:13.5px;border:1px solid transparent;cursor:pointer}
+.btn-primary{background:linear-gradient(135deg,#7c3aed,#4f46e5 50%,#06b6d4);color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpi{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,#7c3aed,#22d3ee,transparent)}
+.kpi small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+.kpi strong{font-family:'Space Grotesk';font-size:30px;display:block;margin:4px 0}
+.kpi .delta{font-size:12px;font-weight:700;color:#4ade80}
+.kpi .delta.down{color:#f87171}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.panel-head h2{font-family:'Space Grotesk';font-size:16px}
+.tabs{margin-left:auto;display:flex;gap:6px}
+.tab{padding:6px 14px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;font-weight:600}
+.tab.active{background:#fff;color:#000}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:12px 16px;border-bottom:1px solid var(--border)}
+td{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.05)}
+tr:hover td{background:rgba(124,58,237,.07)}
+.pos{font-family:'Space Grotesk';color:var(--muted);width:36px}
+.handle{font-weight:600;display:flex;align-items:center;gap:10px}
+.avatar{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#22d3ee);flex-shrink:0}
+.grow{color:#4ade80;font-weight:700}
+.bar{height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;min-width:90px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--violet),var(--cyan))}
+.pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:100px;background:rgba(163,230,53,.12);color:var(--lime);border:1px solid #a3e63544}
+.grid2{display:grid;grid-template-columns:1fr 300px;gap:14px;margin-top:14px}
+.side-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px}
+.side-card h3{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.status{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--lime);box-shadow:0 0 10px var(--lime)}
+.meter{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);padding:6px 0}
+.meter strong{color:var(--text)}
+.note{font-size:12px;color:var(--muted);margin-top:10px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}.kpis{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="Eye of Zuck" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Monitorar</div>
+  <a class="nav-item active" href="#">◉ Ranking viral</a>
+  <a class="nav-item" href="#">▦ Biblioteca</a>
+  <a class="nav-item" href="#">◆ Pattern Vault</a>
+  <div class="nav-label">Organizar</div>
+  <a class="nav-item" href="#">⧉ Pastas</a>
+  <a class="nav-item" href="#">◍ Auditoria</a>
+  <a class="nav-item" href="#">⚙ Sessões Apify</a>
+  <div class="userbox"><strong>op.sao_paulo</strong><small>Operação · 248 perfis</small></div>
+</aside>
+<main>
+  <div class="topbar">
+    <div><h1>Radar do nicho</h1><div class="sub">Período filtra por <strong>data real de publicação</strong> — nunca por data de scrape.</div></div>
+    <div class="search">⌕ Buscar @handle…</div>
+    <button class="btn btn-primary">＋ Atualizar biblioteca</button>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><small>Perfis</small><strong>248</strong><span class="delta">▲ +6 esta semana</span></div>
+    <div class="kpi"><small>Posts catalogados</small><strong>3.214</strong><span class="delta">▲ +182 no último run</span></div>
+    <div class="kpi"><small>Maior +7d</small><strong>+18,4K</strong><span class="delta">@musa.exemplo</span></div>
+    <div class="kpi"><small>Créditos Apify (est.)</small><strong>612</strong><span class="delta down">▼ pool global do admin</span></div>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-head"><h2>Crescimento de seguidores · 7d</h2>
+        <div class="tabs"><span class="tab">3d</span><span class="tab active">7d</span><span class="tab">30d</span><span class="tab">90d</span></div>
+      </div>
+      <table>
+        <tr><th>#</th><th>Perfil</th><th>Seguidores</th><th>+7d</th><th>Força</th><th>Top reel 7d</th></tr>
+        <tr><td class="pos">1</td><td class="handle"><span class="avatar">M</span>@musa.exemplo</td><td>812K</td><td class="grow">+18,4K</td><td><div class="bar"><i style="width:100%"></i></div></td><td>1,2M views</td></tr>
+        <tr><td class="pos">2</td><td class="handle"><span class="avatar" style="background:linear-gradient(135deg,#ec4899,#7c3aed)">L</span>@lifestyle.exemplo</td><td>445K</td><td class="grow">+11,2K</td><td><div class="bar"><i style="width:61%"></i></div></td><td>860K views</td></tr>
+        <tr><td class="pos">3</td><td class="handle"><span class="avatar" style="background:linear-gradient(135deg,#22d3ee,#7c3aed)">F</span>@fitness.exemplo</td><td>1,2M</td><td class="grow">+9,8K</td><td><div class="bar"><i style="width:53%"></i></div></td><td>640K views</td></tr>
+        <tr><td class="pos">4</td><td class="handle"><span class="avatar" style="background:linear-gradient(135deg,#a3e635,#06b6d4)">D</span>@danca.exemplo</td><td>298K</td><td class="grow">+7,1K</td><td><div class="bar"><i style="width:39%"></i></div></td><td>512K views</td></tr>
+        <tr><td class="pos">5</td><td class="handle"><span class="avatar">V</span>@viral.exemplo</td><td>167K</td><td class="grow">+5,4K</td><td><div class="bar"><i style="width:29%"></i></div></td><td>388K views <span class="pill">WINNER</span></td></tr>
+        <tr><td class="pos">6</td><td class="handle"><span class="avatar">R</span>@rotina.exemplo</td><td>520K</td><td class="grow">+3,9K</td><td><div class="bar"><i style="width:21%"></i></div></td><td>204K views</td></tr>
+        <tr><td class="pos">7</td><td class="handle"><span class="avatar">B</span>@beach.exemplo</td><td>231K</td><td class="grow">+2,2K</td><td><div class="bar"><i style="width:12%"></i></div></td><td>150K views</td></tr>
+      </table>
+    </div>
+    <div>
+      <div class="side-card"><h3>Última coleta</h3>
+        <div class="status"><span class="dot"></span>success · há 42min</div>
+        <div class="meter"><span>Perfis OK</span><strong>20 / 20</strong></div>
+        <div class="meter"><span>Posts novos</span><strong>+96</strong></div>
+        <div class="meter"><span>Atualizados</span><strong>86</strong></div>
+        <div class="meter"><span>Créditos est.</span><strong>214</strong></div>
+        <p class="note">Anti-recoleta: 14 perfis na janela de 30min — pulados sem custo.</p>
+      </div>
+      <div class="side-card"><h3>O que replicar agora</h3>
+        <p style="font-size:13.5px">3 winners novos no Vault nas últimas 24h — 2 de <strong>@viral.exemplo</strong>, formato “POV + legenda em 2 linhas”.</p>
+        <p class="note">→ Abrir Pattern Vault</p>
+      </div>
+    </div>
+  </div>
+  <p class="note">Proposta 1 · Radar — mock estático com dados de exemplo. Números fictícios em faixas plausíveis do nicho.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · Proposta 2 — Vault Wall (sistema)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--pink:#ec4899;--radius:18px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:20px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+main{padding:26px 30px;max-width:1180px}
+.hero{display:flex;align-items:end;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.hero h1{font-family:'Space Grotesk';font-size:30px;letter-spacing:-1.5px}
+.hero h1 .grad{background:linear-gradient(90deg,#a78bfa,#22d3ee 50%,#a3e635);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--muted);font-size:14px;max-width:560px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 20px}
+.chip{padding:8px 16px;border-radius:100px;border:1px solid var(--border);background:rgba(255,255,255,.03);font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.chip.active{background:#fff;color:#000;border-color:#fff}
+.wall{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.win{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:.25s;position:relative}
+.win:hover{transform:translateY(-5px);border-color:#7c3aed66;box-shadow:0 18px 50px #7c3aed22}
+.thumb{aspect-ratio:16/10;position:relative;display:grid;place-items:center;overflow:hidden}
+.thumb.t1{background:linear-gradient(135deg,#2e1065,#0e7490)}
+.thumb.t2{background:linear-gradient(135deg,#4c1d95,#0c4a6e)}
+.thumb.t3{background:linear-gradient(135deg,#701a75,#164e63)}
+.thumb.t4{background:linear-gradient(135deg,#1e1b4b,#155e75)}
+.thumb.t5{background:linear-gradient(135deg,#3b0764,#083344)}
+.thumb.t6{background:linear-gradient(135deg,#581c87,#0e7490)}
+.play{width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.7);display:grid;place-items:center}
+.play i{width:0;height:0;border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:4px}
+.ratio{position:absolute;top:10px;right:10px;font-family:'Space Grotesk';font-weight:700;font-size:13px;background:linear-gradient(90deg,var(--violet),var(--cyan));padding:5px 12px;border-radius:100px}
+.dur{position:absolute;bottom:10px;right:10px;font-size:11px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:8px;font-family:monospace}
+.body{padding:16px}
+.body .creator{font-size:12px;color:var(--cyan);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.body h3{font-size:15px;margin:6px 0}
+.body .gancho{font-size:13px;color:var(--muted)}
+.meta{display:flex;gap:14px;margin-top:12px;font-size:12.5px;color:var(--muted)}
+.meta strong{color:var(--text)}
+.foot{display:flex;gap:8px;margin-top:14px}
+.btn{flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:600;border:1px solid var(--border);background:rgba(255,255,255,.05);color:#fff;cursor:pointer;text-align:center}
+.btn.go{background:linear-gradient(135deg,#7c3aed,#06b6d4);border:none}
+.note{font-size:12px;color:var(--muted);margin-top:16px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}.wall{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="Eye of Zuck" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Monitorar</div>
+  <a class="nav-item" href="#">◉ Ranking viral</a>
+  <a class="nav-item" href="#">▦ Biblioteca</a>
+  <a class="nav-item active" href="#">◆ Pattern Vault</a>
+  <div class="nav-label">Organizar</div>
+  <a class="nav-item" href="#">⧉ Pastas</a>
+  <a class="nav-item" href="#">◍ Auditoria</a>
+  <a class="nav-item" href="#">⚙ Sessões Apify</a>
+</aside>
+<main>
+  <div class="hero">
+    <div><h1>Pattern Vault · <span class="grad">3 winners hoje</span></h1>
+    <p>Outlier 6×6 com ratio ≥ 2,0 já é winner — sem IA, sem espera. Formato, áudio e gancho prontos para replicar.</p></div>
+  </div>
+  <div class="chips"><span class="chip active">Todos</span><span class="chip">@viral.exemplo</span><span class="chip">@musa.exemplo</span><span class="chip">@danca.exemplo</span><span class="chip">POV</span><span class="chip">Antes/Depois</span></div>
+  <div class="wall">
+    <div class="win"><div class="thumb t1"><div class="play"><i></i></div><span class="ratio">3,1×</span><span class="dur">0:09</span></div>
+      <div class="body"><div class="creator">@viral.exemplo · reels</div><h3>POV + legenda em 2 linhas</h3><p class="gancho">Gancho: “ninguém fala sobre isso…” · áudio em alta · corte a cada 1,2s</p>
+      <div class="meta"><span><strong>388K</strong> views</span><span><strong>31K</strong> likes</span><span>pub. há 2d</span></div>
+      <div class="foot"><span class="btn go">Replicar hoje</span><span class="btn">Ver perfil</span></div></div></div>
+    <div class="win"><div class="thumb t2"><div class="play"><i></i></div><span class="ratio">2,8×</span><span class="dur">0:12</span></div>
+      <div class="body"><div class="creator">@musa.exemplo · reels</div><h3>Antes/depois com transição no beat</h3><p class="gancho">Gancho visual no 1º frame · texto grande · CTA “segue p/ parte 2”</p>
+      <div class="meta"><span><strong>512K</strong> views</span><span><strong>44K</strong> likes</span><span>pub. há 3d</span></div>
+      <div class="foot"><span class="btn go">Replicar hoje</span><span class="btn">Ver perfil</span></div></div></div>
+    <div class="win"><div class="thumb t3"><div class="play"><i></i></div><span class="ratio">2,4×</span><span class="dur">0:07</span></div>
+      <div class="body"><div class="creator">@danca.exemplo · reels</div><h3>Trend de dança + dueto</h3><p class="gancho">Áudio top BR · 2 takes · legenda com pergunta</p>
+      <div class="meta"><span><strong>296K</strong> views</span><span><strong>27K</strong> likes</span><span>pub. há 1d</span></div>
+      <div class="foot"><span class="btn go">Replicar hoje</span><span class="btn">Ver perfil</span></div></div></div>
+    <div class="win"><div class="thumb t4"><div class="play"><i></i></div><span class="ratio">2,2×</span><span class="dur">0:15</span></div>
+      <div class="body"><div class="creator">@viral.exemplo · reels</div><h3>Storytime com zoom progressivo</h3><p class="gancho">Retenção 68% · pico de comentários no meio</p>
+      <div class="meta"><span><strong>241K</strong> views</span><span><strong>19K</strong> likes</span><span>pub. há 4d</span></div>
+      <div class="foot"><span class="btn go">Replicar hoje</span><span class="btn">Ver perfil</span></div></div></div>
+    <div class="win"><div class="thumb t5"><div class="play"><i></i></div><span class="ratio">2,1×</span><span class="dur">0:11</span></div>
+      <div class="body"><div class="creator">@rotina.exemplo · grade→reels</div><h3>Rotina com timestamp na tela</h3><p class="gancho">Fonte cruzada grade+reels · salvamentos altos</p>
+      <div class="meta"><span><strong>188K</strong> views</span><span><strong>15K</strong> likes</span><span>pub. há 5d</span></div>
+      <div class="foot"><span class="btn go">Replicar hoje</span><span class="btn">Ver perfil</span></div></div></div>
+    <div class="win"><div class="thumb t6"><div class="play"><i></i></div><span class="ratio">2,0×</span><span class="dur">0:08</span></div>
+      <div class="body"><div class="creator">@lifestyle.exemplo · reels</div><h3>Unboxing com ASMR + cortes secos</h3><p class="gancho">No limite do outlier · observar 48h</p>
+      <div class="meta"><span><strong>174K</strong> views</span><span><strong>12K</strong> likes</span><span>pub. há 2d</span></div>
+      <div class="foot"><span class="btn go">Replicar hoje</span><span class="btn">Ver perfil</span></div></div></div>
+  </div>
+  <p class="note">Proposta 2 · Vault Wall — mock estático. Scan real roda em <strong>POST /api/vault/scan</strong> no app.</p>
+</main>
+</body>
+</html>

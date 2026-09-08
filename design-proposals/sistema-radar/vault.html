@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · S1 Radar — Vault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:20px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+main{padding:26px 30px;max-width:1180px}
+h1{font-family:'Space Grotesk';font-size:26px;letter-spacing:-1px}
+.sub{color:var(--muted);font-size:13.5px;margin:4px 0 18px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.panel-head h2{font-family:'Space Grotesk';font-size:16px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:12px 16px;border-bottom:1px solid var(--border)}
+td{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.05)}
+tr:hover td{background:rgba(124,58,237,.07)}
+.ratio{font-family:'Space Grotesk';font-weight:700;background:linear-gradient(90deg,var(--violet),var(--cyan));padding:4px 12px;border-radius:100px;font-size:12.5px}
+.creator{color:var(--cyan);font-weight:600}
+.go{color:#fff;font-weight:700;text-decoration:none;background:linear-gradient(135deg,#7c3aed,#06b6d4);padding:7px 16px;border-radius:100px;font-size:12.5px;white-space:nowrap}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Sistema 1 · Radar</div>
+  <a class="nav-item" href="app.html">◉ Ranking viral</a>
+  <a class="nav-item" href="biblioteca.html">▦ Biblioteca</a>
+  <a class="nav-item" href="perfil.html">◍ Perfil detalhe</a>
+  <a class="nav-item active" href="vault.html">◆ Pattern Vault</a>
+  <a class="nav-item" href="operacao.html">◍ Operação</a>
+</aside>
+<main>
+  <h1>Pattern Vault · 6 winners</h1>
+  <p class="sub">Outlier 6×6 · ratio ≥ 2,0 = winner direto, sem IA. Ordenado por ratio.</p>
+  <div class="panel"><div class="panel-head"><h2>Winners · últimos 7d</h2></div>
+    <table>
+      <tr><th>Ratio</th><th>Creator</th><th>Formato</th><th>Views</th><th>Pub.</th><th></th></tr>
+      <tr><td><span class="ratio">3,1×</span></td><td class="creator">@viral.exemplo</td><td>POV + legenda em 2 linhas</td><td>388K</td><td>há 2d</td><td><a class="go" href="perfil.html">Replicar →</a></td></tr>
+      <tr><td><span class="ratio">2,8×</span></td><td class="creator">@musa.exemplo</td><td>Antes/depois no beat</td><td>512K</td><td>há 3d</td><td><a class="go" href="perfil.html">Replicar →</a></td></tr>
+      <tr><td><span class="ratio">2,4×</span></td><td class="creator">@danca.exemplo</td><td>Trend + dueto</td><td>296K</td><td>há 1d</td><td><a class="go" href="perfil.html">Replicar →</a></td></tr>
+      <tr><td><span class="ratio">2,2×</span></td><td class="creator">@viral.exemplo</td><td>Storytime zoom progressivo</td><td>241K</td><td>há 4d</td><td><a class="go" href="perfil.html">Replicar →</a></td></tr>
+      <tr><td><span class="ratio">2,1×</span></td><td class="creator">@rotina.exemplo</td><td>Rotina com timestamp</td><td>188K</td><td>há 5d</td><td><a class="go" href="perfil.html">Replicar →</a></td></tr>
+      <tr><td><span class="ratio">2,0×</span></td><td class="creator">@lifestyle.exemplo</td><td>Unboxing ASMR</td><td>174K</td><td>há 2d</td><td><a class="go" href="perfil.html">Replicar →</a></td></tr>
+    </table></div>
+  <p class="note">S1 · mock. Scan real em POST /api/vault/scan.</p>
+</main>
+</body>
+</html>

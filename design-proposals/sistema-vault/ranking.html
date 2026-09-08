@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · S2 Vault — Ranking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--pink:#ec4899;--radius:18px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:20px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+main{padding:26px 30px;max-width:1180px}
+h1{font-family:'Space Grotesk';font-size:30px;letter-spacing:-1.5px}
+h1 .grad{background:linear-gradient(90deg,#a78bfa,#22d3ee 50%,#a3e635);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:14px;margin:6px 0 18px;max-width:600px}
+.podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:14px;align-items:end;margin-bottom:16px}
+.pcard{background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:var(--radius);padding:22px;text-align:center;position:relative;overflow:hidden}
+.pcard.first{border-color:#7c3aed88;box-shadow:0 18px 60px #7c3aed33;padding:30px 22px}
+.pcard.first::before{content:'👑 TOP 7D';position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;letter-spacing:1.5px;color:var(--lime)}
+.avatar{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;font-size:22px;font-weight:700;margin:6px auto 10px;background:linear-gradient(135deg,#7c3aed,#22d3ee)}
+.pcard strong{font-family:'Space Grotesk';font-size:32px;display:block}
+.pcard .who{font-weight:600}
+.pcard small{color:var(--muted)}
+.list{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.row{display:grid;grid-template-columns:40px 1fr auto auto auto;gap:12px;align-items:center;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13.5px}
+.row:last-child{border:none}
+.row:hover{background:rgba(124,58,237,.07)}
+.pos{font-family:'Space Grotesk';color:var(--muted)}
+.who{display:flex;align-items:center;gap:10px;font-weight:600}
+.mini-av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#22d3ee)}
+.g{color:#4ade80;font-weight:700}.d{color:#f87171;font-weight:700}
+.wtag{font-size:11px;font-weight:800;padding:3px 10px;border-radius:100px;background:rgba(163,230,53,.12);color:var(--lime);border:1px solid #a3e63544}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}.podium{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Sistema 2 · Vault</div>
+  <a class="nav-item active" href="ranking.html">◉ Ranking viral</a>
+  <a class="nav-item" href="biblioteca.html">▦ Biblioteca</a>
+  <a class="nav-item" href="perfil.html">◍ Perfil detalhe</a>
+  <a class="nav-item" href="app.html">◆ Pattern Vault</a>
+  <a class="nav-item" href="operacao.html">◍ Operação</a>
+</aside>
+<main>
+  <h1>Quem tá <span class="grad">puxando a fila · 7d</span></h1>
+  <p class="sub">Crescimento de seguidores por data real. Pódio + resto da fila.</p>
+  <div class="podium">
+    <div class="pcard"><div class="avatar" style="background:linear-gradient(135deg,#ec4899,#7c3aed)">L</div><div class="who">@lifestyle.exemplo</div><strong>+11,2K</strong><small>445K · 860K top reel</small></div>
+    <div class="pcard first"><div class="avatar">M</div><div class="who">@musa.exemplo</div><strong>+18,4K</strong><small>812K · 1,2M top reel</small></div>
+    <div class="pcard"><div class="avatar" style="background:linear-gradient(135deg,#22d3ee,#7c3aed)">F</div><div class="who">@fitness.exemplo</div><strong>+9,8K</strong><small>1,2M · 640K top reel</small></div>
+  </div>
+  <div class="list">
+    <div class="row"><span class="pos">4</span><span class="who"><span class="mini-av">D</span>@danca.exemplo</span><span class="g">+7,1K</span><span>512K views</span><span class="wtag">2,4×</span></div>
+    <div class="row"><span class="pos">5</span><span class="who"><span class="mini-av">V</span>@viral.exemplo</span><span class="g">+5,4K</span><span>388K views</span><span class="wtag">3,1×</span></div>
+    <div class="row"><span class="pos">6</span><span class="who"><span class="mini-av">R</span>@rotina.exemplo</span><span class="d">−1,2K</span><span>204K views</span><span style="color:var(--muted)">—</span></div>
+    <div class="row"><span class="pos">7</span><span class="who"><span class="mini-av">B</span>@beach.exemplo</span><span class="g">+2,2K</span><span>150K views</span><span style="color:var(--muted)">—</span></div>
+  </div>
+  <p class="note">S2 · mock. Selo verde = tem winner no Vault.</p>
+</main>
+</body>
+</html>

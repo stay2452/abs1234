@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · S3 Biblioteca — Perfil detalhe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--pink:#ec4899;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:14px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+.nav-item .count{margin-left:auto;font-size:11px;background:rgba(255,255,255,.08);padding:2px 9px;border-radius:100px}
+main{padding:26px 30px;max-width:1180px}
+.crumbs{font-size:12.5px;color:var(--muted);margin-bottom:12px}.crumbs a{color:var(--cyan);text-decoration:none}
+.shelf{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:20px;padding:24px;margin-bottom:14px}
+.top{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.avatar{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;font-size:28px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#22d3ee)}
+.top h1{font-family:'Space Grotesk';font-size:26px}
+.top small{color:var(--muted);display:block}
+.folders{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.f{font-size:12px;font-weight:600;padding:6px 14px;border-radius:100px;border:1px solid var(--border);color:var(--muted)}
+.f.on{background:linear-gradient(90deg,#7c3aed55,#22d3ee44);color:#fff;border-color:#7c3aed66}
+.btn{margin-left:auto;padding:11px 24px;border-radius:100px;font-weight:700;border:none;cursor:pointer;background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff}
+.shelf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}
+.cell{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:12px;padding:12px}
+.cell small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+.cell strong{font-family:'Space Grotesk';font-size:20px;display:block}
+.posts{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.post{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.thumb{aspect-ratio:4/5;background:linear-gradient(135deg,#2e1065,#0e7490);position:relative;display:grid;place-items:center}
+.thumb.b{background:linear-gradient(135deg,#4c1d95,#0c4a6e)}.thumb.c{background:linear-gradient(135deg,#701a75,#164e63)}.thumb.d{background:linear-gradient(135deg,#1e1b4b,#155e75)}
+.views{position:absolute;bottom:8px;left:8px;font-size:11px;font-weight:700;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:8px}
+.pbody{padding:10px 12px;font-size:12.5px}.pbody b{display:block;font-size:13px}.pbody span{color:var(--muted)}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}.shelf-grid,.posts{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Pastas</div>
+  <a class="nav-item" href="app.html">▦ Todas <span class="count">248</span></a>
+  <a class="nav-item" href="app.html">✦ Conta 01 <span class="count">64</span></a>
+  <a class="nav-item active" href="perfil.html">◍ Perfil detalhe</a>
+  <a class="nav-item" href="ranking.html">◉ Ranking 7d</a>
+  <a class="nav-item" href="vault.html">◆ Vault</a>
+  <a class="nav-item" href="operacao.html">◍ Operação</a>
+</aside>
+<main>
+  <div class="crumbs"><a href="app.html">← Biblioteca</a> · Todas / Conta 01</div>
+  <div class="shelf">
+    <div class="top"><div class="avatar">F</div>
+      <div><h1>@fitness.exemplo</h1><small>1,2M seguidores · 342 posts · coletado há 26min</small></div>
+      <button class="btn">↻ Coletar agora</button></div>
+    <div class="folders"><span class="f on">✦ Conta 01</span><span class="f">✦ Tráfego frio</span><span class="f">+ mover de pasta</span></div>
+    <div class="shelf-grid">
+      <div class="cell"><small>+7d</small><strong style="color:#4ade80">+9,8K</strong></div>
+      <div class="cell"><small>Reels/semana</small><strong>6</strong></div>
+      <div class="cell"><small>Winners</small><strong>3</strong></div>
+      <div class="cell"><small>Snapshots</small><strong>61</strong></div>
+    </div>
+  </div>
+  <div class="posts">
+    <div class="post"><div class="thumb"><span class="views">▶ 640K</span></div><div class="pbody"><b>Treino real sem corte</b><span>51K likes · há 4d</span></div></div>
+    <div class="post"><div class="thumb b"><span class="views">▶ 512K</span></div><div class="pbody"><b>Antes/depois beat</b><span>44K likes · há 6d · winner 2,8×</span></div></div>
+    <div class="post"><div class="thumb c"><span class="views">▶ 388K</span></div><div class="pbody"><b>Rotina 5h</b><span>22K likes · há 8d</span></div></div>
+    <div class="post"><div class="thumb d"><span class="views">▶ 204K</span></div><div class="pbody"><b>Dica de suplemento</b><span>12K likes · há 11d</span></div></div>
+  </div>
+  <p class="note">S3 · mock. Prateleira = biblioteca acumulada do perfil, com pastas editáveis.</p>
+</main>
+</body>
+</html>

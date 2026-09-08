@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · S3 Biblioteca — Ranking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--pink:#ec4899;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:14px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+.nav-item .count{margin-left:auto;font-size:11px;background:rgba(255,255,255,.08);padding:2px 9px;border-radius:100px}
+main{padding:26px 30px;max-width:1180px}
+h1{font-family:'Space Grotesk';font-size:26px;letter-spacing:-1px}
+.sub{color:var(--muted);font-size:13.5px;margin:4px 0 16px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.pcard{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;gap:14px;align-items:center}
+.pcard.hero{grid-column:1/-1;border-color:#7c3aed66;background:linear-gradient(135deg,#1e1b4b,#0a0f1e)}
+.rank{font-family:'Space Grotesk';font-size:30px;color:var(--muted);min-width:44px;text-align:center}
+.rank.first{color:var(--lime)}
+.avatar{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;font-size:19px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#22d3ee);flex-shrink:0}
+.info strong{font-size:15px}.info small{color:var(--muted);display:block}
+.nums{margin-left:auto;text-align:right}
+.nums b{font-family:'Space Grotesk';font-size:19px;display:block}
+.up{color:#4ade80;font-size:12px;font-weight:700}.down{color:#f87171;font-size:12px;font-weight:700}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Pastas</div>
+  <a class="nav-item" href="app.html">▦ Todas <span class="count">248</span></a>
+  <a class="nav-item" href="app.html">✦ Conta 01 <span class="count">64</span></a>
+  <a class="nav-item active" href="ranking.html">◉ Ranking 7d</a>
+  <a class="nav-item" href="perfil.html">◍ Perfil detalhe</a>
+  <a class="nav-item" href="vault.html">◆ Vault</a>
+  <a class="nav-item" href="operacao.html">◍ Operação</a>
+</aside>
+<main>
+  <h1>Ranking · pasta Todas · 7d</h1>
+  <p class="sub">Mesma base da biblioteca, ordenada por crescimento — por data real de publicação.</p>
+  <div class="grid">
+    <div class="pcard hero"><div class="rank first">1</div><div class="avatar">M</div><div class="info"><strong>@musa.exemplo</strong><small>812K · top reel 1,2M · 4 winners</small></div><div class="nums"><b>+18,4K</b><span class="up">▲ +2,3%</span></div></div>
+    <div class="pcard"><div class="rank">2</div><div class="avatar">L</div><div class="info"><strong>@lifestyle.exemplo</strong><small>445K · top reel 860K</small></div><div class="nums"><b>+11,2K</b><span class="up">▲ +2,5%</span></div></div>
+    <div class="pcard"><div class="rank">3</div><div class="avatar">F</div><div class="info"><strong>@fitness.exemplo</strong><small>1,2M · top reel 640K</small></div><div class="nums"><b>+9,8K</b><span class="up">▲ +0,8%</span></div></div>
+    <div class="pcard"><div class="rank">4</div><div class="avatar">D</div><div class="info"><strong>@danca.exemplo</strong><small>298K · top reel 512K</small></div><div class="nums"><b>+7,1K</b><span class="up">▲ +2,4%</span></div></div>
+    <div class="pcard"><div class="rank">5</div><div class="avatar">V</div><div class="info"><strong>@viral.exemplo</strong><small>167K · top reel 388K · 5 winners</small></div><div class="nums"><b>+5,4K</b><span class="up">▲ +3,3%</span></div></div>
+    <div class="pcard"><div class="rank">6</div><div class="avatar">R</div><div class="info"><strong>@rotina.exemplo</strong><small>520K · top reel 204K</small></div><div class="nums"><b>−1,2K</b><span class="down">▼ −0,2%</span></div></div>
+  </div>
+  <p class="note">S3 · mock. Trocar de pasta reordena o ranking só com os perfis dela.</p>
+</main>
+</body>
+</html>

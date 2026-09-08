@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · Proposta 3 — Biblioteca + Pastas (sistema)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--pink:#ec4899;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:14px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+.nav-item .count{margin-left:auto;font-size:11px;background:rgba(255,255,255,.08);padding:2px 9px;border-radius:100px}
+main{padding:26px 30px;max-width:1180px}
+.toolbar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.toolbar h1{font-family:'Space Grotesk';font-size:26px;letter-spacing:-1px;margin-right:8px}
+.search{flex:1;min-width:200px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:100px;padding:10px 20px;color:var(--muted);font-size:13.5px}
+.btn{padding:10px 20px;border-radius:100px;font-weight:600;font-size:13.5px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:#fff;cursor:pointer}
+.btn-primary{background:linear-gradient(135deg,#7c3aed,#4f46e5 50%,#06b6d4);border:none}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.pcard{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:.25s}
+.pcard:hover{transform:translateY(-4px);border-color:#7c3aed66}
+.phead{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.avatar{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:17px;flex-shrink:0;background:linear-gradient(135deg,#7c3aed,#22d3ee)}
+.phead strong{font-size:15px;display:block}
+.phead small{color:var(--muted);font-size:12px}
+.ig{margin-left:auto;font-size:10.5px;font-weight:800;letter-spacing:1px;padding:4px 10px;border-radius:100px;background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);color:#fff}
+.rows{display:flex;flex-direction:column;gap:7px;font-size:13px}
+.row{display:flex;justify-content:space-between;color:var(--muted)}
+.row strong{color:var(--text);font-family:'Space Grotesk'}
+.up{color:#4ade80;font-weight:700}
+.down{color:#f87171;font-weight:700}
+.pfoot{display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07);font-size:12px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 8px var(--lime)}
+.dot.wait{background:#facc15;box-shadow:0 0 8px #facc15}
+.link{margin-left:auto;color:var(--cyan);font-weight:600}
+.note{font-size:12px;color:var(--muted);margin-top:16px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="Eye of Zuck" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Pastas</div>
+  <a class="nav-item active" href="#">▦ Todas <span class="count">248</span></a>
+  <a class="nav-item" href="#">✦ OFM · conta 01 <span class="count">64</span></a>
+  <a class="nav-item" href="#">✦ OFM · conta 02 <span class="count">58</span></a>
+  <a class="nav-item" href="#">✦ Tráfego frio <span class="count">71</span></a>
+  <a class="nav-item" href="#">✦ Em teste <span class="count">55</span></a>
+  <div class="nav-label">Sistema</div>
+  <a class="nav-item" href="#">◉ Ranking viral</a>
+  <a class="nav-item" href="#">◆ Pattern Vault</a>
+  <a class="nav-item" href="#">◍ Auditoria</a>
+</aside>
+<main>
+  <div class="toolbar">
+    <h1>Biblioteca</h1>
+    <div class="search">⌕ Buscar @handle, nicho ou pasta…</div>
+    <button class="btn">Status: todos ▾</button>
+    <button class="btn btn-primary">＋ Importar (até 500)</button>
+  </div>
+  <div class="grid">
+    <div class="pcard"><div class="phead"><div class="avatar">M</div><div><strong>@musa.exemplo</strong><small>812K seguidores · 214 posts</small></div><span class="ig">IG</span></div>
+      <div class="rows"><div class="row"><span>+7d</span><strong class="up">+18,4K ▲</strong></div><div class="row"><span>Reels/semana</span><strong>9</strong></div><div class="row"><span>Winners no Vault</span><strong>4</strong></div></div>
+      <div class="pfoot"><span class="dot"></span>coletado há 12min<span class="link">Abrir →</span></div></div>
+    <div class="pcard"><div class="phead"><div class="avatar" style="background:linear-gradient(135deg,#ec4899,#7c3aed)">L</div><div><strong>@lifestyle.exemplo</strong><small>445K seguidores · 188 posts</small></div><span class="ig">IG</span></div>
+      <div class="rows"><div class="row"><span>+7d</span><strong class="up">+11,2K ▲</strong></div><div class="row"><span>Reels/semana</span><strong>7</strong></div><div class="row"><span>Winners no Vault</span><strong>2</strong></div></div>
+      <div class="pfoot"><span class="dot"></span>coletado há 26min<span class="link">Abrir →</span></div></div>
+    <div class="pcard"><div class="phead"><div class="avatar" style="background:linear-gradient(135deg,#22d3ee,#7c3aed)">F</div><div><strong>@fitness.exemplo</strong><small>1,2M seguidores · 342 posts</small></div><span class="ig">IG</span></div>
+      <div class="rows"><div class="row"><span>+7d</span><strong class="up">+9,8K ▲</strong></div><div class="row"><span>Reels/semana</span><strong>6</strong></div><div class="row"><span>Winners no Vault</span><strong>3</strong></div></div>
+      <div class="pfoot"><span class="dot wait"></span>na janela 30min · volta 14:02<span class="link">Abrir →</span></div></div>
+    <div class="pcard"><div class="phead"><div class="avatar" style="background:linear-gradient(135deg,#a3e635,#06b6d4)">D</div><div><strong>@danca.exemplo</strong><small>298K seguidores · 156 posts</small></div><span class="ig">IG</span></div>
+      <div class="rows"><div class="row"><span>+7d</span><strong class="up">+7,1K ▲</strong></div><div class="row"><span>Reels/semana</span><strong>11</strong></div><div class="row"><span>Winners no Vault</span><strong>2</strong></div></div>
+      <div class="pfoot"><span class="dot"></span>coletado há 1h<span class="link">Abrir →</span></div></div>
+    <div class="pcard"><div class="phead"><div class="avatar">V</div><div><strong>@viral.exemplo</strong><small>167K seguidores · 98 posts</small></div><span class="ig">IG</span></div>
+      <div class="rows"><div class="row"><span>+7d</span><strong class="up">+5,4K ▲</strong></div><div class="row"><span>Reels/semana</span><strong>8</strong></div><div class="row"><span>Winners no Vault</span><strong>5</strong></div></div>
+      <div class="pfoot"><span class="dot"></span>coletado há 2h<span class="link">Abrir →</span></div></div>
+    <div class="pcard"><div class="phead"><div class="avatar">R</div><div><strong>@rotina.exemplo</strong><small>520K seguidores · 201 posts</small></div><span class="ig">IG</span></div>
+      <div class="rows"><div class="row"><span>+7d</span><strong class="down">−1,2K ▼</strong></div><div class="row"><span>Reels/semana</span><strong>3</strong></div><div class="row"><span>Winners no Vault</span><strong>0</strong></div></div>
+      <div class="pfoot"><span class="dot wait"></span>pausado · revisar funil<span class="link">Abrir →</span></div></div>
+  </div>
+  <p class="note">Proposta 3 · Biblioteca + Pastas — biblioteca pessoal por login: cada conta vê só o que é seu. Mock estático.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck — Biblioteca viral para agências OFM</title>
+<meta name="description" content="Eye of Zuck é a biblioteca IG-only que cataloga perfis, ranqueia crescimento e reels por data real de publicação e revela winners replicáveis no Pattern Vault." />
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#05070f;
+  --bg2:#0a0f1e;
+  --card:rgba(255,255,255,.04);
+  --border:rgba(255,255,255,.09);
+  --text:#eef2ff;
+  --muted:#94a3b8;
+  --violet:#7c3aed;
+  --cyan:#22d3ee;
+  --lime:#a3e635;
+  --radius:20px;
+  --max:1200px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  overflow-x:hidden;
+  line-height:1.6;
+}
+::selection{background:var(--violet);color:white}
+a{color:inherit;text-decoration:none}
+canvas#stars{position:fixed;inset:0;z-index:0;opacity:.7;pointer-events:none}
+.orb{position:fixed;border-radius:50%;filter:blur(120px);z-index:0;pointer-events:none;opacity:.5}
+.orb1{width:600px;height:600px;background:radial-gradient(circle,#7c3aed55,transparent 70%);top:-200px;left:-150px;animation:float 12s ease-in-out infinite}
+.orb2{width:500px;height:500px;background:radial-gradient(circle,#22d3ee44,transparent 70%);top:20%;right:-200px;animation:float 14s ease-in-out infinite reverse}
+.orb3{width:700px;height:400px;background:radial-gradient(circle,#ec489944,transparent 70%);bottom:0;left:30%;opacity:.3}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(40px)}}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  background:rgba(5,7,15,.7);border-bottom:1px solid var(--border);
+}
+.nav-inner{max-width:var(--max);margin:auto;display:flex;align-items:center;justify-content:space-between;padding:16px 24px}
+.logo{display:flex;align-items:center;gap:12px;font-family:'Space Grotesk';font-weight:700;font-size:20px;letter-spacing:-.5px}
+.logo-mark{width:46px;height:46px;border-radius:14px;background:#0a0f1e;border:1px solid #7c3aed66;display:grid;place-items:center;box-shadow:0 0 30px #7c3aed88,0 0 12px #22d3ee44 inset;position:relative;overflow:hidden;flex-shrink:0;padding:0}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;z-index:1;display:block;background:#0a0f1e;border-radius:11px}
+.logo-mark svg{width:30px;height:30px;z-index:0;position:relative}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite;z-index:0}
+.logo-mark::after{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.logo-text{display:flex;flex-direction:column;line-height:1.05}
+.logo-text small{font-family:'Inter';font-size:9.5px;font-weight:700;letter-spacing:2.2px;color:var(--cyan);text-transform:uppercase}
+.links{display:flex;gap:28px;color:var(--muted);font-size:15px;font-weight:500}
+.links a:hover{color:white}
+.nav-cta{display:flex;gap:12px;align-items:center}
+.btn{padding:12px 22px;border-radius:100px;font-weight:600;font-size:15px;cursor:pointer;border:1px solid transparent;transition:.25s;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+.btn-ghost{border-color:var(--border);background:rgba(255,255,255,.04);color:white}
+.btn-ghost:hover{background:rgba(255,255,255,.09)}
+.btn-primary{background:linear-gradient(135deg,#7c3aed,#4f46e5 50%,#06b6d4);color:white;box-shadow:0 8px 30px #7c3aed55}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 40px #7c3aed77}
+.hamburger{display:none;background:none;border:1px solid var(--border);color:white;border-radius:10px;padding:8px 12px;font-size:18px;cursor:pointer}
+
+/* HERO */
+header{position:relative;z-index:1;padding:150px 24px 40px;max-width:var(--max);margin:auto;text-align:center}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:100px;background:rgba(124,58,237,.12);border:1px solid #7c3aed44;font-size:13px;color:#c4b5fd;font-weight:600}
+.badge .dot{width:8px;height:8px;background:var(--lime);border-radius:50%;box-shadow:0 0 10px var(--lime);animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+h1{font-family:'Space Grotesk';font-size:clamp(42px,7vw,84px);line-height:.95;letter-spacing:-3px;margin:24px auto;max-width:900px}
+h1 .grad{background:linear-gradient(90deg,#a78bfa,#22d3ee 50%,#a3e635);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:clamp(16px,2vw,20px);max-width:660px;margin:0 auto 32px}
+.hero-btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.hero-meta{margin-top:18px;color:var(--muted);font-size:13px;display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+.hero-meta span{display:flex;align-items:center;gap:6px}
+
+/* Dashboard mock */
+.dashboard-wrap{position:relative;z-index:1;max-width:1020px;margin:50px auto 0;padding:0 24px;perspective:1200px}
+.dashboard{
+  background:linear-gradient(180deg,#0f172a,#020617);
+  border:1px solid rgba(255,255,255,.12);border-radius:24px;
+  overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.6),0 0 0 1px #7c3aed22,0 0 80px #7c3aed22;
+  transform:rotateX(8deg);transition:.6s;text-align:left;
+}
+.dashboard:hover{transform:rotateX(0)}
+.dash-top{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02)}
+.dot-r,.dot-y,.dot-g{width:12px;height:12px;border-radius:50%}
+.dot-r{background:#ef4444}.dot-y{background:#f59e0b}.dot-g{background:#22c55e}
+.dash-url{margin-left:12px;flex:1;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:12px;color:var(--muted);font-family:monospace}
+.dash-body{display:grid;grid-template-columns:220px 1fr 280px;min-height:380px}
+.side{border-right:1px solid var(--border);padding:20px 14px;display:flex;flex-direction:column;gap:8px}
+.side-item{padding:10px 12px;border-radius:10px;font-size:13px;color:var(--muted);display:flex;gap:10px;align-items:center}
+.side-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:white;border:1px solid #7c3aed33}
+.main{padding:24px}
+.main h3{font-size:14px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:16px}
+.deploy-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px}
+.mini{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
+.mini small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+.mini strong{font-size:22px;display:block;font-family:'Space Grotesk'}
+.mini .up{color:#4ade80;font-size:12px;font-weight:700}
+.code{background:#020617;border:1px solid var(--border);border-radius:14px;padding:16px;font-family:ui-monospace,monospace;font-size:12.5px;line-height:1.7;overflow:hidden}
+.code .g{color:#4ade80}.code .b{color:#22d3ee}.code .p{color:#c4b5fd}.code .m{color:#94a3b8}
+.right{border-left:1px solid var(--border);padding:20px;background:rgba(124,58,237,.06)}
+.log{font-family:monospace;font-size:11.5px;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.log div{display:flex;gap:8px}
+.ok{color:#4ade80}.warn{color:#facc15}.info{color:#22d3ee}
+.glow-line{height:2px;background:linear-gradient(90deg,transparent,var(--cyan),var(--violet),transparent);animation:scan 3s linear infinite}
+@keyframes scan{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
+
+/* LOGOS */
+.logos{position:relative;z-index:1;max-width:var(--max);margin:60px auto 0;padding:0 24px;text-align:center}
+.logos p{color:var(--muted);font-size:13px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:20px}
+.marquee{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;opacity:.75;font-family:'Space Grotesk';font-weight:700;font-size:15px}
+.marquee span{border:1px solid var(--border);padding:8px 18px;border-radius:100px;background:rgba(255,255,255,.03)}
+
+/* SECTION */
+section{position:relative;z-index:1;max-width:var(--max);margin:auto;padding:100px 24px 20px}
+.eyebrow{color:var(--cyan);font-weight:700;font-size:13px;letter-spacing:2px;text-transform:uppercase;text-align:center}
+h2{font-family:'Space Grotesk';font-size:clamp(30px,4.5vw,52px);letter-spacing:-2px;line-height:1.05;text-align:center;margin:14px auto;max-width:720px}
+.desc{text-align:center;color:var(--muted);max-width:620px;margin:0 auto 48px;font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:var(--radius);padding:28px;transition:.3s;position:relative;overflow:hidden}
+.card:hover{transform:translateY(-6px);border-color:#7c3aed66;box-shadow:0 20px 60px #7c3aed22}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,#7c3aed,#22d3ee,transparent)}
+.icon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-size:22px;margin-bottom:18px;background:rgba(124,58,237,.15);border:1px solid #7c3aed33}
+.card h3{font-size:18px;margin-bottom:8px}
+.card p{color:var(--muted);font-size:14.5px}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:20px}
+.stat{text-align:center;padding:30px 10px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.stat strong{font-family:'Space Grotesk';font-size:42px;background:linear-gradient(180deg,white,#94a3b8);-webkit-background-clip:text;background-clip:text;color:transparent;display:block}
+.stat span{color:var(--muted);font-size:14px}
+
+/* WORKFLOW + CODE tabs */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;margin-top:10px}
+.steps{display:flex;flex-direction:column;gap:16px}
+.step{display:flex;gap:16px;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:16px}
+.num{width:36px;height:36px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--cyan));display:grid;place-items:center;font-weight:700}
+.step h4{margin-bottom:4px}
+.step p{color:var(--muted);font-size:14px}
+.tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
+.tab.active{background:white;color:black}
+
+/* TESTIMONIALS */
+.testis{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.testi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;font-size:14.5px}
+.testi p{color:#cbd5e1;margin-bottom:18px}
+.who{display:flex;gap:12px;align-items:center}
+.avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#ec4899,#7c3aed);display:grid;place-items:center;font-weight:700}
+.who small{color:var(--muted);display:block}
+
+/* PRICING */
+.pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch}
+.price{padding:32px 28px;border-radius:24px;border:1px solid var(--border);background:var(--card);display:flex;flex-direction:column}
+.price.featured{background:linear-gradient(180deg,#1e1b4b,#0a0f1e);border:1px solid #7c3aed88;box-shadow:0 20px 80px #7c3aed33;transform:scale(1.03);position:relative}
+.price.featured::after{content:'PARA OPERAÇÕES';position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,var(--violet),var(--cyan));font-size:11px;font-weight:800;letter-spacing:1px;padding:5px 14px;border-radius:100px;white-space:nowrap}
+.price h4{font-family:'Space Grotesk';font-size:18px}
+.price .val{font-family:'Space Grotesk';font-size:44px;margin:12px 0;letter-spacing:-2px}
+.price .val small{font-size:15px;color:var(--muted);letter-spacing:0}
+.price ul{list-style:none;margin:18px 0 26px;display:flex;flex-direction:column;gap:10px;color:#cbd5e1;font-size:14px}
+.price ul li::before{content:'✓ ';color:var(--lime);font-weight:700}
+
+/* FAQ */
+.faq{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.faq-item{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.faq-q{padding:18px 20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:600}
+.faq-a{max-height:0;overflow:hidden;transition:.35s;color:var(--muted);font-size:14.5px}
+.faq-a div{padding:0 20px 18px}
+.faq-item.open .faq-a{max-height:220px}
+
+/* CTA */
+.cta-box{margin:80px auto 0;background:linear-gradient(135deg,#2e1065,#0e7490 120%);border:1px solid #ffffff22;border-radius:32px;padding:70px 30px;text-align:center;position:relative;overflow:hidden}
+.cta-box::before{content:'';position:absolute;width:500px;height:500px;background:radial-gradient(circle,#ffffff22,transparent 70%);top:-200px;left:50%;transform:translateX(-50%)}
+.cta-box h2{position:relative}
+.cta-box p{color:#e0e7ff;position:relative;margin-bottom:28px}
+
+/* FOOTER */
+footer{position:relative;z-index:1;border-top:1px solid var(--border);margin-top:100px;background:rgba(0,0,0,.4)}
+.foot{max-width:var(--max);margin:auto;padding:50px 24px;display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:30px}
+.foot p{color:var(--muted);font-size:14px;margin-top:12px;max-width:300px}
+.foot h5{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.foot a{display:block;color:#cbd5e1;font-size:14px;margin-bottom:8px}
+.foot a:hover{color:white}
+.bottom{text-align:center;padding:20px;color:var(--muted);font-size:13px;border-top:1px solid var(--border)}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(30px);transition:.7s}
+.reveal.visible{opacity:1;transform:none}
+
+/* responsive */
+@media(max-width:900px){
+  .links,.nav-cta .btn-ghost{display:none}
+  .hamburger{display:block}
+  .links.mobile{display:flex;position:absolute;top:68px;left:12px;right:12px;background:#0a0f1e;border:1px solid var(--border);border-radius:16px;padding:18px;flex-direction:column;gap:14px}
+  .grid,.testis,.pricing{grid-template-columns:1fr}
+  .dash-body{grid-template-columns:1fr}
+  .side,.right{display:none}
+  .split{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  .foot{grid-template-columns:1fr 1fr}
+  .price.featured{transform:none}
+}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div>
+
+<nav>
+  <div class="nav-inner">
+    <div class="logo"><div class="logo-mark"><img src="logo.png" alt="Eye of Zuck" onerror="this.remove()"><svg viewBox="0 0 32 32" fill="none"><defs><linearGradient id="eyeStroke" x1="4" y1="8" x2="28" y2="24"><stop stop-color="#a78bfa"/><stop offset=".5" stop-color="#22d3ee"/><stop offset="1" stop-color="#a3e635"/></linearGradient><radialGradient id="iris" cx=".38" cy=".32" r=".9"><stop stop-color="#a78bfa"/><stop offset=".55" stop-color="#7c3aed"/><stop offset="1" stop-color="#06b6d4"/></radialGradient></defs><path d="M3.5 16C6.5 9.8 11.4 6.5 16 6.5S25.5 9.8 28.5 16C25.5 22.2 20.6 25.5 16 25.5S6.5 22.2 3.5 16Z" stroke="url(#eyeStroke)" stroke-width="2" stroke-linejoin="round"/><circle cx="16" cy="16" r="6.2" fill="url(#iris)" stroke="#eef2ff" stroke-width="1.1"/><path d="M14.6 13.4v5.2l4.6-2.6-4.6-2.6Z" fill="#fff"/><circle cx="18.2" cy="13.6" r="1.3" fill="#fff" opacity=".9"/><circle cx="26.5" cy="7.5" r="1.6" fill="#a3e635"/><circle cx="26.5" cy="7.5" r="3" stroke="#a3e635" stroke-opacity=".5"/></svg></div><span class="logo-text">Eye of Zuck<small>OFM · Viral Intel</small></span></div>
+    <div class="links" id="links">
+      <a href="#features">Biblioteca</a>
+      <a href="#workflow">Como funciona</a>
+      <a href="#casos">Casos de uso</a>
+      <a href="#acesso">Acesso</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="#">Login</a>
+      <a class="btn btn-primary" href="#acesso">Pedir acesso →</a>
+      <button class="hamburger" onclick="document.getElementById('links').classList.toggle('mobile')">☰</button>
+    </div>
+  </div>
+</nav>
+
+<header>
+  <div class="badge"><span class="dot"></span> IG-ONLY · 240+ perfis já em produção</div>
+  <h1>Ache o viral <span class="grad">replicável em minutos</span></h1>
+  <p class="sub">Biblioteca acumulativa de perfis de Instagram para agências OFM: cadastre, colete via Apify, ranqueie por data real de publicação e revele winners no Pattern Vault.</p>
+  <div class="hero-btns">
+    <a href="#acesso" class="btn btn-primary">👁 Abrir minha biblioteca</a>
+    <a href="#workflow" class="btn btn-ghost">▶ Ver como funciona (2 min)</a>
+  </div>
+  <div class="hero-meta">
+    <span>✓ Sem coleta automática</span><span>✓ Ranking por publishedAt</span><span>✓ Custo Apify sempre visível</span>
+  </div>
+</header>
+
+<div class="dashboard-wrap">
+  <div class="dashboard" id="tilt">
+    <div class="dash-top"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span><div class="dash-url">eyeofzuck.app/rankings?periodo=7d</div></div>
+    <div class="glow-line"></div>
+    <div class="dash-body">
+      <div class="side">
+        <div class="side-item active">◉ Ranking viral</div>
+        <div class="side-item">▦ Biblioteca</div>
+        <div class="side-item">◆ Pattern Vault</div>
+        <div class="side-item">⧉ Pastas</div>
+        <div class="side-item">⚙ Auditoria</div>
+      </div>
+      <div class="main">
+        <h3>7 dias · por data de publicação — live</h3>
+        <div class="deploy-cards">
+          <div class="mini"><small>Perfis</small><strong>240+</strong><span class="up">▲ biblioteca ativa</span></div>
+          <div class="mini"><small>Por coleta</small><strong>5+5</strong><span class="up">grade + reels</span></div>
+          <div class="mini"><small>Top 7d</small><strong>+18.4K</strong><span class="up">▲ @exemplo</span></div>
+        </div>
+        <div class="code"><span class="m">$</span> <span class="g">importar 500 perfis → coletar lote de 20</span><br><span class="b">✔</span> <span class="m">upsert sem duplicar · snapshot só se mudou</span><br><span class="b">✔</span> <span class="p">vault:</span> <span class="m">outlier 6x6 · ratio ≥ 2.0 = winner direto</span><br><span class="g">→ o que eu replico agora? em segundos 👁</span></div>
+      </div>
+      <div class="right">
+        <h3 style="font-size:12px;color:var(--muted);margin-bottom:12px">RUN ATUAL — TELEMETRIA</h3>
+        <div class="log">
+          <div><span class="ok">●</span> scope profiles · 20 ids ok</div>
+          <div><span class="info">●</span> anti-recoleta 30min respeitada</div>
+          <div><span class="ok">●</span> grade 5 + reels 5 por perfil</div>
+          <div><span class="warn">●</span> TT pulado · unsupported_platform</div>
+          <div><span class="ok">●</span> postsNew + postsUpdated no resumo</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="logos">
+  <p>Feita para operações que vivem de replicar formato</p>
+  <div class="marquee"><span>◆ Agências OFM</span><span>⬣ Gestores de tráfego</span><span>▲ Hunter de criadoras</span><span>● Operação multi-contas</span><span>◍ Time de conteúdo</span></div>
+</div>
+
+<section id="features">
+  <div class="eyebrow reveal">👁 Por que Eye of Zuck</div>
+  <h2 class="reveal">Tudo que você precisa para decidir o que replicar</h2>
+  <p class="desc reveal">Pare de print solto e feed infinito. Uma biblioteca pessoal, acumulativa e com data real.</p>
+  <div class="grid">
+    <div class="card reveal"><div class="icon">📚</div><h3>Biblioteca acumulativa</h3><p>Cada coleta puxa os últimos 5 de grade + 5 de reels. Upsert por URL/externalId: nada duplica, nada se perde.</p></div>
+    <div class="card reveal"><div class="icon">📈</div><h3>Ranking por data real</h3><p>Posts filtrados por publishedAt (3d/7d/30d/90d), nunca por data de scrape. Fixado antigo não invade seu 7d.</p></div>
+    <div class="card reveal"><div class="icon">🏆</div><h3>Pattern Vault direto</h3><p>Outlier 6x6 com ratio ≥ 2.0 já é winner. Sem IA, sem espera: formato, áudio e gancho prontos para replicar.</p></div>
+    <div class="card reveal"><div class="icon">🗂</div><h3>Pastas por operação</h3><p>Organize perfis por conta, nicho ou funil. Sua conta só vê o que é seu — mesmo @handle pode existir em contas diferentes.</p></div>
+    <div class="card reveal"><div class="icon">💳</div><h3>Custo sempre visível</h3><p>Coleta via Apify em pool global do admin, só com pedido explícito. Anti-recoleta de 30min e estimativa antes de rodar.</p></div>
+    <div class="card reveal"><div class="icon">🔒</div><h3>Biblioteca pessoal</h3><p>Login próprio com aprovação do admin. Leitura, rankings e vault só dos seus perfis. Auditoria e chaves ficam com o admin.</p></div>
+  </div>
+  <div class="stats">
+    <div class="stat reveal"><strong><span class="counter" data-target="240">0</span>+</strong><span>perfis em produção</span></div>
+    <div class="stat reveal"><strong><span class="counter" data-target="10">0</span></strong><span>posts por coleta (5+5)</span></div>
+    <div class="stat reveal"><strong><span class="counter" data-target="30">0</span>min</strong><span>anti-recoleta por perfil</span></div>
+    <div class="stat reveal"><strong><span class="counter" data-target="200">0</span></strong><span>cap por rodada “all”</span></div>
+  </div>
+</section>
+
+<section id="workflow">
+  <div class="eyebrow reveal">🛠 Como funciona</div>
+  <h2 class="reveal">Do cadastro ao winner em 3 passos</h2>
+  <div class="split">
+    <div class="steps">
+      <div class="step reveal"><div class="num">1</div><div><h4>Cadastre perfis</h4><p>Lista, CSV ou extensão Chrome/Edge. Até 500 por import, com @handle ou URL. TikTok entra no tracker mas só IG coleta.</p></div></div>
+      <div class="step reveal"><div class="num">2</div><div><h4>Dispare a coleta</h4><p>Você decide quando rodar: scope all (cap 200) ou 1–100 IDs. Lotes de 20, janela de 30min e pré-voo de créditos.</p></div></div>
+      <div class="step reveal"><div class="num">3</div><div><h4>Replique o winner</h4><p>Rankings 3d/7d/30d/90d + vault por Creator. Métricas com snapshot mais recente e data real de publicação.</p></div></div>
+    </div>
+    <div class="reveal">
+      <div class="tabs"><button class="tab active" onclick="switchTab(this,'lib')">Biblioteca</button><button class="tab" onclick="switchTab(this,'rank')">Rankings</button><button class="tab" onclick="switchTab(this,'vault')">Vault</button></div>
+      <div class="code" id="codebox" style="font-size:13.5px;padding:22px">// biblioteca — acumulativa, sem duplicar<br><span class="p">import</span> { <span class="b">500 perfis</span> } <span class="p">from</span> <span class="g">'csv / lista / extensão'</span><br>collect({ scope: <span class="g">'profiles'</span>, ids: <span class="b">20</span> }) <span class="m">// lotes de 20</span><br>upsert(posts, by: [<span class="g">'url canônica'</span>, <span class="g">'externalId'</span>])<br>snapshot() <span class="m">// só se métrica mudou</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="casos">
+  <div class="eyebrow reveal">💜 Para quem opera todo dia</div>
+  <h2 class="reveal">Quem organiza, escala</h2>
+  <p class="desc reveal">Exemplos de uso dentro de agências OFM</p>
+  <div class="testis">
+    <div class="testi reveal"><p>"Antes era print no WhatsApp. Agora abro o 7d por publishedAt e já sei quais 3 reels mandar para as contas replicarem hoje."</p><div class="who"><div class="avatar">O</div><div><strong>Dono de operação</strong><small>12 contas · tráfego diário</small></div></div></div>
+    <div class="testi reveal"><div class="who"></div><p>"O vault 6x6 matou o achismo. Ratio ≥ 2.0 virou winner e o time de conteúdo já sai com gancho, áudio e formato."</p><div class="who"><div class="avatar" style="background:linear-gradient(135deg,#22d3ee,#7c3aed)">G</div><div><strong>Gestora de conteúdo</strong><small>roteiros a partir de winners</small></div></div></div>
+    <div class="testi reveal"><p>"Biblioteca pessoal por login acabou com a mistura de nichos. Cada conta vê só o que é dela, admin cuida dos créditos."</p><div class="who"><div class="avatar" style="background:linear-gradient(135deg,#a3e635,#06b6d4)">T</div><div><strong>Gestor de tráfego</strong><small>pastas por funil e conta</small></div></div></div>
+  </div>
+</section>
+
+<section id="acesso">
+  <div class="eyebrow reveal">🔑 Acesso por aprovação</div>
+  <h2 class="reveal">Comece com sua biblioteca. Escale a operação</h2>
+  <p class="desc reveal">Conta nova entra pendente e o admin aprova. Sem cartão na landing — crédito Apify fica no pool do admin.</p>
+  <div class="pricing">
+    <div class="price reveal"><h4>Solo</h4><div class="val">Sua<small> biblioteca</small></div><p style="color:var(--muted);font-size:14px">Para 1 operador caçando formato.</p><ul><li>Biblioteca pessoal por login</li><li>Import até 500 perfis</li><li>Rankings 3d/7d/30d/90d</li><li>Pastas + extensão Chrome</li></ul><a class="btn btn-ghost" href="#">Pedir acesso</a></div>
+    <div class="price featured reveal"><h4>Operação ⚡</h4><div class="val">Multi<small> contas</small></div><p style="color:var(--muted);font-size:14px">Para agências com várias contas/clientes.</p><ul><li>Tudo do Solo</li><li>Pattern Vault por Creator</li><li>Coleta em lotes de 20</li><li>Anti-recoleta 30min + resumo postsNew</li><li>Suporte do admin</li></ul><a class="btn btn-primary" href="#">Falar com o admin</a></div>
+    <div class="price reveal"><h4>Admin</h4><div class="val">Pool<small> global</small></div><p style="color:var(--muted);font-size:14px">Dono do app: créditos e auditoria.</p><ul><li>Chaves Apify + saldos</li><li>Auditoria de runs e tentativas</li><li>Discord + aprovação de contas</li><li>Supabase + Render</li></ul><a class="btn btn-ghost" href="#">Ver documentação</a></div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="eyebrow reveal">❓ FAQ</div>
+  <h2 class="reveal">Perguntas frequentes</h2>
+  <div class="faq" style="margin-top:30px">
+    <div class="faq-item reveal"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Preciso de conta Apify própria? <span>+</span></div><div class="faq-a"><div>Não. As chaves ficam no pool global do admin. Você só dispara a coleta e vê a estimativa de créditos antes de rodar.</div></div></div>
+    <div class="faq-item reveal"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Funciona com TikTok? <span>+</span></div><div class="faq-a"><div>Tracker aceita TT para organização futura, mas a coleta atual é IG-only. Perfis TT são pulados com unsupported_platform, sem custo.</div></div></div>
+    <div class="faq-item reveal"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Como importo muitos perfis? <span>+</span></div><div class="faq-a"><div>Até 500 válidos por import (lista, CSV, @handle ou URL). A coleta pós-import roda em lotes de 20 e falha de um lote não desfaz os outros.</div></div></div>
+    <div class="faq-item reveal"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Meus perfis ficam privados? <span>+</span></div><div class="faq-a"><div>Sim. Biblioteca pessoal por ownerId: você só vê/cadastra/apaga o seu. Mesmo @handle pode existir em contas diferentes sem misturar.</div></div></div>
+  </div>
+  <div class="cta-box reveal">
+    <h2>Pronto para achar o winner de hoje?</h2>
+    <p>Junte-se às operações que decidem por data real, não por achismo. Sua primeira leitura em minutos.</p>
+    <div class="hero-btns" style="position:relative"><a href="#acesso" class="btn" style="background:white;color:black">Pedir acesso agora →</a><a href="#workflow" class="btn btn-ghost" style="border-color:#ffffff44;color:white">Ver como funciona</a></div>
+  </div>
+</section>
+
+<footer>
+  <div class="foot">
+    <div><div class="logo"><div class="logo-mark"><img src="logo.png" alt="Eye of Zuck" onerror="this.remove()"><svg viewBox="0 0 32 32" fill="none"><path d="M3.5 16C6.5 9.8 11.4 6.5 16 6.5S25.5 9.8 28.5 16C25.5 22.2 20.6 25.5 16 25.5S6.5 22.2 3.5 16Z" stroke="url(#eyeStroke)" stroke-width="2" stroke-linejoin="round"/><circle cx="16" cy="16" r="6.2" fill="url(#iris)" stroke="#eef2ff" stroke-width="1.1"/><path d="M14.6 13.4v5.2l4.6-2.6-4.6-2.6Z" fill="#fff"/><circle cx="18.2" cy="13.6" r="1.3" fill="#fff" opacity=".9"/><circle cx="26.5" cy="7.5" r="1.6" fill="#a3e635"/></svg></div><span class="logo-text">Eye of Zuck<small>OFM · Viral Intel</small></span></div><p>Biblioteca acumulativa IG-only para agências OFM. Ranking por data real, vault de winners e custo sempre visível.</p></div>
+    <div><h5>Produto</h5><a href="#features">Biblioteca</a><a href="#workflow">Como funciona</a><a href="#casos">Casos de uso</a><a href="#acesso">Acesso</a></div>
+    <div><h5>Operação</h5><a href="#">Rankings 7d</a><a href="#">Pattern Vault</a><a href="#">Pastas</a><a href="#">Auditoria</a></div>
+    <div><h5>Recursos</h5><a href="#">Docs de coleta</a><a href="#">Status</a><a href="#">Extensão Chrome</a><a href="#">Suporte</a></div>
+  </div>
+  <div class="bottom">© 2026 Eye of Zuck · Biblioteca pessoal por usuário · IG-only via Apify.</div>
+</footer>
+
+<script>
+// stars
+const c=document.getElementById('stars'),x=c.getContext('2d');let s=[];
+function rs(){c.width=innerWidth;c.height=innerHeight;s=Array.from({length:120},()=>({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.5+.3,v:Math.random()*.4+.1}))}
+rs();addEventListener('resize',rs);
+(function anim(){x.clearRect(0,0,c.width,c.height);x.fillStyle='#fff';s.forEach(p=>{p.y-=p.v;if(p.y<0)p.y=c.height;x.globalAlpha=Math.random()*.7+.2;x.beginPath();x.arc(p.x,p.y,p.r,0,7);x.fill()});x.globalAlpha=1;requestAnimationFrame(anim)})();
+// reveal
+const io=new IntersectionObserver(e=>e.forEach(i=>{if(i.isIntersecting){i.target.classList.add('visible');io.unobserve(i.target)}}),{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+// counters
+const cio=new IntersectionObserver(e=>e.forEach(en=>{if(en.isIntersecting){const el=en.target,t=+el.dataset.target;let cur=0;const step=t/60;const iv=setInterval(()=>{cur+=step;if(cur>=t){cur=t;clearInterval(iv)}el.textContent=Math.floor(cur).toLocaleString('pt-BR')},16);cio.unobserve(el)}}),{threshold:.6});
+document.querySelectorAll('.counter').forEach(el=>cio.observe(el));
+// tabs
+function switchTab(btn,lang){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');
+  const box=document.getElementById('codebox');
+  if(lang==='lib') box.innerHTML=`// biblioteca — acumulativa, sem duplicar<br><span class="p">import</span> { <span class="b">500 perfis</span> } <span class="p">from</span> <span class="g">'csv / lista / extensão'</span><br>collect({ scope: <span class="g">'profiles'</span>, ids: <span class="b">20</span> }) <span class="m">// lotes de 20</span><br>upsert(posts, by: [<span class="g">'url canônica'</span>, <span class="g">'externalId'</span>])<br>snapshot() <span class="m">// só se métrica mudou</span>`;
+  if(lang==='rank') box.innerHTML=`<span class="m"># ranking por data REAL de publicação</span><br>filter(posts, by: publishedAt <span class="p">in</span> [<span class="g">'3d'</span>, <span class="g">'7d'</span>, <span class="g">'30d'</span>, <span class="g">'90d'</span>])<br>metrics = latest_snapshot(views, likes)  <span class="m"># sem snapshot = só no 'all'</span><br>sort(by: growth) <span class="m"># → o que replicar hoje 👁</span>`;
+  if(lang==='vault') box.innerHTML=`<span class="m">// pattern vault — winner direto, sem IA</span><br><span class="p">outlier</span>(grid: <span class="b">6x6</span>, ratio <span class="b">&gt;= 2.0</span>) → <span class="g">winner</span><br>group(by: <span class="g">'creator'</span>) <span class="m">// formato + áudio + gancho</span><br>replicate(hoje)  <span class="m"># sem pending, sem dataset extra</span>`;
+}
+// tilt
+const tilt=document.getElementById('tilt');
+document.querySelector('.dashboard-wrap').addEventListener('mousemove',e=>{
+  const r=tilt.getBoundingClientRect(),px=(e.clientX-r.left)/r.width-.5,py=(e.clientY-r.top)/r.height-.5;
+  tilt.style.transform=`rotateX(${-py*8}deg) rotateY(${px*8}deg)`;
+});
+document.querySelector('.dashboard-wrap').addEventListener('mouseleave',()=>tilt.style.transform='rotateX(8deg)');
+</script>
+</body>
+</html>

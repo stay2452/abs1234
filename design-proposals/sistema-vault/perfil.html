@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · S2 Vault — Perfil detalhe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--pink:#ec4899;--radius:18px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:20px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+main{padding:26px 30px;max-width:1180px}
+.crumbs{font-size:12.5px;color:var(--muted);margin-bottom:12px}.crumbs a{color:var(--cyan);text-decoration:none}
+.cover{height:130px;border-radius:20px;background:linear-gradient(135deg,#2e1065,#0e7490 120%);border:1px solid var(--border);position:relative;overflow:hidden}
+.cover::after{content:'';position:absolute;width:400px;height:400px;background:radial-gradient(circle,#ffffff22,transparent 70%);top:-180px;left:55%}
+.idrow{display:flex;gap:16px;align-items:end;padding:0 22px;margin-top:-34px;margin-bottom:16px;flex-wrap:wrap}
+.avatar{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;font-size:32px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#22d3ee);border:4px solid #05070f}
+.idrow h1{font-family:'Space Grotesk';font-size:26px}
+.idrow small{color:var(--muted);display:block}
+.btn{margin-left:auto;padding:11px 24px;border-radius:100px;font-weight:700;border:none;cursor:pointer;background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff}
+.wall{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.win{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.thumb{aspect-ratio:16/9;display:grid;place-items:center;position:relative;background:linear-gradient(135deg,#2e1065,#0e7490)}
+.thumb.b{background:linear-gradient(135deg,#4c1d95,#0c4a6e)}.thumb.c{background:linear-gradient(135deg,#701a75,#164e63)}
+.play{width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.7);display:grid;place-items:center}
+.play i{width:0;height:0;border-left:14px solid #fff;border-top:9px solid transparent;border-bottom:9px solid transparent;margin-left:3px}
+.ratio{position:absolute;top:8px;right:8px;font-family:'Space Grotesk';font-weight:700;font-size:12px;background:linear-gradient(90deg,var(--violet),var(--cyan));padding:4px 11px;border-radius:100px}
+.body{padding:14px}.body h3{font-size:14px;margin-bottom:4px}.body p{font-size:12.5px;color:var(--muted)}
+.meta{display:flex;gap:12px;margin-top:8px;font-size:12px;color:var(--muted)}.meta b{color:var(--text)}
+h2.sec{font-family:'Space Grotesk';font-size:17px;margin:20px 0 12px}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}.wall{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Sistema 2 · Vault</div>
+  <a class="nav-item" href="ranking.html">◉ Ranking viral</a>
+  <a class="nav-item" href="biblioteca.html">▦ Biblioteca</a>
+  <a class="nav-item active" href="perfil.html">◍ Perfil detalhe</a>
+  <a class="nav-item" href="app.html">◆ Pattern Vault</a>
+  <a class="nav-item" href="operacao.html">◍ Operação</a>
+</aside>
+<main>
+  <div class="crumbs"><a href="biblioteca.html">← Biblioteca</a></div>
+  <div class="cover"></div>
+  <div class="idrow"><div class="avatar">V</div>
+    <div><h1>@viral.exemplo</h1><small>167K seguidores · +5,4K/7d · 98 posts · 5 winners</small></div>
+    <button class="btn">↻ Coletar agora</button></div>
+  <h2 class="sec">Winners deste creator · replicáveis</h2>
+  <div class="wall">
+    <div class="win"><div class="thumb"><div class="play"><i></i></div><span class="ratio">3,1×</span></div><div class="body"><h3>POV + legenda em 2 linhas</h3><p>“ninguém fala sobre isso…” · corte 1,2s</p><div class="meta"><span><b>388K</b> views</span><span>há 2d</span></div></div></div>
+    <div class="win"><div class="thumb b"><div class="play"><i></i></div><span class="ratio">2,2×</span></div><div class="body"><h3>Storytime zoom progressivo</h3><p>Retenção 68% · pico de comentários</p><div class="meta"><span><b>241K</b> views</span><span>há 4d</span></div></div></div>
+    <div class="win"><div class="thumb c"><div class="play"><i></i></div><span class="ratio">2,0×</span></div><div class="body"><h3>Resposta a comentário hater</h3><p>Loop de resposta · 3 takes</p><div class="meta"><span><b>196K</b> views</span><span>há 6d</span></div></div></div>
+  </div>
+  <p class="note">S2 · mock. Biblioteca completa do perfil ficaria abaixo dos winners no sistema real.</p>
+</main>
+</body>
+</html>

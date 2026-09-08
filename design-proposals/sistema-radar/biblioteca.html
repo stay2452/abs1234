@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · S1 Radar — Biblioteca</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:20px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+.userbox{margin-top:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:13px}
+.userbox small{color:var(--muted);display:block}
+main{padding:26px 30px;max-width:1180px}
+.topbar{display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.topbar h1{font-family:'Space Grotesk';font-size:26px;letter-spacing:-1px}
+.search{flex:1;min-width:200px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:100px;padding:10px 20px;color:var(--muted);font-size:13.5px}
+.btn{padding:10px 20px;border-radius:100px;font-weight:600;font-size:13.5px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:#fff;cursor:pointer}
+.btn-primary{background:linear-gradient(135deg,#7c3aed,#4f46e5 50%,#06b6d4);border:none}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.panel-head h2{font-family:'Space Grotesk';font-size:16px}
+.fchips{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.fchip{padding:6px 14px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;font-weight:600}
+.fchip.active{background:#fff;color:#000}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:12px 16px;border-bottom:1px solid var(--border)}
+td{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.05)}
+tr:hover td{background:rgba(124,58,237,.07)}
+.handle{font-weight:600;display:flex;align-items:center;gap:10px}
+.avatar{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#22d3ee);flex-shrink:0}
+.grow{color:#4ade80;font-weight:700}.down{color:#f87171;font-weight:700}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 8px var(--lime);margin-right:6px}
+.dot.wait{background:#facc15;box-shadow:0 0 8px #facc15}
+.open{color:var(--cyan);font-weight:600;text-decoration:none}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Sistema 1 · Radar</div>
+  <a class="nav-item" href="app.html">◉ Ranking viral</a>
+  <a class="nav-item active" href="biblioteca.html">▦ Biblioteca</a>
+  <a class="nav-item" href="perfil.html">◍ Perfil detalhe</a>
+  <a class="nav-item" href="vault.html">◆ Pattern Vault</a>
+  <a class="nav-item" href="operacao.html">◍ Operação</a>
+  <div class="userbox"><strong>op.sao_paulo</strong><small>248 perfis · mock</small></div>
+</aside>
+<main>
+  <div class="topbar"><h1>Biblioteca · 248 perfis</h1>
+    <div class="search">⌕ Buscar @handle, nicho ou pasta…</div>
+    <button class="btn">Status ▾</button><button class="btn btn-primary">＋ Importar</button></div>
+  <div class="panel"><div class="panel-head"><h2>Todos os perfis</h2>
+    <div class="fchips"><span class="fchip active">Todas 248</span><span class="fchip">Conta 01 · 64</span><span class="fchip">Conta 02 · 58</span><span class="fchip">Tráfego · 71</span></div></div>
+    <table>
+      <tr><th>Perfil</th><th>Seguidores</th><th>+7d</th><th>Posts</th><th>Winners</th><th>Status</th><th></th></tr>
+      <tr><td class="handle"><span class="avatar">M</span>@musa.exemplo</td><td>812K</td><td class="grow">+18,4K</td><td>214</td><td>4</td><td><span class="dot"></span>há 12min</td><td><a class="open" href="perfil.html">Abrir →</a></td></tr>
+      <tr><td class="handle"><span class="avatar">L</span>@lifestyle.exemplo</td><td>445K</td><td class="grow">+11,2K</td><td>188</td><td>2</td><td><span class="dot"></span>há 26min</td><td><a class="open" href="perfil.html">Abrir →</a></td></tr>
+      <tr><td class="handle"><span class="avatar">F</span>@fitness.exemplo</td><td>1,2M</td><td class="grow">+9,8K</td><td>342</td><td>3</td><td><span class="dot wait"></span>janela 30min</td><td><a class="open" href="perfil.html">Abrir →</a></td></tr>
+      <tr><td class="handle"><span class="avatar">D</span>@danca.exemplo</td><td>298K</td><td class="grow">+7,1K</td><td>156</td><td>2</td><td><span class="dot"></span>há 1h</td><td><a class="open" href="perfil.html">Abrir →</a></td></tr>
+      <tr><td class="handle"><span class="avatar">V</span>@viral.exemplo</td><td>167K</td><td class="grow">+5,4K</td><td>98</td><td>5</td><td><span class="dot"></span>há 2h</td><td><a class="open" href="perfil.html">Abrir →</a></td></tr>
+      <tr><td class="handle"><span class="avatar">R</span>@rotina.exemplo</td><td>520K</td><td class="down">−1,2K</td><td>201</td><td>0</td><td><span class="dot wait"></span>pausado</td><td><a class="open" href="perfil.html">Abrir →</a></td></tr>
+    </table></div>
+  <p class="note">S1 · mock estático. Pastas filtram sem recarregar no sistema real.</p>
+</main>
+</body>
+</html>

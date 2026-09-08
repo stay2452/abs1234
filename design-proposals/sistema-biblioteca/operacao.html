@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · S3 Biblioteca — Operação</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:14px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+.nav-item .count{margin-left:auto;font-size:11px;background:rgba(255,255,255,.08);padding:2px 9px;border-radius:100px}
+main{padding:26px 30px;max-width:1180px}
+h1{font-family:'Space Grotesk';font-size:26px;letter-spacing:-1px}
+.sub{color:var(--muted);font-size:13.5px;margin:4px 0 16px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.op{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.op h3{font-size:15px}.op small{color:var(--muted);font-size:12.5px}
+.badge{display:inline-block;font-size:11px;font-weight:800;padding:4px 12px;border-radius:100px;margin-top:10px;letter-spacing:.5px}
+.badge.ok{background:rgba(163,230,53,.12);color:var(--lime);border:1px solid #a3e63544}
+.badge.warn{background:rgba(250,204,21,.12);color:#facc15;border:1px solid #facc1544}
+.nums{margin-top:10px;font-size:12.5px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
+.nums b{color:var(--text);font-family:'Space Grotesk'}
+.pool{margin-top:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+.pool strong{font-family:'Space Grotesk';font-size:24px}
+.pool span{color:var(--muted);font-size:13px}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Pastas</div>
+  <a class="nav-item" href="app.html">▦ Todas <span class="count">248</span></a>
+  <a class="nav-item" href="ranking.html">◉ Ranking 7d</a>
+  <a class="nav-item" href="perfil.html">◍ Perfil detalhe</a>
+  <a class="nav-item" href="vault.html">◆ Vault</a>
+  <a class="nav-item active" href="operacao.html">◍ Operação</a>
+</aside>
+<main>
+  <h1>Operação · resumo</h1>
+  <p class="sub">Últimos runs e saldo do pool — detalhe completo com o admin.</p>
+  <div class="cards">
+    <div class="op"><h3>#482 · 20 IDs</h3><small>hoje 13:48</small><br><span class="badge ok">SUCCESS</span><div class="nums"><span>OK <b>20/20</b></span><span>+novos <b>96</b></span></div></div>
+    <div class="op"><h3>#481 · all 186</h3><small>hoje 09:15</small><br><span class="badge warn">PARTIAL</span><div class="nums"><span>OK <b>171</b></span><span>30min <b>14</b></span></div></div>
+    <div class="op"><h3>Pool Apify</h3><small>3 contas ativas</small><br><span class="badge ok">1.363 RESTANTES</span><div class="nums"><span>próx. run <b>220</b></span><span>cabe <b>✓</b></span></div></div>
+  </div>
+  <div class="pool"><div><span>Estimativa próximo run · 20 IDs</span><br><strong>220 <span style="font-size:14px">/ 1.363</span></strong></div><span>2 perfis na janela de 30min serão pulados sem custo.</span></div>
+  <p class="note">S3 · mock. Sistema 3 Biblioteca completo: ranking, biblioteca, perfil, vault, operação.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · Proposta 4 — Operação (sistema)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--pink:#ec4899;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:20px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+main{padding:26px 30px;max-width:1180px}
+h1{font-family:'Space Grotesk';font-size:26px;letter-spacing:-1px}
+.sub{color:var(--muted);font-size:13.5px;margin:4px 0 20px}
+.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:14px}
+.panel-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.panel-head h2{font-family:'Space Grotesk';font-size:16px}
+.badge{margin-left:auto;font-size:11px;font-weight:800;letter-spacing:1px;padding:4px 12px;border-radius:100px}
+.badge.ok{background:rgba(163,230,53,.12);color:var(--lime);border:1px solid #a3e63544}
+.badge.warn{background:rgba(250,204,21,.12);color:#facc15;border:1px solid #facc1544}
+.badge.err{background:rgba(248,113,113,.12);color:#f87171;border:1px solid #f8717144}
+.run{padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.05);display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:13px}
+.run:last-child{border-bottom:none}
+.run strong{font-size:13.5px}
+.run small{color:var(--muted)}
+.nums{display:flex;gap:14px;color:var(--muted);font-size:12.5px}
+.nums b{color:var(--text);font-family:'Space Grotesk'}
+.key{padding:12px 20px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}
+.key:last-child{border-bottom:none}
+.key .top{display:flex;justify-content:space-between;margin-bottom:8px}
+.key code{font-family:monospace;color:var(--cyan)}
+.bar{height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--violet),var(--cyan))}
+.bar.low i{background:linear-gradient(90deg,#f59e0b,#f87171)}
+.queue{padding:6px 20px 14px;font-size:13px}
+.queue div{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed rgba(255,255,255,.08);color:var(--muted)}
+.queue div:last-child{border:none}
+.queue b{color:var(--text)}
+.est{background:linear-gradient(135deg,#2e1065,#0e7490 130%);border:1px solid #ffffff22;border-radius:var(--radius);padding:20px}
+.est h3{font-family:'Space Grotesk';margin-bottom:6px}
+.est p{font-size:13px;color:#e0e7ff;margin-bottom:12px}
+.est .nums{color:#cbd5e1}.est .nums b{color:#fff}
+.btn{width:100%;padding:12px;border-radius:12px;font-weight:700;font-size:14px;border:none;cursor:pointer;background:#fff;color:#000;margin-top:12px}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="Eye of Zuck" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Monitorar</div>
+  <a class="nav-item" href="#">◉ Ranking viral</a>
+  <a class="nav-item" href="#">▦ Biblioteca</a>
+  <a class="nav-item" href="#">◆ Pattern Vault</a>
+  <div class="nav-label">Operação</div>
+  <a class="nav-item active" href="#">◍ Auditoria</a>
+  <a class="nav-item" href="#">⚙ Sessões Apify</a>
+  <a class="nav-item" href="#">✉ Discord</a>
+</aside>
+<main>
+  <h1>Operação &amp; créditos</h1>
+  <p class="sub">Toda coleta é pedido explícito — pool global do admin, pré-voo de créditos e anti-recoleta de 30min.</p>
+  <div class="grid">
+    <div>
+      <div class="panel"><div class="panel-head"><h2>Runs recentes</h2><span class="badge ok">POOL SAUDÁVEL</span></div>
+        <div class="run"><div><strong>#482 · scope profiles · 20 IDs</strong><br><small>hoje 13:48 · lotes de 20 · 3 min 12s</small></div><span class="badge ok">SUCCESS</span>
+          <div class="nums"><span>OK <b>20/20</b></span><span>novos <b>+96</b></span><span>atualiz. <b>86</b></span><span>créd. <b>214</b></span></div><span></span></div>
+        <div class="run"><div><strong>#481 · scope all · cap 200</strong><br><small>hoje 09:15 · 186 elegíveis · 41 min</small></div><span class="badge warn">PARTIAL</span>
+          <div class="nums"><span>OK <b>171/186</b></span><span>novos <b>+402</b></span><span>pulados 30min <b>14</b></span><span>TT skip <b>1</b></span></div><span></span></div>
+        <div class="run"><div><strong>#480 · scope profiles · 6 IDs</strong><br><small>ontem 22:03 · repair de views</small></div><span class="badge ok">SUCCESS</span>
+          <div class="nums"><span>OK <b>6/6</b></span><span>métricas <b>+31</b></span><span>indisponíveis <b>4</b></span></div><span></span></div>
+        <div class="run"><div><strong>#479 · scope all · cap 200</strong><br><small>ontem 10:00 · pré-voo barrou</small></div><span class="badge err">BLOCKED</span>
+          <div class="nums"><span>necessário <b>2.046</b></span><span>disponível <b>1.530</b></span><span>déficit <b>−516</b></span></div><span></span></div>
+      </div>
+      <div class="panel"><div class="panel-head"><h2>Fila anti-recoleta · agora</h2></div>
+        <div class="queue">
+          <div><span>@fitness.exemplo</span><b>volta 14:02 (18min)</b></div>
+          <div><span>@rotina.exemplo</span><b>volta 14:11 (27min)</b></div>
+          <div><span>12 perfis · import lote 3</span><b>elegíveis ✓</b></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="panel"><div class="panel-head"><h2>Pool Apify · chaves ativas</h2></div>
+        <div class="key"><div class="top"><span>Conta <code>••••4821</code></span><b>812 restantes</b></div><div class="bar"><i style="width:81%"></i></div></div>
+        <div class="key"><div class="top"><span>Conta <code>••••9073</code></span><b>455 restantes</b></div><div class="bar"><i style="width:46%"></i></div></div>
+        <div class="key"><div class="top"><span>Conta <code>••••3310</code></span><b>96 restantes</b></div><div class="bar low"><i style="width:10%"></i></div></div>
+      </div>
+      <div class="est"><h3>Estimativa do próximo run</h3>
+        <p>Scope <strong>profiles · 20 IDs</strong> × 11 créditos = pré-voo antes de gastar.</p>
+        <div class="nums"><span>necessário <b>220</b></span><span>disponível <b>1.363</b></span></div>
+        <button class="btn">Confirmar e rodar →</button>
+      </div>
+    </div>
+  </div>
+  <p class="note">Proposta 4 · Operação — chaves anonimizadas, valores de exemplo. Nenhum token real em tela.</p>
+</main>
+</body>
+</html>

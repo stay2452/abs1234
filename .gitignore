@@ -20,6 +20,13 @@ test-results/
 lint-output.txt
 tmp/
 
-# Placeholders de tooling nao populados
-.agents/
-.codex/
+# Tooling local, exceto a configuracao compartilhada do Codex.
+.agents/*
+!.agents/skills/
+!.agents/skills/frontend-impeccable/
+!.agents/skills/frontend-impeccable/SKILL.md
+.codex/*
+!.codex/config.toml
+!.codex/agents/
+!.codex/agents/planner.toml
+!.codex/agents/reviewer.toml

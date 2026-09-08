@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · S4 Operação — Ranking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:20px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+main{padding:26px 30px;max-width:1180px}
+h1{font-family:'Space Grotesk';font-size:26px;letter-spacing:-1px}
+.sub{color:var(--muted);font-size:13.5px;margin:4px 0 16px}
+.fresh{background:linear-gradient(135deg,#2e1065,#0e7490 130%);border:1px solid #ffffff22;border-radius:var(--radius);padding:18px 20px;display:flex;gap:18px;align-items:center;margin-bottom:14px;flex-wrap:wrap;font-size:13.5px}
+.fresh b{font-family:'Space Grotesk'}
+table{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:12px 16px;border-bottom:1px solid var(--border)}
+td{padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.05)}
+tr:last-child td{border:none}
+tr:hover td{background:rgba(124,58,237,.07)}
+.st{font-size:11px;font-weight:800;padding:3px 10px;border-radius:100px;white-space:nowrap}
+.st.ok{background:rgba(163,230,53,.12);color:var(--lime);border:1px solid #a3e63544}
+.st.w8{background:rgba(250,204,21,.12);color:#facc15;border:1px solid #facc1544}
+.g{color:#4ade80;font-weight:700}.d{color:#f87171;font-weight:700}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Sistema 4 · Operação</div>
+  <a class="nav-item active" href="ranking.html">◉ Ranking viral</a>
+  <a class="nav-item" href="biblioteca.html">▦ Biblioteca</a>
+  <a class="nav-item" href="perfil.html">◍ Perfil detalhe</a>
+  <a class="nav-item" href="vault.html">◆ Pattern Vault</a>
+  <a class="nav-item" href="app.html">◍ Operação</a>
+</aside>
+<main>
+  <h1>Ranking 7d · com frescor da coleta</h1>
+  <p class="sub">Cada linha mostra há quanto tempo o perfil foi coletado — decisão com contexto de custo.</p>
+  <div class="fresh"><span>Run <b>#482</b> há 42min · <b>20/20 OK</b></span><span><b>+96</b> posts novos</span><span>pool <b>1.363</b> restantes</span></div>
+  <table>
+    <tr><th>#</th><th>Perfil</th><th>+7d</th><th>Top reel</th><th>Coleta</th><th>Custo da linha</th></tr>
+    <tr><td>1</td><td><b>@musa.exemplo</b> · 812K</td><td class="g">+18,4K</td><td>1,2M</td><td><span class="st ok">há 12min</span></td><td>11 créd · run #482</td></tr>
+    <tr><td>2</td><td><b>@lifestyle.exemplo</b> · 445K</td><td class="g">+11,2K</td><td>860K</td><td><span class="st ok">há 26min</span></td><td>11 créd · run #482</td></tr>
+    <tr><td>3</td><td><b>@fitness.exemplo</b> · 1,2M</td><td class="g">+9,8K</td><td>640K</td><td><span class="st w8">janela 30min</span></td><td>0 · pulado #481</td></tr>
+    <tr><td>4</td><td><b>@danca.exemplo</b> · 298K</td><td class="g">+7,1K</td><td>512K</td><td><span class="st ok">há 1h</span></td><td>11 créd · run #481</td></tr>
+    <tr><td>5</td><td><b>@viral.exemplo</b> · 167K</td><td class="g">+5,4K</td><td>388K</td><td><span class="st ok">há 2h</span></td><td>11 créd · run #481</td></tr>
+    <tr><td>6</td><td><b>@rotina.exemplo</b> · 520K</td><td class="d">−1,2K</td><td>204K</td><td><span class="st w8">pausado</span></td><td>—</td></tr>
+  </table>
+  <p class="note">S4 · mock. A coluna “custo da linha” é o diferencial desta direção: ranking com rastro de gasto.</p>
+</main>
+</body>
+</html>

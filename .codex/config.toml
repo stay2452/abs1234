@@ -1,0 +1,19 @@
+﻿# Configuracao compartilhada do Codex para este repositorio.
+# Carregada apenas depois de marcar o projeto como confiavel no Codex.
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "cached"
+
+[agents]
+# Planejamento e revisao podem ocorrer em paralelo, sem abrir uma quantidade
+# excessiva de threads para uma aplicacao pequena.
+max_concurrent_threads_per_session = 2
+
+[agents.planner]
+description = "Planeja mudancas neste projeto sem editar arquivos, rodar coleta ou alterar o banco."
+config_file = "agents/planner.toml"
+
+[agents.reviewer]
+description = "Revisa diffs e implementacoes quanto a seguranca, custo Apify e invariantes do projeto, sem editar."
+config_file = "agents/reviewer.toml"

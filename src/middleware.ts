@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 // next/headers e prisma nao existem aqui).
 const SESSION_COOKIE = "bp_session";
 
-const PUBLIC_PAGES = ["/login", "/cadastro"];
+const PUBLIC_PAGES = ["/login", "/cadastro", "/landing"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

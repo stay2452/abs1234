@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · S1 Radar — Operação</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:20px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+main{padding:26px 30px;max-width:1180px}
+h1{font-family:'Space Grotesk';font-size:26px;letter-spacing:-1px}
+.sub{color:var(--muted);font-size:13.5px;margin:4px 0 18px}
+.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:14px}
+.panel-head{padding:14px 18px;border-bottom:1px solid var(--border);font-family:'Space Grotesk';font-size:15px;display:flex;align-items:center;gap:10px}
+.badge{margin-left:auto;font-size:11px;font-weight:800;letter-spacing:1px;padding:4px 12px;border-radius:100px}
+.badge.ok{background:rgba(163,230,53,.12);color:var(--lime);border:1px solid #a3e63544}
+.badge.warn{background:rgba(250,204,21,.12);color:#facc15;border:1px solid #facc1544}
+.badge.err{background:rgba(248,113,113,.12);color:#f87171;border:1px solid #f8717144}
+.run{padding:13px 18px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px;display:grid;grid-template-columns:1fr auto;gap:4px}
+.run:last-child{border:none}
+.run small{color:var(--muted)}
+.nums{display:flex;gap:12px;color:var(--muted);font-size:12px;flex-wrap:wrap}
+.nums b{color:var(--text);font-family:'Space Grotesk'}
+.key{padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}
+.key:last-child{border:none}
+.key .top{display:flex;justify-content:space-between;margin-bottom:8px}
+.key code{font-family:monospace;color:var(--cyan)}
+.bar{height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--violet),var(--cyan))}
+.bar.low i{background:linear-gradient(90deg,#f59e0b,#f87171)}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Sistema 1 · Radar</div>
+  <a class="nav-item" href="app.html">◉ Ranking viral</a>
+  <a class="nav-item" href="biblioteca.html">▦ Biblioteca</a>
+  <a class="nav-item" href="perfil.html">◍ Perfil detalhe</a>
+  <a class="nav-item" href="vault.html">◆ Pattern Vault</a>
+  <a class="nav-item active" href="operacao.html">◍ Operação</a>
+</aside>
+<main>
+  <h1>Operação &amp; créditos</h1>
+  <p class="sub">Coleta só com pedido explícito · pool global do admin · anti-recoleta 30min.</p>
+  <div class="grid">
+    <div class="panel"><div class="panel-head">Runs recentes <span class="badge ok">POOL SAUDÁVEL</span></div>
+      <div class="run"><div><strong>#482 · profiles · 20 IDs</strong><br><small>hoje 13:48 · 3min</small></div><span class="badge ok">SUCCESS</span>
+        <div class="nums"><span>OK <b>20/20</b></span><span>novos <b>+96</b></span><span>créd. <b>214</b></span></div><span></span></div>
+      <div class="run"><div><strong>#481 · all · 186 elegíveis</strong><br><small>hoje 09:15 · 41min</small></div><span class="badge warn">PARTIAL</span>
+        <div class="nums"><span>OK <b>171/186</b></span><span>30min <b>14</b></span><span>TT skip <b>1</b></span></div><span></span></div>
+      <div class="run"><div><strong>#479 · all · pré-voo barrou</strong><br><small>ontem · déficit −516</small></div><span class="badge err">BLOCKED</span>
+        <div class="nums"><span>necessário <b>2.046</b></span><span>disp. <b>1.530</b></span></div><span></span></div>
+    </div>
+    <div class="panel"><div class="panel-head">Pool Apify</div>
+      <div class="key"><div class="top"><span>Conta <code>••••4821</code></span><b>812</b></div><div class="bar"><i style="width:81%"></i></div></div>
+      <div class="key"><div class="top"><span>Conta <code>••••9073</code></span><b>455</b></div><div class="bar"><i style="width:46%"></i></div></div>
+      <div class="key"><div class="top"><span>Conta <code>••••3310</code></span><b>96</b></div><div class="bar low"><i style="width:10%"></i></div></div>
+    </div>
+  </div>
+  <p class="note">S1 · mock, chaves anonimizadas. Sistema 1 Radar completo: ranking, biblioteca, perfil, vault, operação.</p>
+</main>
+</body>
+</html>

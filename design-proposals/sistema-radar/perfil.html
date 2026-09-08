@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye of Zuck · S1 Radar — Perfil detalhe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070f;--card:rgba(255,255,255,.04);--border:rgba(255,255,255,.09);--text:#eef2ff;--muted:#94a3b8;--violet:#7c3aed;--cyan:#22d3ee;--lime:#a3e635;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:rgba(0,0,0,.35);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:17px;margin-bottom:20px;padding:0 8px}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:#0a0f1e;border:1px solid #7c3aed66;position:relative;overflow:hidden;flex-shrink:0;display:grid;place-items:center;font-weight:700;color:var(--cyan)}
+.logo-mark::before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,#7c3aed,#22d3ee,#a3e635,#ec4899,#7c3aed);animation:spin 4s linear infinite}
+.logo-mark img{position:absolute;top:2px;left:2px;width:calc(100% - 4px);height:calc(100% - 4px);object-fit:cover;object-position:center 30%;border-radius:9px;background:#0a0f1e}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav-label{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px}
+.nav-item{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:14px;font-weight:500;text-decoration:none}
+.nav-item.active{background:linear-gradient(90deg,#7c3aed33,#22d3ee22);color:#fff;border:1px solid #7c3aed33}
+main{padding:26px 30px;max-width:1180px}
+.crumbs{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.crumbs a{color:var(--cyan);text-decoration:none}
+.phead{display:flex;gap:18px;align-items:center;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:20px;padding:24px;margin-bottom:14px}
+.avatar{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;font-size:30px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#22d3ee);flex-shrink:0}
+.phead h1{font-family:'Space Grotesk';font-size:28px;letter-spacing:-1px}
+.phead .bio{color:var(--muted);font-size:13.5px}
+.phead .tags{display:flex;gap:8px;margin-top:8px}
+.tag{font-size:11px;font-weight:700;padding:4px 12px;border-radius:100px;border:1px solid var(--border);color:var(--muted)}
+.tag.hot{background:rgba(163,230,53,.12);color:var(--lime);border-color:#a3e63544}
+.btn{margin-left:auto;padding:11px 24px;border-radius:100px;font-weight:600;font-size:13.5px;border:none;cursor:pointer;background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff;flex-shrink:0}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px}
+.kpi small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+.kpi strong{font-family:'Space Grotesk';font-size:26px;display:block}
+.kpi .up{color:#4ade80;font-size:12px;font-weight:700}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.panel-head{padding:14px 18px;border-bottom:1px solid var(--border);font-family:'Space Grotesk';font-size:15px}
+.bars{display:flex;align-items:end;gap:6px;height:150px;padding:18px}
+.bars i{flex:1;border-radius:5px 5px 0 0;background:linear-gradient(180deg,var(--cyan),var(--violet));min-height:8%}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:1px;padding:10px 14px;border-bottom:1px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05)}
+.post{display:flex;gap:10px;align-items:center;font-weight:600}
+.thumb{width:34px;height:44px;border-radius:8px;flex-shrink:0;background:linear-gradient(135deg,#2e1065,#0e7490)}
+.pill{font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:100px;background:rgba(163,230,53,.12);color:var(--lime);border:1px solid #a3e63544}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+@media(max-width:1000px){body{grid-template-columns:1fr}aside{display:none}.kpis{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-mark"><img src="../landing-eye-of-zuck/logo.png" alt="" onerror="this.remove()"><span>Z</span></div>Eye of Zuck</div>
+  <div class="nav-label">Sistema 1 · Radar</div>
+  <a class="nav-item" href="app.html">◉ Ranking viral</a>
+  <a class="nav-item" href="biblioteca.html">▦ Biblioteca</a>
+  <a class="nav-item active" href="perfil.html">◍ Perfil detalhe</a>
+  <a class="nav-item" href="vault.html">◆ Pattern Vault</a>
+  <a class="nav-item" href="operacao.html">◍ Operação</a>
+</aside>
+<main>
+  <div class="crumbs"><a href="biblioteca.html">← Biblioteca</a> · Conta 01 / Fitness</div>
+  <div class="phead"><div class="avatar">M</div>
+    <div><h1>@musa.exemplo</h1><p class="bio">812K seguidores · 214 posts catalogados · pasta “OFM · conta 01”</p>
+    <div class="tags"><span class="tag hot">▲ +18,4K / 7d</span><span class="tag">4 winners</span><span class="tag">IG · grade + reels</span></div></div>
+    <button class="btn">↻ Coletar agora</button></div>
+  <div class="kpis">
+    <div class="kpi"><small>Seguidores</small><strong>812.400</strong><span class="up">▲ +2,3% / 7d</span></div>
+    <div class="kpi"><small>Views reels 7d</small><strong>4,8M</strong><span class="up">▲ +31%</span></div>
+    <div class="kpi"><small>Top post 7d</small><strong>1,2M</strong><span class="up">POV 2 linhas · 2d</span></div>
+    <div class="kpi"><small>Snapshots</small><strong>46</strong><span class="up">último há 12min</span></div>
+  </div>
+  <div class="grid2">
+    <div class="panel"><div class="panel-head">Crescimento · 12 semanas</div>
+      <div class="bars"><i style="height:22%"></i><i style="height:28%"></i><i style="height:25%"></i><i style="height:36%"></i><i style="height:42%"></i><i style="height:39%"></i><i style="height:51%"></i><i style="height:58%"></i><i style="height:55%"></i><i style="height:70%"></i><i style="height:82%"></i><i style="height:100%"></i></div></div>
+    <div class="panel"><div class="panel-head">Biblioteca do perfil · recentes</div>
+      <table>
+        <tr><th>Post</th><th>Views</th><th>Likes</th><th>Pub.</th><th></th></tr>
+        <tr><td class="post"><span class="thumb"></span>POV 2 linhas</td><td>1,2M</td><td>98K</td><td>há 2d</td><td><span class="pill">WINNER 3,1×</span></td></tr>
+        <tr><td class="post"><span class="thumb" style="background:linear-gradient(135deg,#4c1d95,#0c4a6e)"></span>Treino real</td><td>640K</td><td>51K</td><td>há 4d</td><td></td></tr>
+        <tr><td class="post"><span class="thumb" style="background:linear-gradient(135deg,#701a75,#164e63)"></span>Antes/depois</td><td>512K</td><td>44K</td><td>há 6d</td><td></td></tr>
+        <tr><td class="post"><span class="thumb" style="background:linear-gradient(135deg,#1e1b4b,#155e75)"></span>Rotina 5h</td><td>301K</td><td>22K</td><td>há 8d</td><td></td></tr>
+      </table></div>
+  </div>
+  <p class="note">S1 · mock. No real: biblioteca completa acumulada + snapshots só quando métrica muda.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eye of Zuck — 4 sistemas completos</title>
+<link rel="icon" type="image/png" href="landing-eye-of-zuck/logo.png">
+<style>
+:root{--bg:#05070f;--card:#0d1322;--line:#ffffff17;--ink:#eef2ff;--muted:#94a3b8;--cyan:#22d3ee;--lime:#a3e635}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.6}
+.wrap{max-width:1060px;margin:0 auto;padding:56px 24px 90px}
+.kicker{font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan)}
+h1{font-size:clamp(30px,4.4vw,48px);letter-spacing:-.03em;line-height:1.06;margin:14px 0 12px;font-weight:800}
+h1 .grad{background:linear-gradient(90deg,#a78bfa,#22d3ee 50%,#a3e635);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{color:var(--muted);max-width:70ch}
+.lede a{color:var(--cyan);font-weight:600}
+.sys{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px;margin-top:22px}
+.sys h2{font-size:22px}
+.sys h2 small{display:block;font-size:12.5px;font-weight:600;color:var(--num);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.sys .desc{color:var(--muted);font-size:14px;margin:6px 0 16px;max-width:68ch}
+.pages{display:flex;gap:8px;flex-wrap:wrap}
+.pages a{font-size:13px;font-weight:700;padding:9px 18px;border-radius:100px;text-decoration:none;border:1px solid var(--line);color:var(--ink);background:rgba(255,255,255,.04)}
+.pages a.home{background:var(--num);color:#0B0B12;border-color:transparent}
+.pages a:hover{filter:brightness(1.25)}
+.note{margin-top:30px;font-size:13.5px;color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:16px 20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">Eye of Zuck · direção escolhida: landing neon</div>
+  <h1>4 sistemas <span class="grad">completos</span></h1>
+  <p class="lede">Cada sistema tem 5 telas navegáveis (ranking, biblioteca, perfil, vault, operação) em mock estático — sem Apify, sem banco. Referência: <a href="landing-eye-of-zuck/index.html">landing escolhida</a>.</p>
+
+  <div class="sys" style="--num:#22d3ee">
+    <h2><small>Sistema 1 · Dashboard executivo</small>Radar</h2>
+    <p class="desc">KPIs, tabelas densas e painéis laterais. O mais próximo do app atual — decisão por números com contexto.</p>
+    <div class="pages"><a class="home" href="sistema-radar/app.html">◉ Ranking</a><a href="sistema-radar/biblioteca.html">▦ Biblioteca</a><a href="sistema-radar/perfil.html">◍ Perfil</a><a href="sistema-radar/vault.html">◆ Vault</a><a href="sistema-radar/operacao.html">◍ Operação</a></div>
+  </div>
+
+  <div class="sys" style="--num:#a3e635">
+    <h2><small>Sistema 2 · Mural de winners</small>Vault</h2>
+    <p class="desc">Pódio, cards com selo de ratio e capas. Foco em “o que replicar agora” — conteúdo em primeiro plano.</p>
+    <div class="pages"><a class="home" href="sistema-vault/ranking.html">◉ Ranking</a><a href="sistema-vault/biblioteca.html">▦ Biblioteca</a><a href="sistema-vault/perfil.html">◍ Perfil</a><a href="sistema-vault/app.html">◆ Vault</a><a href="sistema-vault/operacao.html">◍ Operação</a></div>
+  </div>
+
+  <div class="sys" style="--num:#a78bfa">
+    <h2><small>Sistema 3 · Gestão da base</small>Biblioteca</h2>
+    <p class="desc">Pastas por operação em tudo: ranking filtra por pasta, perfil mostra prateleira, vault agrupa por creator. Para quem organiza.</p>
+    <div class="pages"><a class="home" href="sistema-biblioteca/ranking.html">◉ Ranking</a><a href="sistema-biblioteca/app.html">▦ Biblioteca</a><a href="sistema-biblioteca/perfil.html">◍ Perfil</a><a href="sistema-biblioteca/vault.html">◆ Vault</a><a href="sistema-biblioteca/operacao.html">◍ Operação</a></div>
+  </div>
+
+  <div class="sys" style="--num:#facc15">
+    <h2><small>Sistema 4 · Custo e auditoria</small>Operação</h2>
+    <p class="desc">Cada número com run, hora e crédito: ranking com frescor, biblioteca como fila, perfil como trilha de auditoria. Transparência total.</p>
+    <div class="pages"><a class="home" href="sistema-operacao/ranking.html">◉ Ranking</a><a href="sistema-operacao/biblioteca.html">▦ Biblioteca</a><a href="sistema-operacao/perfil.html">◍ Perfil</a><a href="sistema-operacao/vault.html">◆ Vault</a><a href="sistema-operacao/app.html">◍ Operação</a></div>
+  </div>
+
+  <div class="note">Tudo mock: handles, seguidores e views fictícios em faixas plausíveis do nicho OFM. Sistema 5 (Terminal) foi descartado por você.</div>
+</div>
+</body>
+</html>
