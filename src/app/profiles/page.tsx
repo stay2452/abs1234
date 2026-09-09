@@ -7,7 +7,8 @@ import { getCurrentUser, type SessionUser } from "@/lib/auth";
 import { ownerWhere } from "@/lib/ownership";
 import { listFolders } from "@/lib/folders";
 import { toNumber } from "@/lib/format";
-import { rankProfiles } from "@/lib/rankings";
+import { getPeriodCutoff, rankProfiles } from "@/lib/rankings";
+import { getGrowthSnapshots } from "@/lib/profile-growth";
 
 export const dynamic = "force-dynamic";
 
@@ -16,20 +17,31 @@ async function getProfiles(user: SessionUser | null) {
     where: { ...ownerWhere(user) },
     orderBy: [{ createdAt: "desc" }],
     include: {
-      snapshots: {
-        orderBy: { capturedAt: "asc" },
-      },
       profileFolders: {
         include: { folder: true },
       },
     },
   });
+  // Serie completa de snapshots seria milhares de linhas por navegacao:
+  // busca so os pontos necessarios ao crescimento 7d (ate 4/perfil).
+  const growthMap = await getGrowthSnapshots(
+    profiles.map((profile) => profile.id),
+    getPeriodCutoff("7d", new Date()),
+  );
   const growth = new Map(
-    rankProfiles(profiles, "followers_absolute", "7d", "all").map((item) => [item.id, item]),
+    rankProfiles(
+      profiles.map((profile) => ({
+        ...profile,
+        snapshots: growthMap.get(profile.id) ?? [],
+      })),
+      "followers_absolute",
+      "7d",
+      "all",
+    ).map((item) => [item.id, item]),
   );
 
   return profiles.map<ProfileTableItem>((profile) => {
-    const latest = profile.snapshots.at(-1);
+    const latest = growthMap.get(profile.id)?.at(-1);
     const growthItem = growth.get(profile.id);
     const folderList = profile.profileFolders
       .map((row) => row.folder)

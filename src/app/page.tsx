@@ -7,7 +7,8 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser, type SessionUser } from "@/lib/auth";
 import { ownerWhere, ownedVia } from "@/lib/ownership";
 import { formatDate, formatNumber, formatSigned } from "@/lib/format";
-import { rankProfiles } from "@/lib/rankings";
+import { getPeriodCutoff, rankProfiles } from "@/lib/rankings";
+import { getGrowthSnapshots } from "@/lib/profile-growth";
 
 export const dynamic = "force-dynamic";
 
@@ -21,17 +22,23 @@ async function getDashboardData(user: SessionUser | null) {
     prisma.scrapeRun.findFirst({ orderBy: { startedAt: "desc" } }),
     prisma.profile.findMany({
       where: { status: "active", ...scope },
-      include: {
-        snapshots: {
-          orderBy: { capturedAt: "asc" },
-        },
-      },
     }),
   ]);
-  const topGrowth =
-    rankProfiles(profiles, "followers_absolute", "7d", "all").find(
-      (item) => item.growthAbsolute !== null,
-    ) ?? null;
+  // Crescimento 7d com so os snapshots necessarios (ate 4/perfil), nao a serie completa.
+  const growthMap = await getGrowthSnapshots(
+    profiles.map((profile) => profile.id),
+    getPeriodCutoff("7d", new Date()),
+  );
+  const ranked = rankProfiles(
+    profiles.map((profile) => ({
+      ...profile,
+      snapshots: growthMap.get(profile.id) ?? [],
+    })),
+    "followers_absolute",
+    "7d",
+    "all",
+  );
+  const topGrowth = ranked.find((item) => item.growthAbsolute !== null) ?? null;
 
   return {
     profileCount,
