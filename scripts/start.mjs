@@ -82,7 +82,14 @@ async function reconcileZombieRunsOnBoot() {
 }
 
 function startNext() {
-  const child = spawn(process.execPath, [nextBin, "start", ...process.argv.slice(2)], {
+  // Porta via $PORT (Railway/Render injetam) com fallback 3000. Sem isso o
+  // container sobe numa porta e o proxy do host fala com outra.
+  const extra = process.argv.slice(2);
+  const hasPort = extra.some((arg) => arg === "--port" || arg === "-p" || arg.startsWith("--port="));
+  if (!hasPort && process.env.PORT) {
+    extra.push("--port", String(Number(process.env.PORT) || 3000));
+  }
+  const child = spawn(process.execPath, [nextBin, "start", ...extra], {
     env: process.env,
     stdio: "inherit",
   });
