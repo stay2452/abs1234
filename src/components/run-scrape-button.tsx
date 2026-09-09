@@ -141,6 +141,11 @@ async function readProgressStream(
  * - profileId: um perfil (com painel de transparencia e ETA)
  * - mode folder + profileIds: só os perfis da pasta (em lotes de MAX_SCRAPE_PROFILE_IDS)
  */
+
+// Contagem de chaves p/ ETA: cache 5min em memoria (GET /session e pesado).
+const ETA_KEYS_TTL_MS = 5 * 60 * 1000;
+let etaKeysCache = { at: 0, keys: 1 };
+
 export function RunScrapeButton({
   compact = false,
   profileId,
@@ -217,6 +222,11 @@ export function RunScrapeButton({
 
     let cancelled = false;
     async function loadEtaContext() {
+      // Estimativa de chaves: cache 5min em memoria (evita GET /session a cada navegacao).
+      if (Date.now() - etaKeysCache.at < ETA_KEYS_TTL_MS) {
+        setKeyCount(etaKeysCache.keys);
+        return;
+      }
       try {
         const response = await fetch("/api/scrape/session");
         if (!response.ok) {
@@ -229,6 +239,7 @@ export function RunScrapeButton({
           1,
           payload.summary?.hasCredit ?? payload.summary?.activeInQueue ?? 1,
         );
+        etaKeysCache = { at: Date.now(), keys };
         if (!cancelled) {
           setKeyCount(keys);
         }

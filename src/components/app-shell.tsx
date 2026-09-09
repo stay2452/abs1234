@@ -41,6 +41,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Me>(null);
 
   useEffect(() => {
+    if (me) {
+      return;
+    }
     if (AUTH_PAGES.some((page) => pathname === page || pathname.startsWith(`${page}/`))) {
       return;
     }
@@ -48,10 +51,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .then((response) => (response.ok ? response.json() : null))
       .then((payload) => setMe(payload))
       .catch(() => setMe(null));
-  }, [pathname]);
+  }, [pathname, me]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    setMe(null);
     router.push("/login");
     router.refresh();
   }
