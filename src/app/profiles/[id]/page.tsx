@@ -59,20 +59,20 @@ export default async function ProfileDetailPage({
     .map((row) => row.folder)
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
-  const latestRun = await prisma.scrapeRun.findFirst({
-    where: {
-      attempts: {
-        some: { profileId: profile.id },
-      },
-    },
-    orderBy: { startedAt: "desc" },
+  // Ultima coleta + tentativa no_data em 1 query (eram 2 roundtrips sequenciais).
+  const recentAttempts = await prisma.scrapeAttempt.findMany({
+    where: { profileId: profile.id },
+    orderBy: [{ scrapeRun: { startedAt: "desc" } }, { startedAt: "desc" }],
+    take: 50,
     select: {
       id: true,
       status: true,
-      startedAt: true,
-      errorsJson: true,
+      scrapeRun: {
+        select: { id: true, status: true, startedAt: true, errorsJson: true },
+      },
     },
   });
+  const latestRun = recentAttempts[0]?.scrapeRun ?? null;
   const latestRunErrors = (() => {
     if (!latestRun?.errorsJson) {
       return [] as Array<{ profileId?: string; error?: string }>;
@@ -92,14 +92,9 @@ export default async function ProfileDetailPage({
   })();
   const latestRunError = latestRunErrors.find((item) => item.profileId === profile.id)?.error;
   const latestNoDataAttempt = latestRun
-    ? await prisma.scrapeAttempt.findFirst({
-        where: {
-          scrapeRunId: latestRun.id,
-          profileId: profile.id,
-          status: "no_data",
-        },
-        select: { id: true },
-      })
+    ? (recentAttempts.find(
+        (attempt) => attempt.scrapeRun.id === latestRun.id && attempt.status === "no_data",
+      ) ?? null)
     : null;
   const latestSnapshot = profile.snapshots.at(-1);
   const isTikTok = profile.platform === "tiktok";

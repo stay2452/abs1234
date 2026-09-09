@@ -19,9 +19,21 @@ export default async function HistoryPage() {
     await reconcileZombieRuns();
   } catch {}
   // Supabase-only: sem fallback local — falha alto se o banco remoto cair.
+  // Lista sem errorsJson (texto pesado, so o detalhe usa) — menos payload por navegacao.
   const runs = await prisma.scrapeRun.findMany({
     orderBy: { startedAt: "desc" },
     take: 100,
+    select: {
+      id: true,
+      status: true,
+      startedAt: true,
+      finishedAt: true,
+      profilesTotal: true,
+      profilesFinished: true,
+      profilesOk: true,
+      postsFound: true,
+      recordsReceived: true,
+    },
   });
 
   return (

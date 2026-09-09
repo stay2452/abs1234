@@ -50,4 +50,12 @@ App Next.js hospedado no Render com PostgreSQL gerenciado pelo Supabase para cat
 - Testes automatizados nao chamam Apify real.
 - Sem balance oficial: estimativa local free tier Apify (~1k − uso no mês).
 
+## Índices de leitura (2026-09-09)
+
+- `Post.publishedAt`: ranking de posts filtra por data real — migration `perf_response_indexes`.
+- `ScrapeRun.startedAt`: auditoria ordena `startedAt desc take 100`.
+- Crescimento 7d usa `getGrowthSnapshots()` (`src/lib/profile-growth.ts`): no máximo 4
+  snapshots por perfil (mais antigo, último antes do corte, primeiro na janela, último) —
+  resultado idêntico à série completa com −68% de linhas por navegação.
+
 Ver tambem: [CRITICAL_RULES.md](./CRITICAL_RULES.md), [SESSION_POOL.md](./SESSION_POOL.md), [APIFY_API.md](./APIFY_API.md).

@@ -157,6 +157,7 @@ model Post {
 
   @@unique([profileId, url])
   @@index([profileId, platform, sourceType])
+  @@index([publishedAt])
 }
 
 model PostSnapshot {
@@ -196,6 +197,7 @@ model ScrapeRun {
   attempts          ScrapeAttempt[]
 
   @@index([status, startedAt])
+  @@index([startedAt])
 }
 
 model ScrapeAttempt {
