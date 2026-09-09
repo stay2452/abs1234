@@ -177,8 +177,12 @@ function metricLabel(type: RankingType, metric: string) {
   return options.find((option) => option.value === metric)?.label ?? metric;
 }
 
-export function RankingPanel() {
-  const [type, setType] = useState<RankingType>("posts");
+// Cache 60s em memoria: voltar de aba com os mesmos filtros nao refaz o fetch.
+const RANKINGS_TTL_MS = 60 * 1000;
+const rankingsCache = new Map<string, { at: number; data: RankingResponse }>();
+let foldersCache: { at: number; data: FolderRecord[] } | null = null;
+
+export function RankingPanel() {  const [type, setType] = useState<RankingType>("posts");
   const [platform, setPlatform] = useState<PlatformFilter>("all");
   const [period, setPeriod] = useState("7d");
   const [folderId, setFolderId] = useState("all");
@@ -202,13 +206,19 @@ export function RankingPanel() {
   useEffect(() => {
     const controller = new AbortController();
     async function loadTags() {
+      if (foldersCache && Date.now() - foldersCache.at < RANKINGS_TTL_MS) {
+        setCatalog(foldersCache.data);
+        return;
+      }
       try {
         const response = await fetch("/api/folders", { signal: controller.signal });
         if (!response.ok) {
           return;
         }
         const payload = (await response.json()) as { folders?: FolderRecord[] };
-        setCatalog(payload.folders ?? []);
+        const folders = payload.folders ?? [];
+        foldersCache = { at: Date.now(), data: folders };
+        setCatalog(folders);
       } catch {
         // catalogo opcional no ranking
       }
@@ -235,6 +245,13 @@ export function RankingPanel() {
         if (folderId !== "all") {
           params.set("folderId", folderId);
         }
+        const key = params.toString();
+        const cached = rankingsCache.get(key);
+        if (cached && Date.now() - cached.at < RANKINGS_TTL_MS) {
+          setData(cached.data);
+          setLoading(false);
+          return;
+        }
         const response = await fetch(`/api/rankings?${params}`, {
           signal: controller.signal,
         });
@@ -243,7 +260,9 @@ export function RankingPanel() {
           throw new Error("Não foi possível carregar o ranking.");
         }
 
-        setData((await response.json()) as RankingResponse);
+        const payload = (await response.json()) as RankingResponse;
+        rankingsCache.set(key, { at: Date.now(), data: payload });
+        setData(payload);
       } catch (err) {
         if (!controller.signal.aborted) {
           setError(err instanceof Error ? err.message : "Erro ao carregar ranking.");
