@@ -28,36 +28,9 @@
       </div>
     </header>
 
-    <section class="card">
-      <label class="field">
-        <span class="label">URL do app</span>
-        <input
-          id="backend-url"
-          type="url"
-          placeholder="https://seu-app.up.railway.app"
-          autocomplete="url"
-          spellcheck="false"
-        />
-        <span class="meta">Use a URL pública (Railway) ou deixe local.</span>
-      </label>
-      <label class="field">
-        <span class="label">Token da API (legado)</span>
-        <input
-          id="api-token"
-          type="password"
-          placeholder="Só se o admin pedir — o login já resolve"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <span class="meta">Quase sempre desnecessário: entre com email+senha abaixo.</span>
-      </label>
-      <button id="save-backend-url" class="btn secondary backend-save" type="button">
-        Salvar conexão
-      </button>
-    </section>
-
-    <section class="card" id="login-card">
-      <p class="label">Sua conta</p>
+    <!-- 1 — LOGIN (primeiro, sempre) -->
+    <section class="card card-login" id="login-card">
+      <p class="label">Sua conta — entre para usar</p>
       <label class="field">
         <span class="label">Email</span>
         <input
@@ -77,20 +50,21 @@
           autocomplete="current-password"
         />
       </label>
-      <button id="login-btn" class="btn primary" type="button">
+      <button id="login-btn" class="btn primary btn-block" type="button">
         Entrar
       </button>
-      <span class="meta">Cria um token pessoal sozinho — nada para colar. Imports caem na SUA biblioteca.</span>
+      <p class="meta meta-center">Um login cria seu token sozinho. Depois é só Importar — perfis caem na sua biblioteca.</p>
     </section>
 
-    <section class="card" id="account-card" hidden>
+    <section class="card card-account" id="account-card" hidden>
       <p class="label">Conectado como</p>
       <p id="account-name" class="preview">—</p>
-      <button id="logout-btn" class="btn secondary" type="button">
+      <button id="logout-btn" class="btn secondary btn-block" type="button">
         Sair (revoga o token)
       </button>
     </section>
 
+    <!-- 2 — ACAO PRINCIPAL -->
     <section class="card">
       <p class="label">Aba atual</p>
       <p id="preview" class="preview">Detectando…</p>
@@ -120,12 +94,44 @@
     </section>
 
     <div class="actions">
-      <button id="import" class="btn primary" type="button" disabled>
+      <button id="import" class="btn primary btn-block btn-import" type="button" disabled>
         Importar para o tracker
       </button>
     </div>
 
     <p id="feedback" class="feedback" role="status"></p>
+
+    <!-- 3 — AVANCADO (colapsado, fora do caminho) -->
+    <details class="card card-advanced">
+      <summary class="advanced-summary">Avançado — conexão</summary>
+      <div class="advanced-body">
+        <label class="field">
+          <span class="label">URL do app</span>
+          <input
+            id="backend-url"
+            type="url"
+            placeholder="https://seu-app.up.railway.app"
+            autocomplete="url"
+            spellcheck="false"
+          />
+          <span class="meta">Use a URL pública (Railway) ou deixe local.</span>
+        </label>
+        <label class="field">
+          <span class="label">Token da API (legado, só admin)</span>
+          <input
+            id="api-token"
+            type="password"
+            placeholder="Só se o admin pedir — o login já resolve"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <span class="meta">Quase sempre desnecessário.</span>
+        </label>
+        <button id="save-backend-url" class="btn secondary btn-block" type="button">
+          Salvar conexão
+        </button>
+      </div>
+    </details>
 
     <footer class="footer">
       <a id="open-app" href="http://127.0.0.1:3000/" target="_blank" rel="noreferrer"

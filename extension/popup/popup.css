@@ -407,6 +407,70 @@ input::placeholder {
   color: var(--teal);
 }
 
+.btn-block {
+  width: 100%;
+}
+
+.btn-import {
+  min-height: 48px;
+  font-size: 0.95rem;
+}
+
+.card-login {
+  border-color: rgba(124, 58, 237, 0.22);
+}
+
+.card-account {
+  border-color: rgba(163, 230, 53, 0.22);
+}
+
+.meta-center {
+  text-align: center;
+}
+
+.card-advanced {
+  padding: 0;
+}
+
+.card-advanced[open] {
+  padding: 14px;
+}
+
+.advanced-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.advanced-summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-summary::after {
+  content: "›";
+  float: right;
+  transition: transform 0.2s;
+  font-size: 0.9rem;
+}
+
+.card-advanced[open] .advanced-summary::after {
+  transform: rotate(90deg);
+}
+
+.advanced-body {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  margin-top: 2px;
+}
+
 ::selection {
   background: var(--violet);
   color: #fff;
