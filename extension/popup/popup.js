@@ -6,6 +6,10 @@ const el = {
   newFolderWrap: document.getElementById("new-folder-wrap"),
   newFolderName: document.getElementById("new-folder-name"),
   importBtn: document.getElementById("import"),
+  actions: document.getElementById("actions"),
+  abaCard: document.getElementById("aba-card"),
+  folderCard: document.getElementById("folder-card"),
+  advancedCard: document.getElementById("advanced-card"),
   refreshBtn: document.getElementById("refresh"),
   pinBtn: document.getElementById("pin"),
   feedback: document.getElementById("feedback"),
@@ -70,6 +74,10 @@ function renderAccount(account) {
   hasToken = Boolean(account);
   el.loginCard.hidden = hasToken;
   el.accountCard.hidden = !hasToken;
+  el.abaCard.hidden = !hasToken;
+  el.folderCard.hidden = !hasToken;
+  el.actions.hidden = !hasToken;
+  el.advancedCard.hidden = !hasToken;
   if (hasToken) {
     const label = account?.name || account?.email || "Conectado";
     el.accountName.textContent = label;

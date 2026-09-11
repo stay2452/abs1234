@@ -64,14 +64,14 @@
       </button>
     </section>
 
-    <!-- 2 — ACAO PRINCIPAL -->
-    <section class="card">
+    <!-- 2 — ACAO PRINCIPAL (só logado) -->
+    <section class="card" id="aba-card" hidden>
       <p class="label">Aba atual</p>
       <p id="preview" class="preview">Detectando…</p>
       <p id="preview-meta" class="meta"></p>
     </section>
 
-    <section class="card">
+    <section class="card" id="folder-card" hidden>
       <label class="field">
         <span class="label">Pasta (opcional)</span>
         <select id="folder">
@@ -93,7 +93,7 @@
       </div>
     </section>
 
-    <div class="actions">
+    <div class="actions" id="actions" hidden>
       <button id="import" class="btn primary btn-block btn-import" type="button" disabled>
         Importar para o tracker
       </button>
@@ -101,8 +101,8 @@
 
     <p id="feedback" class="feedback" role="status"></p>
 
-    <!-- 3 — AVANCADO (colapsado, fora do caminho) -->
-    <details class="card card-advanced">
+    <!-- 3 — AVANCADO (só logado, colapsado) -->
+    <details class="card card-advanced" id="advanced-card" hidden>
       <summary class="advanced-summary">Avançado — conexão</summary>
       <div class="advanced-body">
         <label class="field">
