@@ -56,8 +56,28 @@ model User {
   folders      Folder[]
   creators     Creator[]
   scrapeRuns   ScrapeRun[]
+  apiTokens    ApiToken[]
 
   @@index([role])
+}
+
+/// Token pessoal de API (SaaS): cada usuario loga a extensao com email+senha e
+/// recebe um token proprio (`eoz_...`). Armazenado so como hash scrypt — o texto
+/// exibido uma unica vez na emissao. Import/coleta via token cai na biblioteca
+/// DO DONO do token (nunca no admin). Revogavel sem trocar senha.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String    @default("Chrome extension")
+  prefix     String
+  tokenHash  String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  @@index([userId])
+  @@index([prefix])
 }
 
 /// Pastas do usuario para agrupar perfis e comparar.

@@ -15,7 +15,14 @@ Importar um perfil Instagram/TikTok para o tracker local **sem copiar URL**, via
 - **Não** usa cookies, login nem scrape de métricas na página.
 - Só extrai handle/URL pública e chama o app local.
 - Coleta Apify **só** se o usuário marcar “Já coletar dados” no popup (default off).
-- App pode estar local em `http://127.0.0.1:3000` ou publicado no Render. A URL é configurada no campo **URL do app** do popup e fica salva no `chrome.storage.sync`.
+- App pode estar local em `http://127.0.0.1:3000` ou publicado (Railway). A URL é configurada no campo **URL do app** do popup e fica salva no `chrome.storage.sync`.
+
+## Auth SaaS (desde 1.3.6)
+
+- Sem token manual: o popup tem login com **email+senha** (`POST /api/auth/extension-token`, mesmo rate-limit do login web).
+- O servidor devolve um Bearer pessoal `eoz_...` (salvo sozinho no `chrome.storage.sync`); import/coleta caem na biblioteca **do dono logado**.
+- Logout no popup revoga o token (`DELETE /api/auth/extension-token`); revoke também por `DELETE /api/users/api-tokens/[id]` logado no app.
+- Campo legado **Token da API** continua existindo para o `API_ACCESS_TOKEN` global do operador (cai no admin mais antigo) — usuário comum não precisa.
 
 ## Código
 
@@ -32,7 +39,7 @@ Pasta `extension/` (Manifest V3, JS puro, load unpacked).
 | `popup/*` | UI do ícone (popup da action **e** side panel — mesmo HTML) |
 | `README.md` | Instalação e troubleshooting |
 
-Versão atual do manifest: **1.3.5**. Source of truth: `extension/manifest.json`.
+Versão atual do manifest: **1.3.6**. Source of truth: `extension/manifest.json`.
 
 ## Side panel (desde 1.3.3)
 
@@ -46,7 +53,7 @@ A extensão registra `side_panel.default_path` apontando para `popup/popup.html`
 | `POST /api/profiles/import` | Cadastro/reativação (+ CORS extensão) |
 | `POST /api/scrape/run` | Coleta opcional (`stream: false`) |
 
-CORS: `src/lib/extension-cors.ts` — aceita origens `chrome-extension://`/`moz-extension://` e localhost do app. A URL do Railway é informada no popup; o manifesto autoriza hosts `*.onrender.com` e `*.up.railway.app`. Manifest atual: **1.3.5**.
+CORS: `src/lib/extension-cors.ts` — aceita origens `chrome-extension://`/`moz-extension://` e localhost do app. A URL pública do host é informada no popup; o manifesto autoriza hosts `*.onrender.com` e `*.up.railway.app`. Manifest atual: **1.3.6**.
 
 ## Instalação
 

@@ -5,7 +5,7 @@
 
 Importa perfis do **Instagram** e **TikTok** para o tracker hospedado.
 
-**Versão:** ver `manifest.json` (source of truth). Atual **1.3.5**.
+**Versão:** ver `manifest.json` (source of truth). Atual **1.3.6**.
 
 ## O que funciona
 

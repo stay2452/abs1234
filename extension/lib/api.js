@@ -24,6 +24,43 @@ async function authHeaders() {
   }
 }
 
+/** Login SaaS: email+senha geram um token pessoal (salvo sozinho, sem colar). */
+async function loginExtension(email, password) {
+  const base = await getBaseUrl();
+  const res = await fetch(`${base}/api/auth/extension-token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Login falhou (${res.status})`);
+  }
+  await chrome.storage.sync.set({ apiToken: data.token });
+  await chrome.storage.sync.set({
+    account: { name: data.name || "", email: data.email || "" },
+  });
+  return data;
+}
+
+/** Logout: revoga o token no servidor e limpa o storage. */
+async function logoutExtension() {
+  const base = await getBaseUrl();
+  try {
+    const stored = await chrome.storage.sync.get(["apiToken"]);
+    const token = (stored.apiToken || "").trim();
+    if (token) {
+      await fetch(`${base}/api/auth/extension-token`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+  } catch {
+    // segue para limpeza local mesmo se o servidor falhar
+  }
+  await chrome.storage.sync.remove(["apiToken", "account"]);
+}
+
 async function health() {
   const base = await getBaseUrl();
   try {
@@ -130,6 +167,8 @@ async function addProfileToFolder(folderId, profileId) {
 
 self.BdpApi = {
   getBaseUrl,
+  loginExtension,
+  logoutExtension,
   health,
   importProfiles,
   scrapeProfile,

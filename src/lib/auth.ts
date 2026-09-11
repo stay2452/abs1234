@@ -182,7 +182,23 @@ function readCookieFromRequest(request: Request): string | undefined {
 
 /** Variante para API routes (usa o header Cookie em vez de next/headers). */
 export async function getRequestUser(request: Request): Promise<SessionUser | null> {
-  return getUserFromToken(readCookieFromRequest(request));
+  const fromSession = await getUserFromToken(readCookieFromRequest(request));
+  if (fromSession) {
+    return fromSession;
+  }
+  // SaaS: extensao sem cookie usa Bearer `eoz_...` (token pessoal do usuario).
+  // Import dinamico para nao criar ciclo auth <-> api-tokens.
+  const auth = request.headers.get("authorization") ?? "";
+  const bearer = auth.replace(/^Bearer\s+/i, "").trim();
+  if (!bearer) {
+    return null;
+  }
+  try {
+    const { verifyApiToken } = await import("@/lib/api-tokens");
+    return await verifyApiToken(bearer);
+  } catch {
+    return null;
+  }
 }
 
 async function getUserFromToken(token: string | undefined): Promise<SessionUser | null> {

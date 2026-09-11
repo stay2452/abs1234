@@ -15,6 +15,13 @@ const el = {
   backendUrl: document.getElementById("backend-url"),
   saveBackendUrl: document.getElementById("save-backend-url"),
   apiToken: document.getElementById("api-token"),
+  loginCard: document.getElementById("login-card"),
+  accountCard: document.getElementById("account-card"),
+  loginEmail: document.getElementById("login-email"),
+  loginPassword: document.getElementById("login-password"),
+  loginBtn: document.getElementById("login-btn"),
+  accountName: document.getElementById("account-name"),
+  logoutBtn: document.getElementById("logout-btn"),
 };
 
 // painel lateral = página normal da extensão (sem ?pinned=)
@@ -25,6 +32,7 @@ let folders = [];
 let lastFolderId = "";
 let online = false;
 let busy = false;
+let hasToken = false;
 let lastDetectKey = "";
 let liveTimer = null;
 
@@ -45,6 +53,8 @@ function updateImportEnabled() {
   const needsName = folderMode === "__new__" && !el.newFolderName.value.trim();
   if (needsName && !busy) {
     el.importBtn.title = "Digite o nome da pasta nova";
+  } else if (!hasToken && !busy) {
+    el.importBtn.title = "Entre com sua conta abaixo para importar";
   } else if (!online && !busy) {
     el.importBtn.title = "App offline — confira a URL do app no popup";
   } else if (!detected?.handle && !busy) {
@@ -54,6 +64,63 @@ function updateImportEnabled() {
       ? `Importar @${detected.handle}`
       : "Importar para o tracker";
   }
+}
+
+function renderAccount(account) {
+  hasToken = Boolean(account);
+  el.loginCard.hidden = hasToken;
+  el.accountCard.hidden = !hasToken;
+  if (hasToken) {
+    const label = account?.name || account?.email || "Conectado";
+    el.accountName.textContent = label;
+  }
+  updateImportEnabled();
+}
+
+async function loadAccount() {
+  try {
+    const stored = await chrome.storage.sync.get(["apiToken", "account"]);
+    renderAccount(stored.apiToken ? stored.account || {} : null);
+  } catch {
+    renderAccount(null);
+  }
+}
+
+async function doLogin() {
+  if (busy) return;
+  const email = String(el.loginEmail.value || "").trim();
+  const password = String(el.loginPassword.value || "");
+  if (!email || !password) {
+    setFeedback("Informe email e senha.", "err");
+    return;
+  }
+  busy = true;
+  updateImportEnabled();
+  setFeedback("Entrando…");
+  try {
+    const data = await BdpApi.loginExtension(email, password);
+    el.loginPassword.value = "";
+    renderAccount({ name: data.name, email: data.email });
+    setFeedback(`Conectado como ${data.name || data.email}.`, "ok");
+    await refresh({ full: true });
+  } catch (err) {
+    setFeedback(err instanceof Error ? err.message : "Login falhou.", "err");
+  } finally {
+    busy = false;
+    updateImportEnabled();
+  }
+}
+
+async function doLogout() {
+  setFeedback("Saindo…");
+  try {
+    await BdpApi.logoutExtension();
+  } catch {
+    // limpeza local ja feita
+  }
+  renderAccount(null);
+  renderFolders([]);
+  setFeedback("Desconectado. Token revogado no servidor.", "ok");
 }
 
 function normalizeBaseUrl(value) {
@@ -355,6 +422,11 @@ el.pinBtn.addEventListener("click", async () => {
 el.importBtn.addEventListener("click", async () => {
   if (busy) return;
 
+  if (!hasToken) {
+    setFeedback("Entre com sua conta abaixo para importar.", "err");
+    el.loginEmail.focus();
+    return;
+  }
   const folderVal = el.folder.value;
   if (folderVal === "__new__" && !el.newFolderName.value.trim()) {
     setFeedback("Digite o nome da pasta nova.", "err");
@@ -446,8 +518,21 @@ window.addEventListener("focus", () => {
   void liveDetect();
 });
 
+el.loginBtn.addEventListener("click", () => {
+  void doLogin();
+});
+
+el.loginPassword.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") void doLogin();
+});
+
+el.logoutBtn.addEventListener("click", () => {
+  void doLogout();
+});
+
 startLiveLoop();
 void loadBackendUrl();
+void loadAccount();
 void refresh({ full: true });
 
 window.addEventListener("unload", () => {

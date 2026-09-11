@@ -41,18 +41,53 @@
         <span class="meta">Use a URL pública (Railway) ou deixe local.</span>
       </label>
       <label class="field">
-        <span class="label">Token da API (opcional)</span>
+        <span class="label">Token da API (legado)</span>
         <input
           id="api-token"
           type="password"
-          placeholder="Igual ao API_ACCESS_TOKEN do servidor"
+          placeholder="Só se o admin pedir — o login já resolve"
           autocomplete="off"
           spellcheck="false"
         />
-        <span class="meta">Precisa ser igual ao da aba Variables no Railway.</span>
+        <span class="meta">Quase sempre desnecessário: entre com email+senha abaixo.</span>
       </label>
       <button id="save-backend-url" class="btn secondary backend-save" type="button">
         Salvar conexão
+      </button>
+    </section>
+
+    <section class="card" id="login-card">
+      <p class="label">Sua conta</p>
+      <label class="field">
+        <span class="label">Email</span>
+        <input
+          id="login-email"
+          type="email"
+          placeholder="voce@agencia.com"
+          autocomplete="email"
+          spellcheck="false"
+        />
+      </label>
+      <label class="field">
+        <span class="label">Senha</span>
+        <input
+          id="login-password"
+          type="password"
+          placeholder="••••••••"
+          autocomplete="current-password"
+        />
+      </label>
+      <button id="login-btn" class="btn primary" type="button">
+        Entrar
+      </button>
+      <span class="meta">Cria um token pessoal sozinho — nada para colar. Imports caem na SUA biblioteca.</span>
+    </section>
+
+    <section class="card" id="account-card" hidden>
+      <p class="label">Conectado como</p>
+      <p id="account-name" class="preview">—</p>
+      <button id="logout-btn" class="btn secondary" type="button">
+        Sair (revoga o token)
       </button>
     </section>
 
