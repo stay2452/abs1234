@@ -1,7 +1,8 @@
 /**
  * Cliente HTTP do app local ou publicado (usado no service worker).
+ * Padrao = producao (Railway). Local via popup, uma vez, se precisar.
  */
-const DEFAULT_BASE = "http://127.0.0.1:3000";
+const DEFAULT_BASE = "https://abs1234-production.up.railway.app";
 
 async function getBaseUrl() {
   try {
