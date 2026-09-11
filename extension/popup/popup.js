@@ -14,6 +14,7 @@ const el = {
   openFolders: document.getElementById("open-folders"),
   backendUrl: document.getElementById("backend-url"),
   saveBackendUrl: document.getElementById("save-backend-url"),
+  apiToken: document.getElementById("api-token"),
 };
 
 // painel lateral = página normal da extensão (sem ?pinned=)
@@ -68,15 +69,23 @@ function normalizeBaseUrl(value) {
 }
 
 async function loadBackendUrl() {
-  const stored = await chrome.storage.sync.get(["baseUrl"]);
+  const stored = await chrome.storage.sync.get(["baseUrl", "apiToken"]);
   el.backendUrl.value = stored.baseUrl || BdpApi.DEFAULT_BASE;
+  // Nunca exibe o token de volta: so indica que existe um salvo.
+  if (stored.apiToken) el.apiToken.placeholder = "Token salvo ✓ (cole outro para trocar)";
 }
 
 async function saveBackendUrl() {
   try {
     const base = normalizeBaseUrl(el.backendUrl.value);
+    const token = String(el.apiToken.value || "").trim();
     setFeedback("Salvando conexão…");
     await chrome.storage.sync.set({ baseUrl: base });
+    if (token) {
+      await chrome.storage.sync.set({ apiToken: token });
+      el.apiToken.value = "";
+      el.apiToken.placeholder = "Token salvo ✓ (cole outro para trocar)";
+    }
     el.backendUrl.value = base;
     setFeedback(`Conexão salva: ${base}. Testando o app…`, "ok");
     await refresh({ full: true });

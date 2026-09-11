@@ -12,7 +12,7 @@
         <span class="mark" aria-hidden>✦</span>
         <div>
           <strong>Biblioteca de Perfis</strong>
-        <p class="sub">Painel · app local ou Render</p>
+        <p class="sub">Painel · app local ou Railway</p>
         </div>
       </div>
       <div class="header-right">
@@ -34,11 +34,22 @@
         <input
           id="backend-url"
           type="url"
-          placeholder="https://seu-app.onrender.com"
+          placeholder="https://seu-app.up.railway.app"
           autocomplete="url"
           spellcheck="false"
         />
-        <span class="meta">Use a URL pública do Render ou deixe local.</span>
+        <span class="meta">Use a URL pública (Railway) ou deixe local.</span>
+      </label>
+      <label class="field">
+        <span class="label">Token da API (opcional)</span>
+        <input
+          id="api-token"
+          type="password"
+          placeholder="Igual ao API_ACCESS_TOKEN do servidor"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <span class="meta">Precisa ser igual ao da aba Variables no Railway.</span>
       </label>
       <button id="save-backend-url" class="btn secondary backend-save" type="button">
         Salvar conexão

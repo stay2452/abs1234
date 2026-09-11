@@ -5,7 +5,7 @@
 
 Importa perfis do **Instagram** e **TikTok** para o tracker hospedado.
 
-**Versão:** ver `manifest.json` (source of truth). Atual **1.3.4**.
+**Versão:** ver `manifest.json` (source of truth). Atual **1.3.5**.
 
 ## O que funciona
 
@@ -19,7 +19,7 @@ Importa perfis do **Instagram** e **TikTok** para o tracker hospedado.
 
 ## Instalação
 
-1. Abra a extensão e informe a URL do app no campo **URL do app**. Para Render, use algo como `https://seu-app.onrender.com`; local usa `http://127.0.0.1:3000`.
+1. Abra a extensão e informe a URL do app no campo **URL do app**. Para Railway, use algo como `https://seu-app.up.railway.app`; local usa `http://127.0.0.1:3000`. No campo **Token da API**, cole o mesmo `API_ACCESS_TOKEN` do servidor.
 2. Se estiver rodando localmente, execute `npm run dev` no app (porta 3000).
 3. `chrome://extensions` → Modo desenvolvedor → Carregar `extension/`
 4. Após editar código: **Recarregar extensão** + **F5** no Instagram
