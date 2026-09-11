@@ -39,7 +39,7 @@ Pasta `extension/` (Manifest V3, JS puro, load unpacked).
 | `popup/*` | UI do ícone (popup da action **e** side panel — mesmo HTML) |
 | `README.md` | Instalação e troubleshooting |
 
-Versão atual do manifest: **1.3.6**. Source of truth: `extension/manifest.json`.
+Versão atual do manifest: **1.3.7**. Source of truth: `extension/manifest.json`.
 
 ## Side panel (desde 1.3.3)
 

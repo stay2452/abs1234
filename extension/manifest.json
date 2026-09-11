@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Biblioteca de Perfis — Import",
-  "description": "Importa perfis do Instagram e TikTok para o tracker local (Biblioteca de Perfis).",
-  "version": "1.3.6",
+  "name": "Eye of Zuck — Import",
+  "description": "Importa perfis do Instagram e TikTok para o Eye of Zuck (SaaS). Login com sua conta, um clique importa.",
+  "version": "1.3.7",
   "permissions": ["storage", "activeTab", "tabs", "scripting", "sidePanel"],
   "host_permissions": [
     "http://127.0.0.1:3000/*",
@@ -18,7 +18,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Biblioteca de Perfis",
+    "default_title": "Eye of Zuck",
     "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
