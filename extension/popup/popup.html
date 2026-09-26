@@ -4,69 +4,43 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Eye of Zuck</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
     <header class="header">
       <div class="brand">
-        <span class="brand-mark" aria-hidden><img src="../icons/icon48.png" alt="" width="40" height="40" /></span>
-        <span class="brand-text">Eye of Zuck<small>OFM · Viral Intel</small></span>
+        <span class="brand-mark"><img src="../icons/icon48.png" alt="" width="36" height="36" /></span>
+        <span class="brand-text">Eye of Zuck<small>Instagram · Railway</small></span>
       </div>
       <div class="header-right">
         <span id="status" class="status status-off">…</span>
-        <button
-          id="pin"
-          class="pin-btn"
-          type="button"
-          title="Fixar no painel lateral (fica aberto, sem nova aba)"
-        >
-          Fixar
-        </button>
+        <button id="pin" class="pin-btn" type="button">Fixar</button>
       </div>
     </header>
 
-    <!-- 1 — LOGIN (primeiro, sempre) -->
-    <section class="card card-login" id="login-card">
+    <section class="card" id="login-card">
       <p class="label">Sua conta — entre para usar</p>
       <label class="field">
         <span class="label">Email</span>
-        <input
-          id="login-email"
-          type="email"
-          placeholder="voce@agencia.com"
-          autocomplete="email"
-          spellcheck="false"
-        />
+        <input id="login-email" type="email" placeholder="voce@agencia.com" autocomplete="email" spellcheck="false" />
       </label>
       <label class="field">
         <span class="label">Senha</span>
-        <input
-          id="login-password"
-          type="password"
-          placeholder="••••••••"
-          autocomplete="current-password"
-        />
+        <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" />
       </label>
-      <button id="login-btn" class="btn primary btn-block" type="button">
-        Entrar
-      </button>
-      <p class="meta meta-center">Um login cria seu token sozinho. Depois é só Importar — perfis caem na sua biblioteca.</p>
+      <button id="login-btn" class="btn primary btn-block" type="button">Entrar</button>
+      <p class="meta meta-center">O login cria seu token sozinho. Perfis caem na sua biblioteca.</p>
     </section>
 
-    <section class="card card-account" id="account-card" hidden>
+    <section class="card" id="account-card" hidden>
       <p class="label">Conectado como</p>
       <p id="account-name" class="preview">—</p>
-      <button id="logout-btn" class="btn secondary btn-block" type="button">
-        Sair (revoga o token)
-      </button>
+      <p id="account-role" class="meta"></p>
+      <button id="logout-btn" class="btn secondary btn-block" type="button">Sair (revoga o token)</button>
     </section>
 
-    <!-- 2 — ACAO PRINCIPAL (só logado) -->
     <section class="card" id="aba-card" hidden>
-      <p class="label">Aba atual</p>
+      <p class="label">Aba atual (Instagram)</p>
       <p id="preview" class="preview">Detectando…</p>
       <p id="preview-meta" class="meta"></p>
     </section>
@@ -79,71 +53,27 @@
           <option value="__new__">+ Criar pasta nova…</option>
         </select>
       </label>
-      <div id="new-folder-wrap" class="new-folder" hidden>
+      <div id="new-folder-wrap" hidden>
         <label class="field">
           <span class="label">Nome da pasta</span>
-          <input
-            id="new-folder-name"
-            type="text"
-            maxlength="60"
-            placeholder="Ex: Fitness, Beleza…"
-            autocomplete="off"
-          />
+          <input id="new-folder-name" type="text" maxlength="60" placeholder="Ex: Fitness, Beleza…" autocomplete="off" />
         </label>
       </div>
     </section>
 
     <div class="actions" id="actions" hidden>
-      <button id="import" class="btn primary btn-block btn-import" type="button" disabled>
-        Importar para o tracker
-      </button>
+      <button id="import" class="btn primary btn-block" type="button" disabled>Importar para o tracker</button>
     </div>
 
     <p id="feedback" class="feedback" role="status"></p>
 
-    <!-- 3 — AVANCADO (só logado, colapsado) -->
-    <details class="card card-advanced" id="advanced-card" hidden>
-      <summary class="advanced-summary">Avançado — conexão</summary>
-      <div class="advanced-body">
-        <label class="field">
-          <span class="label">URL do app</span>
-          <input
-            id="backend-url"
-            type="url"
-            placeholder="https://seu-app.up.railway.app"
-            autocomplete="url"
-            spellcheck="false"
-          />
-          <span class="meta">Use a URL pública (Railway) ou deixe local.</span>
-        </label>
-        <label class="field">
-          <span class="label">Token da API (legado, só admin)</span>
-          <input
-            id="api-token"
-            type="password"
-            placeholder="Só se o admin pedir — o login já resolve"
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <span class="meta">Quase sempre desnecessário.</span>
-        </label>
-        <button id="save-backend-url" class="btn secondary btn-block" type="button">
-          Salvar conexão
-        </button>
-      </div>
-    </details>
-
-    <footer class="footer">
-      <a id="open-app" href="http://127.0.0.1:3000/" target="_blank" rel="noreferrer"
-        >Abrir app</a
-      >
-      <a id="open-profiles" href="http://127.0.0.1:3000/profiles" target="_blank" rel="noreferrer">Perfis</a>
-      <a id="open-folders" href="http://127.0.0.1:3000/folders" target="_blank" rel="noreferrer">Pastas</a>
+    <div class="links" id="links" hidden>
+      <a id="open-app" href="https://abs1234-production.up.railway.app/" target="_blank" rel="noreferrer">Abrir app</a>
+      <a id="open-profiles" href="https://abs1234-production.up.railway.app/profiles" target="_blank" rel="noreferrer">Perfis</a>
+      <a id="open-admin" href="https://abs1234-production.up.railway.app/admin/atividade" target="_blank" rel="noreferrer" hidden>Atividade</a>
       <button id="refresh" class="linkish" type="button">Atualizar</button>
-    </footer>
+    </div>
 
-    <script src="../lib/detect.js"></script>
-    <script src="../lib/api.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

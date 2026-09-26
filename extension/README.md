@@ -1,61 +1,44 @@
-# Extensão — Biblioteca de Perfis (Import)
+# Extensão — Eye of Zuck (Import Instagram)
 
-> Este README cobre **instalação, troubleshooting e fluxo de detecção da extensão**.  
-> Contrato behavioral (rotas backend, CORS, integração com o app) está em [`docs/EXTENSION.md`](../docs/EXTENSION.md).
+> Instalação, troubleshooting e fluxo de detecção. Contrato behavioral em `docs/EXTENSION.md`.
 
-Importa perfis do **Instagram** e **TikTok** para o tracker hospedado.
+Importa perfis do **Instagram** para a prod Railway. **Versão 2.0.0** (`manifest.json` é source of truth).
 
-**Versão:** ver `manifest.json` (source of truth). Atual **1.3.8**.
+URL fixa: `https://abs1234-production.up.railway.app` (sem campo configurável).
 
 ## O que funciona
 
 | Feature | Como |
 |---------|------|
-| Botão `+` no reel | Acima da curtida; reancora no scroll |
-| Botão no perfil | `+ Tracker` perto de Seguir |
-| Popup / painel | `@` da aba + pasta + import |
-| Fixar | Painel lateral Chrome/Edge (sem nova aba) |
-| Autor no reel | DOM do **vídeo ativo** (centro/tocando) |
+| Botão `+` no reel | Acima da curtida; importa o autor |
+| Botão `+ Tracker` no perfil | Ao lado de Seguir/Mensagem |
+| Popup / painel lateral | Login → `@` da aba + pasta + import |
+| Fixar | Botão Fixar usa side panel (fica aberto ao navegar) |
+| Badge user/admin | Popup mostra `painel usuário` ou `painel admin` (+ link Atividade p/ admin) |
 
 ## Instalação
 
-1. Abra a extensão e informe a URL do app no campo **URL do app**. Para Railway, use algo como `https://seu-app.up.railway.app`; local usa `http://127.0.0.1:3000`. No campo **Token da API**, cole o mesmo `API_ACCESS_TOKEN` do servidor.
-2. Se estiver rodando localmente, execute `npm run dev` no app (porta 3000).
-3. `chrome://extensions` → Modo desenvolvedor → Carregar `extension/`
-4. Após editar código: **Recarregar extensão** + **F5** no Instagram
-
-## Fluxo de detecção (reels)
-
-1. Acha o `<video>` mais central / tocando  
-2. Procura links de perfil **nessa faixa da tela**  
-3. Prioriza texto = `@` e bloco com Seguir  
-4. **Não** usa `<title>` / og:meta (grudam no 1º reel)  
-5. No clique: re-detecta + 1 retry se o DOM ainda troca  
-
-## Arquivos
-
-| Arquivo | Papel |
-|---------|--------|
-| `lib/detect.js` | URL + autor no DOM |
-| `lib/api.js` | health, import, pastas |
-| `background.js` | mensagens, side panel, import |
-| `content/instagram.js` | botão + reancoragem |
-| `content/shared.js` | import click, detect message |
-| `popup/*` | UI pasta / fixar / live detect |
+1. `chrome://extensions` → Modo desenvolvedor → **Carregar sem compactação** → pasta `extension/`.
+2. Clique no ícone → entre com email+senha da sua conta da prod.
+3. Abra um perfil ou reel do Instagram → **Importar para o tracker** (com ou sem pasta).
+4. Opcional: **Fixar** para usar no painel lateral enquanto navega.
 
 ## Troubleshooting
 
 | Sintoma | Ação |
 |---------|------|
-| `!` vermelho no botão | Passe o mouse: tooltip. Muitas vezes “Sem @” → F5 e espere o reel carregar |
-| `@` não muda no scroll | Recarregar extensão + F5; painel atualiza ~0,3s |
-| Offline | Confirme a URL salva em **URL do app** e que o Render está online |
-| Context invalidated | Recarregou extensão com aba aberta → F5 |
-| Botão some | Deve reaparecer sozinho; senão F5 |
+| Offline | A prod Railway pode estar dormindo — aguarde e clique Atualizar |
+| `Sem @` no botão | Espere o reel carregar ou abra o perfil |
+| `Nenhum perfil` no popup | Saia de Explore/DMs; abra um perfil ou reel |
+| 401 no import | Saia e entre de novo (token revogado/expirado) |
+| Context invalidated | Recarregou a extensão com aba antiga → F5 no Instagram |
 
-## APIs
+## Arquivos
 
-- `GET /api/health`
-- `POST /api/profiles/import`
-- `GET/POST /api/folders`
-- `PATCH /api/folders/:id` `{ profileId, present: true }`
+| Arquivo | Papel |
+|---------|-------|
+| `lib/api.js` | HTTP p/ prod (BASE_URL fixo) |
+| `lib/ig-detect.js` | URL + autor no DOM (só IG) |
+| `background.js` | mensagens, import, pastas, side panel |
+| `content/instagram.js` | botão + reancoragem |
+| `popup/*` | login, conta, import, pastas, fixar |

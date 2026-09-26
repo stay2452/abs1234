@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { apiGuard, getRequestUser } from "@/lib/auth";
+import { optionsCors, withCors } from "@/lib/extension-cors";
 import { canAccessOwner } from "@/lib/ownership";
 import {
   deleteFolder,
@@ -25,14 +26,19 @@ const membershipSchema = z.object({
   present: z.boolean(),
 });
 
+export async function OPTIONS(request: NextRequest) {
+  return optionsCors(request.headers.get("origin"));
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  const origin = request.headers.get("origin");
   // Pastas (organizacao): qualquer logado.
   const guard = await apiGuard(request);
   if (guard) {
-    return guard;
+    return withCors(guard, origin);
   }
   const { id } = await context.params;
   const folder = await prisma.folder.findUnique({
@@ -56,28 +62,32 @@ export async function GET(
   });
 
   if (!folder) {
-    return NextResponse.json({ error: "Pasta nao encontrada." }, { status: 404 });
+    return withCors(NextResponse.json({ error: "Pasta nao encontrada." }, { status: 404 }), origin);
   }
 
-  return NextResponse.json({
-    id: folder.id,
-    name: folder.name,
-    color: folder.color,
-    description: folder.description,
-    profileCount: folder._count.profiles,
-    profiles: folder.profiles.map((row) => row.profile),
-  });
+  return withCors(
+    NextResponse.json({
+      id: folder.id,
+      name: folder.name,
+      color: folder.color,
+      description: folder.description,
+      profileCount: folder._count.profiles,
+      profiles: folder.profiles.map((row) => row.profile),
+    }),
+    origin,
+  );
 }
 
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  const origin = request.headers.get("origin");
   const { id } = await context.params;
   // Pastas (organizacao): qualquer logado.
   const guard = await apiGuard(request);
   if (guard) {
-    return guard;
+    return withCors(guard, origin);
   }
   const user = await getRequestUser(request);
   const body = await request.json().catch(() => null);
@@ -96,46 +106,58 @@ export async function PATCH(
       });
       // So vincula pasta e perfil do proprio dono (admin passa).
       if (!folder || !canAccessOwner(user, folder.ownerId)) {
-        return NextResponse.json({ error: "Pasta nao encontrada." }, { status: 404 });
+        return withCors(NextResponse.json({ error: "Pasta nao encontrada." }, { status: 404 }), origin);
       }
       if (!profile || !canAccessOwner(user, profile.ownerId)) {
-        return NextResponse.json({ error: "Perfil nao encontrado." }, { status: 404 });
+        return withCors(NextResponse.json({ error: "Perfil nao encontrado." }, { status: 404 }), origin);
       }
       await setProfileInFolder(id, membership.data.profileId, membership.data.present, user);
-      return NextResponse.json({
-        ok: true,
-        folderId: id,
-        profileId: membership.data.profileId,
-        present: membership.data.present,
-      });
+      return withCors(
+        NextResponse.json({
+          ok: true,
+          folderId: id,
+          profileId: membership.data.profileId,
+          present: membership.data.present,
+        }),
+        origin,
+      );
     } catch (error) {
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Falha ao atualizar pasta." },
-        { status: 400 },
+      return withCors(
+        NextResponse.json(
+          { error: error instanceof Error ? error.message : "Falha ao atualizar pasta." },
+          { status: 400 },
+        ),
+        origin,
       );
     }
   }
 
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Dados invalidos." }, { status: 400 });
+    return withCors(NextResponse.json({ error: "Dados invalidos." }, { status: 400 }), origin);
   }
 
   try {
     const folder = await updateFolder(id, parsed.data, user);
-    return NextResponse.json({
-      id: folder.id,
-      name: folder.name,
-      color: folder.color,
-      description: folder.description,
-    });
+    return withCors(
+      NextResponse.json({
+        id: folder.id,
+        name: folder.name,
+        color: folder.color,
+        description: folder.description,
+      }),
+      origin,
+    );
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
-      return NextResponse.json({ error: "Pasta nao encontrada." }, { status: 404 });
+      return withCors(NextResponse.json({ error: "Pasta nao encontrada." }, { status: 404 }), origin);
     }
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Falha ao atualizar." },
-      { status: 400 },
+    return withCors(
+      NextResponse.json(
+        { error: error instanceof Error ? error.message : "Falha ao atualizar." },
+        { status: 400 },
+      ),
+      origin,
     );
   }
 }
@@ -144,18 +166,19 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  const origin = request.headers.get("origin");
   // Pastas (organizacao): qualquer logado.
   const guard = await apiGuard(request);
   if (guard) {
-    return guard;
+    return withCors(guard, origin);
   }
   const { id } = await context.params;
   try {
     await deleteFolder(id, await getRequestUser(request));
-    return NextResponse.json({ deleted: true, id });
+    return withCors(NextResponse.json({ deleted: true, id }), origin);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
-      return NextResponse.json({ error: "Pasta nao encontrada." }, { status: 404 });
+      return withCors(NextResponse.json({ error: "Pasta nao encontrada." }, { status: 404 }), origin);
     }
     throw error;
   }

@@ -1,3 +1,4 @@
+/* Eye of Zuck v2 — popup + side panel (mesmo HTML). Railway fixo, IG-only. */
 const el = {
   status: document.getElementById("status"),
   preview: document.getElementById("preview"),
@@ -9,36 +10,33 @@ const el = {
   actions: document.getElementById("actions"),
   abaCard: document.getElementById("aba-card"),
   folderCard: document.getElementById("folder-card"),
-  advancedCard: document.getElementById("advanced-card"),
   refreshBtn: document.getElementById("refresh"),
   pinBtn: document.getElementById("pin"),
   feedback: document.getElementById("feedback"),
-  openApp: document.getElementById("open-app"),
-  openProfiles: document.getElementById("open-profiles"),
-  openFolders: document.getElementById("open-folders"),
-  backendUrl: document.getElementById("backend-url"),
-  saveBackendUrl: document.getElementById("save-backend-url"),
-  apiToken: document.getElementById("api-token"),
+  links: document.getElementById("links"),
+  openAdmin: document.getElementById("open-admin"),
   loginCard: document.getElementById("login-card"),
   accountCard: document.getElementById("account-card"),
   loginEmail: document.getElementById("login-email"),
   loginPassword: document.getElementById("login-password"),
   loginBtn: document.getElementById("login-btn"),
   accountName: document.getElementById("account-name"),
+  accountRole: document.getElementById("account-role"),
   logoutBtn: document.getElementById("logout-btn"),
 };
 
-// painel lateral = página normal da extensão (sem ?pinned=)
 document.body.classList.add("is-panel");
 
 let detected = null;
 let folders = [];
-let lastFolderId = "";
 let online = false;
 let busy = false;
-let hasToken = false;
+let account = null;
 let lastDetectKey = "";
-let liveTimer = null;
+
+function msg(action, payload) {
+  return chrome.runtime.sendMessage({ action, ...(payload || {}) });
+}
 
 function setFeedback(text, kind) {
   el.feedback.textContent = text || "";
@@ -52,45 +50,140 @@ function setStatus(isOnline) {
 }
 
 function updateImportEnabled() {
-  el.importBtn.disabled = busy;
-  const folderMode = el.folder.value;
-  const needsName = folderMode === "__new__" && !el.newFolderName.value.trim();
-  if (needsName && !busy) {
-    el.importBtn.title = "Digite o nome da pasta nova";
-  } else if (!hasToken && !busy) {
-    el.importBtn.title = "Entre com sua conta abaixo para importar";
-  } else if (!online && !busy) {
-    el.importBtn.title = "App offline — confira a URL do app no popup";
-  } else if (!detected?.handle && !busy) {
-    el.importBtn.title = "Clique para tentar detectar o @ de novo";
-  } else {
-    el.importBtn.title = detected?.handle
-      ? `Importar @${detected.handle}`
-      : "Importar para o tracker";
-  }
+  el.importBtn.disabled =
+    busy || !account || !online || !detected?.handle || el.folder.value === "__new__"
+      ? el.folder.value === "__new__" && !el.newFolderName.value.trim()
+        ? true
+        : !account || !online || !detected?.handle || busy
+      : false;
+  if (!account) el.importBtn.title = "Entre com sua conta para importar";
+  else if (!online) el.importBtn.title = "App offline na Railway";
+  else if (!detected?.handle) el.importBtn.title = "Abra um perfil ou reel do Instagram";
+  else el.importBtn.title = `Importar @${detected.handle}`;
 }
 
-function renderAccount(account) {
-  hasToken = Boolean(account);
-  el.loginCard.hidden = hasToken;
-  el.accountCard.hidden = !hasToken;
-  el.abaCard.hidden = !hasToken;
-  el.folderCard.hidden = !hasToken;
-  el.actions.hidden = !hasToken;
-  el.advancedCard.hidden = !hasToken;
-  if (hasToken) {
-    const label = account?.name || account?.email || "Conectado";
-    el.accountName.textContent = label;
+function renderAccount(acc) {
+  account = acc || null;
+  const logged = Boolean(account);
+  el.loginCard.hidden = logged;
+  el.accountCard.hidden = !logged;
+  el.abaCard.hidden = !logged;
+  el.folderCard.hidden = !logged;
+  el.actions.hidden = !logged;
+  el.links.hidden = !logged;
+  if (logged) {
+    el.accountName.textContent = account.name || account.email || "Conectado";
+    const isAdmin = account.role === "admin";
+    el.accountRole.innerHTML = "";
+    const badge = document.createElement("span");
+    badge.className = `badge ${isAdmin ? "badge-admin" : "badge-user"}`;
+    badge.textContent = isAdmin ? "painel admin" : "painel usuário";
+    el.accountRole.appendChild(badge);
+    el.openAdmin.hidden = !isAdmin;
   }
   updateImportEnabled();
 }
 
-async function loadAccount() {
+function detectKey(payload) {
+  const d = payload?.detected;
+  if (!d) return "";
+  return [d.platform || "", d.handle || "", d.pageType || "", payload?.tabUrl || ""].join(":");
+}
+
+function renderDetected(payload, quiet) {
+  const key = detectKey(payload);
+  if (quiet && key && key === lastDetectKey) return;
+  const next = payload?.detected || null;
+  if (quiet && detected?.handle && !next?.handle && payload?.tabUrl && lastDetectKey.includes(payload.tabUrl.split("?")[0])) {
+    return;
+  }
+  lastDetectKey = key;
+  detected = next;
+  if (detected?.handle) {
+    el.preview.textContent = `@${detected.handle}`;
+    el.previewMeta.textContent = `instagram · ${detected.pageType || "perfil"}`;
+  } else if (detected?.pageType === "reel" || detected?.pageType === "post") {
+    el.preview.textContent = "Reel sem @";
+    el.previewMeta.textContent = "Espere o autor carregar ou abra o perfil.";
+  } else {
+    el.preview.textContent = "Nenhum perfil";
+    el.previewMeta.textContent = "Abra um perfil ou reel do Instagram.";
+  }
+  updateImportEnabled();
+}
+
+function renderFolders(list) {
+  folders = Array.isArray(list) ? list : [];
+  const current = el.folder.value || "";
+  el.folder.innerHTML = "";
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "Sem pasta";
+  el.folder.appendChild(none);
+  for (const f of folders) {
+    const opt = document.createElement("option");
+    opt.value = f.id;
+    opt.textContent = f.profileCount != null ? `${f.name} (${f.profileCount})` : f.name;
+    el.folder.appendChild(opt);
+  }
+  const neu = document.createElement("option");
+  neu.value = "__new__";
+  neu.textContent = "+ Criar pasta nova…";
+  el.folder.appendChild(neu);
+  el.folder.value = current === "__new__" || folders.some((f) => f.id === current) ? current : "";
+  el.newFolderWrap.hidden = el.folder.value !== "__new__";
+  if (el.folder.value !== "__new__") el.newFolderName.value = "";
+  updateImportEnabled();
+}
+
+async function loadPinUi() {
   try {
-    const stored = await chrome.storage.sync.get(["apiToken", "account"]);
-    renderAccount(stored.apiToken ? stored.account || {} : null);
+    const st = await msg("pinStatus");
+    const on = Boolean(st?.pinned);
+    el.pinBtn.textContent = on ? "Fixado" : "Fixar";
+    el.pinBtn.classList.toggle("is-on", on);
   } catch {
-    renderAccount(null);
+    /* ignore */
+  }
+}
+
+async function liveDetect() {
+  if (busy) return;
+  try {
+    const tabInfo = await msg("detectTab");
+    if (tabInfo?.ok) renderDetected(tabInfo, true);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function refresh(full) {
+  if (full) setFeedback("");
+  try {
+    if (full) {
+      const health = await msg("health");
+      setStatus(Boolean(health?.ok));
+      const me = await msg("me");
+      renderAccount(me?.logged ? me : null);
+      if (health?.ok && me?.logged) {
+        const folderRes = await msg("listFolders");
+        renderFolders(folderRes?.ok ? folderRes.folders : []);
+      } else {
+        renderFolders([]);
+      }
+    }
+    const tabInfo = await msg("detectTab");
+    renderDetected(tabInfo?.ok ? tabInfo : null);
+  } catch (err) {
+    if (full) {
+      setStatus(false);
+      setFeedback(err instanceof Error ? err.message : "Falha na extensao.", "err");
+      renderDetected(null);
+      renderFolders([]);
+    }
+  } finally {
+    updateImportEnabled();
+    void loadPinUi();
   }
 }
 
@@ -106,11 +199,12 @@ async function doLogin() {
   updateImportEnabled();
   setFeedback("Entrando…");
   try {
-    const data = await BdpApi.loginExtension(email, password);
+    const data = await msg("login", { email, password });
+    if (!data?.ok) throw new Error(data?.error || "Login falhou.");
     el.loginPassword.value = "";
-    renderAccount({ name: data.name, email: data.email });
+    renderAccount({ name: data.name, email: data.email, role: data.role });
     setFeedback(`Conectado como ${data.name || data.email}.`, "ok");
-    await refresh({ full: true });
+    await refresh(true);
   } catch (err) {
     setFeedback(err instanceof Error ? err.message : "Login falhou.", "err");
   } finally {
@@ -122,284 +216,37 @@ async function doLogin() {
 async function doLogout() {
   setFeedback("Saindo…");
   try {
-    await BdpApi.logoutExtension();
+    await msg("logout");
   } catch {
-    // limpeza local ja feita
+    /* limpeza local ja feita */
   }
   renderAccount(null);
   renderFolders([]);
   setFeedback("Desconectado. Token revogado no servidor.", "ok");
 }
 
-function normalizeBaseUrl(value) {
-  const base = String(value || "").trim().replace(/\/+$/, "");
-  if (!base) return "http://127.0.0.1:3000";
-  try {
-    const parsed = new URL(base);
-    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("protocol");
-    return parsed.toString().replace(/\/+$/, "");
-  } catch {
-    throw new Error("Informe uma URL válida, começando com http:// ou https://.");
-  }
-}
-
-async function loadBackendUrl() {
-  const stored = await chrome.storage.sync.get(["baseUrl", "apiToken"]);
-  el.backendUrl.value = stored.baseUrl || BdpApi.DEFAULT_BASE;
-  // Nunca exibe o token de volta: so indica que existe um salvo.
-  if (stored.apiToken) el.apiToken.placeholder = "Token salvo ✓ (cole outro para trocar)";
-}
-
-async function saveBackendUrl() {
-  try {
-    const base = normalizeBaseUrl(el.backendUrl.value);
-    const token = String(el.apiToken.value || "").trim();
-    setFeedback("Salvando conexão…");
-    await chrome.storage.sync.set({ baseUrl: base });
-    if (token) {
-      await chrome.storage.sync.set({ apiToken: token });
-      el.apiToken.value = "";
-      el.apiToken.placeholder = "Token salvo ✓ (cole outro para trocar)";
-    }
-    el.backendUrl.value = base;
-    setFeedback(`Conexão salva: ${base}. Testando o app…`, "ok");
-    await refresh({ full: true });
-  } catch (err) {
-    setFeedback(err instanceof Error ? err.message : "URL inválida.", "err");
-  }
-}
-
-function detectKey(payload) {
-  const d = payload?.detected;
-  if (!d) return "";
-  // inclui reelKey (src do vídeo) p/ forçar UI a trocar no scroll
-  return [
-    d.platform || "",
-    d.handle || "",
-    d.pageType || "",
-    d.reelKey || payload?.reelKey || "",
-    payload?.tabUrl || "",
-  ].join(":");
-}
-
-function renderDetected(payload, { quiet } = {}) {
-  const key = detectKey(payload);
-  // evita reescrever DOM se nada mudou
-  if (quiet && key && key === lastDetectKey) return;
-
-  // no scroll: se um frame falhou a detecção, mantém o último @ bom
-  // (só limpa se a URL da aba mudou de verdade)
-  const next = payload?.detected || null;
-  if (
-    quiet &&
-    detected?.handle &&
-    !next?.handle &&
-    payload?.tabUrl &&
-    lastDetectKey.includes(payload.tabUrl.split("?")[0])
-  ) {
-    return;
-  }
-
-  lastDetectKey = key;
-  detected = next;
-  const d = detected;
-
-  if (d?.handle) {
-    el.preview.textContent = `@${d.handle}`;
-    const bits = [d.platform || "?", d.pageType || "page"];
-    if (payload?.source === "dom" || payload?.source === "script") {
-      bits.push("ao vivo");
-    }
-    el.previewMeta.textContent = bits.join(" · ");
-    updateImportEnabled();
-    return;
-  }
-
-  if (d?.pageType === "reel" || d?.pageType === "post" || d?.pageType === "video") {
-    el.preview.textContent = "Reel/post sem @";
-    el.previewMeta.textContent =
-      "Role o reel ou clique em Importar para tentar de novo.";
-    updateImportEnabled();
-    return;
-  }
-
-  el.preview.textContent = "Nenhum perfil";
-  el.previewMeta.textContent = payload?.tabUrl
-    ? "Abra um perfil ou reel do Instagram/TikTok."
-    : "Abra Instagram ou TikTok.";
-  updateImportEnabled();
-}
-
-function renderFolders(list) {
-  folders = Array.isArray(list) ? list : [];
-  const current = el.folder.value || lastFolderId || "";
-
-  el.folder.innerHTML = "";
-  const optNone = document.createElement("option");
-  optNone.value = "";
-  optNone.textContent = "Sem pasta";
-  el.folder.appendChild(optNone);
-
-  for (const f of folders) {
-    const opt = document.createElement("option");
-    opt.value = f.id;
-    const n = f.profileCount != null ? ` (${f.profileCount})` : "";
-    opt.textContent = `${f.name}${n}`;
-    el.folder.appendChild(opt);
-  }
-
-  const optNew = document.createElement("option");
-  optNew.value = "__new__";
-  optNew.textContent = "+ Criar pasta nova…";
-  el.folder.appendChild(optNew);
-
-  if (current === "__new__" || folders.some((f) => f.id === current)) {
-    el.folder.value = current;
-  } else {
-    el.folder.value = "";
-  }
-  syncNewFolderUi();
-}
-
-function syncNewFolderUi() {
-  const isNew = el.folder.value === "__new__";
-  el.newFolderWrap.hidden = !isNew;
-  if (!isNew) el.newFolderName.value = "";
-  updateImportEnabled();
-}
-
-async function loadPinUi() {
-  try {
-    const st = await chrome.runtime.sendMessage({ action: "pinStatus" });
-    const on = Boolean(st?.pinned);
-    el.pinBtn.textContent = on ? "Fixado" : "Fixar";
-    el.pinBtn.classList.toggle("is-on", on);
-    el.pinBtn.title = on
-      ? "Painel lateral fixo: o ícone abre o painel (clique para soltar)"
-      : "Fixar no painel lateral — fica aberto enquanto você navega (sem nova aba)";
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Só atualiza o @ (leve, para o scroll dos reels). */
-async function liveDetect() {
-  if (busy) return;
-  try {
-    const tabInfo = await chrome.runtime.sendMessage({ action: "detectTab" });
-    if (tabInfo?.ok) renderDetected(tabInfo, { quiet: true });
-  } catch {
-    /* ignore */
-  }
-}
-
-function startLiveLoop() {
-  if (liveTimer) return;
-  // mais rápido no scroll de reels
-  liveTimer = setInterval(() => {
-    void liveDetect();
-  }, 350);
-}
-
-function stopLiveLoop() {
-  if (liveTimer) {
-    clearInterval(liveTimer);
-    liveTimer = null;
-  }
-}
-
-async function refresh({ full } = { full: true }) {
-  if (full) setFeedback("");
-  try {
-    if (full) {
-      const health = await chrome.runtime.sendMessage({ action: "health" });
-      setStatus(Boolean(health?.ok));
-       if (health?.base) {
-         const base = `${health.base}/`;
-         el.openApp.href = base;
-         el.openProfiles.href = `${base}profiles`;
-         el.openFolders.href = `${base}folders`;
-         el.backendUrl.value = health.base;
-       }
-      if (!health?.ok) {
-        el.previewMeta.textContent = health?.base
-          ? `App offline em ${health.base}`
-          : "App offline";
-      }
-
-      if (health?.ok) {
-        const folderRes = await chrome.runtime.sendMessage({ action: "listFolders" });
-        if (folderRes?.ok) renderFolders(folderRes.folders);
-        else renderFolders([]);
-      } else {
-        renderFolders([]);
-      }
-
-      try {
-        const stored = await chrome.storage.local.get(["lastFolderId"]);
-        if (stored.lastFolderId && folders.some((f) => f.id === stored.lastFolderId)) {
-          lastFolderId = stored.lastFolderId;
-          el.folder.value = lastFolderId;
-          syncNewFolderUi();
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
-    const tabInfo = await chrome.runtime.sendMessage({ action: "detectTab" });
-    renderDetected(tabInfo?.ok ? tabInfo : null);
-  } catch (err) {
-    if (full) {
-      setStatus(false);
-      setFeedback(
-        err instanceof Error ? err.message : "Falha ao falar com a extensão.",
-        "err",
-      );
-      renderDetected(null);
-      renderFolders([]);
-    }
-  } finally {
-    updateImportEnabled();
-    void loadPinUi();
-  }
-}
-
 el.folder.addEventListener("change", () => {
-  lastFolderId = el.folder.value === "__new__" ? "" : el.folder.value;
-  if (lastFolderId) {
-    void chrome.storage.local.set({ lastFolderId });
-  }
-  syncNewFolderUi();
-});
-
-el.newFolderName.addEventListener("input", () => {
+  el.newFolderWrap.hidden = el.folder.value !== "__new__";
+  if (el.folder.value !== "__new__") el.newFolderName.value = "";
   updateImportEnabled();
 });
-
-el.refreshBtn.addEventListener("click", () => {
-  void refresh({ full: true });
+el.newFolderName.addEventListener("input", updateImportEnabled);
+el.refreshBtn.addEventListener("click", () => void refresh(true));
+el.loginBtn.addEventListener("click", () => void doLogin());
+el.loginPassword.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") void doLogin();
 });
-
-el.saveBackendUrl.addEventListener("click", () => {
-  void saveBackendUrl();
-});
-
-el.backendUrl.addEventListener("change", () => {
-  void saveBackendUrl();
-});
+el.logoutBtn.addEventListener("click", () => void doLogout());
 
 el.pinBtn.addEventListener("click", async () => {
   try {
-    const st = await chrome.runtime.sendMessage({ action: "pinStatus" });
+    const st = await msg("pinStatus");
     if (st?.pinned) {
-      await chrome.runtime.sendMessage({ action: "unpinPanel" });
+      await msg("unpinPanel");
       await loadPinUi();
-      setFeedback("Painel solto. O ícone volta a abrir o popup normal.", "ok");
+      setFeedback("Painel solto. O icone volta a abrir o popup.", "ok");
       return;
     }
-
-    // precisa do windowId da janela normal (não da extensão)
     let windowId;
     try {
       const win = await chrome.windows.getLastFocused({ windowTypes: ["normal"] });
@@ -407,21 +254,13 @@ el.pinBtn.addEventListener("click", async () => {
     } catch {
       windowId = undefined;
     }
-
-    const res = await chrome.runtime.sendMessage({
-      action: "pinPanel",
-      windowId,
-    });
+    const res = await msg("pinPanel", { windowId });
     if (!res?.ok) {
-      setFeedback(res?.error || "Não foi possível fixar o painel.", "err");
+      setFeedback(res?.error || "Nao foi possivel fixar.", "err");
       return;
     }
     await loadPinUi();
-    setFeedback(
-      res.message ||
-        "Fixado! Feche este popup e clique de novo no ícone — o painel fica aberto do lado.",
-      "ok",
-    );
+    setFeedback("Fixado! Feche o popup e clique no icone — o painel fica ao lado.", "ok");
   } catch (err) {
     setFeedback(err instanceof Error ? err.message : "Erro ao fixar.", "err");
   }
@@ -429,120 +268,64 @@ el.pinBtn.addEventListener("click", async () => {
 
 el.importBtn.addEventListener("click", async () => {
   if (busy) return;
-
-  if (!hasToken) {
-    setFeedback("Entre com sua conta abaixo para importar.", "err");
+  if (!account) {
+    setFeedback("Entre com sua conta para importar.", "err");
     el.loginEmail.focus();
     return;
   }
-  const folderVal = el.folder.value;
-  if (folderVal === "__new__" && !el.newFolderName.value.trim()) {
+  if (el.folder.value === "__new__" && !el.newFolderName.value.trim()) {
     setFeedback("Digite o nome da pasta nova.", "err");
     el.newFolderName.focus();
     return;
   }
-
   busy = true;
   updateImportEnabled();
   setFeedback("Detectando perfil…");
-  el.importBtn.textContent = "Detectando…";
-
   try {
-    const tabInfo = await chrome.runtime.sendMessage({ action: "detectTab" });
+    const tabInfo = await msg("detectTab");
     if (tabInfo?.ok) renderDetected(tabInfo);
-
     if (!detected?.handle) {
-      setFeedback(
-        "Não achei o @. Role o reel até o autor aparecer ou abra o perfil.",
-        "err",
-      );
+      setFeedback("Nao achei o @. Abra o perfil ou espere o reel carregar.", "err");
       return;
     }
-
     setFeedback(`Importando @${detected.handle}…`);
-    el.importBtn.textContent = "Importando…";
-
-    /** @type {Record<string, unknown>} */
-    const payload = {
-      action: "import",
-      handle: detected.handle,
-      platform: detected.platform,
-      text: detected.url || undefined,
-    };
-
-    if (folderVal === "__new__") {
-      payload.newFolderName = el.newFolderName.value.trim();
-    } else if (folderVal) {
-      payload.folderId = folderVal;
-    }
-
-    const result = await chrome.runtime.sendMessage(payload);
+    const payload = { handle: detected.handle, platform: "instagram", text: detected.url || undefined };
+    if (el.folder.value === "__new__") payload.newFolderName = el.newFolderName.value.trim();
+    else if (el.folder.value) payload.folderId = el.folder.value;
+    const result = await msg("import", payload);
     if (!result?.ok) {
       setFeedback(result?.error || "Falha ao importar.", "err");
       return;
     }
-
-    if (result.folderId) {
-      lastFolderId = result.folderId;
-      await chrome.storage.local.set({ lastFolderId: result.folderId });
-    }
-
     setFeedback(result.message || "Importado.", "ok");
-
     if (result.folderId || payload.newFolderName) {
-      const folderRes = await chrome.runtime.sendMessage({ action: "listFolders" });
+      const folderRes = await msg("listFolders");
       if (folderRes?.ok) {
         renderFolders(folderRes.folders);
-        if (result.folderId) el.folder.value = result.folderId;
-        syncNewFolderUi();
+        if (result.folderId) {
+          el.folder.value = result.folderId;
+          el.newFolderWrap.hidden = true;
+        }
       }
     }
   } catch (err) {
     setFeedback(err instanceof Error ? err.message : "Erro.", "err");
   } finally {
     busy = false;
-    el.importBtn.textContent = "Importar para o tracker";
     updateImportEnabled();
   }
 });
 
-// troca de aba / URL → atualiza @
-if (chrome.tabs?.onActivated) {
-  chrome.tabs.onActivated.addListener(() => {
-    void liveDetect();
-  });
-}
+if (chrome.tabs?.onActivated) chrome.tabs.onActivated.addListener(() => void liveDetect());
 if (chrome.tabs?.onUpdated) {
   chrome.tabs.onUpdated.addListener((_id, info) => {
     if (info.status === "complete" || info.url) void liveDetect();
   });
 }
-
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") void liveDetect();
 });
+window.addEventListener("focus", () => void liveDetect());
 
-window.addEventListener("focus", () => {
-  void liveDetect();
-});
-
-el.loginBtn.addEventListener("click", () => {
-  void doLogin();
-});
-
-el.loginPassword.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") void doLogin();
-});
-
-el.logoutBtn.addEventListener("click", () => {
-  void doLogout();
-});
-
-startLiveLoop();
-void loadBackendUrl();
-void loadAccount();
-void refresh({ full: true });
-
-window.addEventListener("unload", () => {
-  stopLiveLoop();
-});
+setInterval(() => void liveDetect(), 800);
+void refresh(true);

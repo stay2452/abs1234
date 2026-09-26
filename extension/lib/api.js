@@ -1,179 +1,133 @@
-/**
- * Cliente HTTP do app local ou publicado (usado no service worker).
- * Padrao = producao (Railway). Local via popup, uma vez, se precisar.
- */
-const DEFAULT_BASE = "https://abs1234-production.up.railway.app";
+/* Eye of Zuck v2 — cliente HTTP travado na prod Railway (URL nao configuravel). */
+const BASE_URL = "https://abs1234-production.up.railway.app";
 
-async function getBaseUrl() {
-  try {
-    const stored = await chrome.storage.sync.get(["baseUrl"]);
-    return (stored.baseUrl || DEFAULT_BASE).replace(/\/+$/, "");
-  } catch {
-    return DEFAULT_BASE;
-  }
-}
-
-/** Token opcional (API_ACCESS_TOKEN no app). Enviado como Bearer se configurado. */
 async function authHeaders() {
   try {
     const stored = await chrome.storage.sync.get(["apiToken"]);
-    const token = (stored.apiToken || "").trim();
+    const token = String(stored.apiToken || "").trim();
     return token ? { Authorization: `Bearer ${token}` } : {};
   } catch {
     return {};
   }
 }
 
-/** Login SaaS: email+senha geram um token pessoal (salvo sozinho, sem colar). */
+async function parseJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
 async function loginExtension(email, password) {
-  const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/auth/extension-token`, {
+  const res = await fetch(`${BASE_URL}/api/auth/extension-token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `Login falhou (${res.status})`);
-  }
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || `Login falhou (${res.status})`);
   await chrome.storage.sync.set({ apiToken: data.token });
   await chrome.storage.sync.set({
-    account: { name: data.name || "", email: data.email || "" },
+    account: { name: data.name || "", email: data.email || "", role: data.role || "user" },
   });
   return data;
 }
 
-/** Logout: revoga o token no servidor e limpa o storage. */
 async function logoutExtension() {
-  const base = await getBaseUrl();
   try {
     const stored = await chrome.storage.sync.get(["apiToken"]);
-    const token = (stored.apiToken || "").trim();
+    const token = String(stored.apiToken || "").trim();
     if (token) {
-      await fetch(`${base}/api/auth/extension-token`, {
+      await fetch(`${BASE_URL}/api/auth/extension-token`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
     }
   } catch {
-    // segue para limpeza local mesmo se o servidor falhar
+    /* segue para limpeza local */
   }
   await chrome.storage.sync.remove(["apiToken", "account"]);
 }
 
-async function health() {
-  const base = await getBaseUrl();
-  try {
-    const res = await fetch(`${base}/api/health`, { method: "GET" });
-    if (!res.ok) {
-      return { ok: false, base, error: `HTTP ${res.status}` };
-    }
-    const data = await res.json();
-    return { ok: Boolean(data.ok), base, ...data };
-  } catch (err) {
-    return {
-      ok: false,
-      base,
-      error: err instanceof Error ? err.message : "App offline",
-    };
-  }
-}
-
-/**
- * @param {{ text: string, defaultPlatform?: string }} payload
- */
-async function importProfiles(payload) {
-  const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/profiles/import`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
-    body: JSON.stringify(payload),
+async function me() {
+  const headers = await authHeaders();
+  if (!headers.Authorization) throw new Error("Nao logado.");
+  const res = await fetch(`${BASE_URL}/api/auth/extension-token`, {
+    method: "GET",
+    headers,
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `Import falhou (${res.status})`);
-  }
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || `Sessao invalida (${res.status})`);
+  await chrome.storage.sync.set({
+    account: { name: data.name || "", email: data.email || "", role: data.role || "user" },
+  });
   return data;
 }
 
-/**
- * @param {string} profileId
- * @param {{ force?: boolean }} [opts]
- */
-async function scrapeProfile(profileId, opts = {}) {
-  const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/scrape/run`, {
+async function health() {
+  try {
+    const res = await fetch(`${BASE_URL}/api/health`, { method: "GET" });
+    if (!res.ok) return { ok: false, base: BASE_URL, error: `HTTP ${res.status}` };
+    const data = await parseJson(res);
+    return { ok: Boolean(data.ok), base: BASE_URL, ...data };
+  } catch (err) {
+    return { ok: false, base: BASE_URL, error: err instanceof Error ? err.message : "App offline" };
+  }
+}
+
+async function importProfiles(payload) {
+  const res = await fetch(`${BASE_URL}/api/profiles/import`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
-    body: JSON.stringify({
-      scope: "profiles",
-      profileIds: [profileId],
-      stream: false,
-      force: Boolean(opts.force),
-    }),
+    body: JSON.stringify({ defaultPlatform: "instagram", ...payload }),
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `Coleta falhou (${res.status})`);
-  }
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || `Import falhou (${res.status})`);
   return data;
 }
 
 async function listFolders() {
-  const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/folders`, { method: "GET" });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `Pastas falhou (${res.status})`);
-  }
+  const res = await fetch(`${BASE_URL}/api/folders`, {
+    method: "GET",
+    headers: { ...(await authHeaders()) },
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || `Pastas falhou (${res.status})`);
   return data.folders || [];
 }
 
-/**
- * @param {{ name: string, color?: string }} payload
- */
 async function createFolder(payload) {
-  const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/folders`, {
+  const res = await fetch(`${BASE_URL}/api/folders`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(payload),
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `Criar pasta falhou (${res.status})`);
-  }
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || `Criar pasta falhou (${res.status})`);
   return data;
 }
 
-/**
- * Coloca perfil numa pasta (sem remover de outras).
- * @param {string} folderId
- * @param {string} profileId
- */
 async function addProfileToFolder(folderId, profileId) {
-  const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/folders/${encodeURIComponent(folderId)}`, {
+  const res = await fetch(`${BASE_URL}/api/folders/${encodeURIComponent(folderId)}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ profileId, present: true }),
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `Pasta falhou (${res.status})`);
-  }
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.error || `Pasta falhou (${res.status})`);
   return data;
 }
 
-self.BdpApi = {
-  getBaseUrl,
+self.EozApi = {
+  BASE_URL,
+  authHeaders,
   loginExtension,
   logoutExtension,
+  me,
   health,
   importProfiles,
-  scrapeProfile,
   listFolders,
   createFolder,
   addProfileToFolder,
-  DEFAULT_BASE,
 };

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { loginSchema, normalizeEmail, verifyPassword } from "@/lib/auth";
+import { getRequestUser, loginSchema, normalizeEmail, verifyPassword } from "@/lib/auth";
 import { issueApiToken, revokeApiTokenByValue } from "@/lib/api-tokens";
 import { optionsCors, withCors } from "@/lib/extension-cors";
 
@@ -79,7 +79,21 @@ export async function POST(request: Request) {
       prefix: info.prefix,
       name: user.name,
       email: user.email,
+      role: user.role,
     }),
+    origin,
+  );
+}
+
+/** Sessao da extensao: valida o Bearer e devolve dono + papel (user/admin). */
+export async function GET(request: Request) {
+  const origin = request.headers.get("origin");
+  const user = await getRequestUser(request);
+  if (!user) {
+    return withCors(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), origin);
+  }
+  return withCors(
+    NextResponse.json({ name: user.name, email: user.email, role: user.role }),
     origin,
   );
 }

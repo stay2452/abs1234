@@ -1,77 +1,77 @@
-# Extensão browser (import de perfis)
+# Extensão browser (import de perfis) — v2 IG-only Railway-only
 
-> Contrato behavioral: regras, backend e peças. Para instalação passo a passo, troubleshooting e fluxo de detecção DOM, ver [`extension/README.md`](../extension/README.md).
+> Rebuild total em 2026-09-26 (v2.0.0): apagada a v1 e refeita do zero.
+> Contrato behavioral: regras, backend e peças. Instalação em `extension/README.md`.
 
 ## Objetivo
 
-Importar um perfil Instagram/TikTok para o tracker local **sem copiar URL**, via:
+Importar um perfil **Instagram** para a biblioteca Supabase do dono **sem copiar URL**, via:
 
-1. Popup da extensão  
-2. Botão na página de perfil  
-3. Botão em reels/vídeos (importa o **autor**, não o post)
+1. Popup da extensão
+2. Botão na página de perfil (`+ Tracker`)
+3. Botão em reels/posts (importa o **autor**, não o post)
 
-## Regras
+## Regras (v2)
 
-- **Não** usa cookies, login nem scrape de métricas na página.
-- Só extrai handle/URL pública e chama o app local.
-- Coleta Apify **só** se o usuário marcar “Já coletar dados” no popup (default off).
-- App pode estar local em `http://127.0.0.1:3000` ou publicado (Railway). A URL é configurada no campo **URL do app** do popup e fica salva no `chrome.storage.sync`.
+- **Instagram-only.** Sem TikTok (código, matches e docs TT removidos; backend segue IG-only).
+- **Railway-only, URL fixa:** `https://abs1234-production.up.railway.app` hardcoded em
+  `extension/lib/api.js` (`BASE_URL`) e nos links do popup. **Sem campo configurável de URL.**
+- **Não** usa cookies, login nem scrape de métricas na página. Só extrai handle/URL pública e chama a prod.
+- Sem coleta Apify automática no import (default off; v2 nem expõe o botão de coleta).
+- Login com **email+senha** (`POST /api/auth/extension-token`); Bearer `eoz_...` em
+  `chrome.storage.sync`; import/pastas caem na biblioteca **do dono logado**.
+- Popup mostra o papel: badge **painel usuário** (`role=user`) ou **painel admin** (`role=admin`,
+  com link p/ `/admin/atividade`). Logout revoga (`DELETE /api/auth/extension-token`).
 
-## Auth SaaS (desde 1.3.6)
+## Código (v2.0.0)
 
-- Sem token manual: o popup tem login com **email+senha** (`POST /api/auth/extension-token`, mesmo rate-limit do login web).
-- O servidor devolve um Bearer pessoal `eoz_...` (salvo sozinho no `chrome.storage.sync`); import/coleta caem na biblioteca **do dono logado**.
-- Logout no popup revoga o token (`DELETE /api/auth/extension-token`); revoke também por `DELETE /api/users/api-tokens/[id]` logado no app.
-- Campo legado **Token da API** continua existindo para o `API_ACCESS_TOKEN` global do operador (cai no admin mais antigo) — usuário comum não precisa.
-
-## Código
-
-Pasta `extension/` (Manifest V3, JS puro, load unpacked).
+Pasta `extension/` (Manifest V3, JS puro, load unpacked). Source of truth: `extension/manifest.json`.
 
 | Peça | Responsabilidade |
 |------|------------------|
-| `background.js` | Router de mensagens; import + scrape opcional |
-| `lib/detect.js` | Parse de URL; autor no DOM (IG reel) |
-| `lib/api.js` | HTTP para o Next local |
-| `content/shared.js` | `sendImport`, feedback de botão, SPA hooks |
-| `content/instagram.js` | Botão único; reels nativo (acima da curtida) vs reel do perfil (barra H) |
-| `content/tiktok.js` | Perfil + vídeo |
-| `popup/*` | UI do ícone (popup da action **e** side panel — mesmo HTML) |
+| `background.js` | Router de mensagens; import + pastas + side panel |
+| `lib/api.js` | HTTP p/ a prod Railway (BASE_URL fixo, Bearer em tudo) |
+| `lib/ig-detect.js` | Parse de URL IG + autor do reel ativo (espelha `src/lib/profile-url.ts`) |
+| `content/instagram.js` | Botão único perfil/reel, reancoragem simples |
+| `content/inject.css` | Visual do botão (`.eoz-*`) |
+| `popup/*` | Login, conta com badge user/admin, `@` detectado, pastas, fixar |
 | `README.md` | Instalação e troubleshooting |
 
-Versão atual do manifest: **1.3.8**. Source of truth: `extension/manifest.json`.
+## Side panel
 
-## Side panel (desde 1.3.3)
-
-A extensão registra `side_panel.default_path` apontando para `popup/popup.html`, com permissão `sidePanel`. Mesma UI do popup, persistente no painel lateral do navegador — útil ao navegar IG/TT sem perder o estado do import. Configurado em `manifest.json` → `action.default_popup` e `side_panel.default_path` (ambos apontam para o mesmo HTML).
+`side_panel.default_path` = `popup/popup.html` (mesmo HTML do popup), com o botão **Fixar**.
+`chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick })` + flag `panelPinned` no
+`chrome.storage.local`. Útil para navegar no IG sem perder o estado do import.
 
 ## Backend
 
 | Rota | Uso |
 |------|-----|
-| `GET /api/health` | Online/offline |
-| `POST /api/profiles/import` | Cadastro/reativação (+ CORS extensão) |
-| `POST /api/scrape/run` | Coleta opcional (`stream: false`) |
+| `GET /api/health` | Online/offline (prod Railway) |
+| `POST /api/auth/extension-token` | Login → `{ token, name, email, role }` |
+| `GET /api/auth/extension-token` | Sessão (valida Bearer → `{ name, email, role }`) |
+| `DELETE /api/auth/extension-token` | Logout (revoga o próprio Bearer) |
+| `POST /api/profiles/import` | Cadastro/reativação (+ CORS extensão; `defaultPlatform: instagram`) |
+| `GET/POST /api/folders` | Listar/criar pastas do dono (Bearer obrigatório) |
+| `PATCH /api/folders/[id]` | Vincular perfil à pasta (`{ profileId, present: true }`) |
 
-CORS: `src/lib/extension-cors.ts` — aceita origens `chrome-extension://`/`moz-extension://` e localhost do app. A URL pública do host é informada no popup; o manifesto autoriza hosts `*.onrender.com` e `*.up.railway.app`. Manifest atual: **1.3.6**.
-
-## Instalação
-
-Ver `extension/README.md` (Load unpacked em `chrome://extensions`).
+CORS: `src/lib/extension-cors.ts` — aceita origens `chrome-extension://`/`moz-extension://`
+e localhost do app; métodos `GET, POST, PATCH, DELETE, OPTIONS`; headers
+`Content-Type, Authorization, X-Confirm-Force`. Manifesto autoriza
+`abs1234-production.up.railway.app` + `*.up.railway.app` (sem `onrender.com`).
 
 ## Fluxo de import
 
 ```
 Botão / popup
-  → background import
-  → normaliza para URL de perfil (nunca /reel/CODE)
-  → GET /api/health
-  → POST /api/profiles/import
-  → (opcional) POST /api/scrape/run com profileId
+  → background import (normaliza p/ URL de perfil, nunca /reel/CODE)
+  → GET /api/health (prod Railway)
+  → POST /api/profiles/import { text, defaultPlatform: "instagram" }
+  → (opcional) PATCH /api/folders/[id] { profileId, present: true }
 ```
 
 ## Manutenção
 
-- Após editar content scripts: **Recarregar extensão + F5** nas abas IG/TT.
+- Após editar content scripts: **Recarregar extensão + F5** no Instagram.
 - “Extension context invalidated” = extensão recarregada com aba antiga aberta.
-- Preferir um botão por plataforma (`#bdp-ig-tracker-btn` / `#bdp-tt-tracker-btn`).
+- Um botão só: `#eoz-ig-btn` (+ slot `#eoz-ig-slot`).

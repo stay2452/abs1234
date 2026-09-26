@@ -20,8 +20,8 @@ export function corsHeaders(origin: string | null): HeadersInit {
   const allowed = isExtensionOrigin(origin) ? origin || "*" : "http://127.0.0.1:3000";
   return {
     "Access-Control-Allow-Origin": allowed === "null" ? "*" : allowed,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Confirm-Force",
     "Access-Control-Max-Age": "86400",
   };
 }
